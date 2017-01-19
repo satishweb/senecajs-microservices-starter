@@ -1,0 +1,37 @@
+version: '2'
+services:
+  ${MICROSERVICE}:
+    image: node:${NODEVERSION}
+    container_name: ${PROJECTKEY}-${SYSENV}-${MICROSERVICE}
+    expose:
+      - 3000
+    volumes:
+      - ./containers/${PROJECTKEY}-${SYSENV}-${MICROSERVICE}/src:/src
+      - ./node_modules:/src/node_modules
+      - ./services/${MICROSERVICE}:/src/${MICROSERVICE}
+      - ./index.js:/src/${MICROSERVICE}/index.js
+      - ./package.json:/src/package.json
+      - ./sharedlib:/src/${MICROSERVICE}/sharedlib
+      - ./translations.json:/src/${MICROSERVICE}/translations.json
+      - ./services/bootstrap/api:/src/${MICROSERVICE}/api/bootstrap
+      - ./services/email/api:/src/${MICROSERVICE}/api/email
+      - ./services/authentication/api:/src/${MICROSERVICE}/api/authentication
+      - ./services/ugrp/api:/src/${MICROSERVICE}/api/ugrp
+      - ./services/invitations/api:/src/${MICROSERVICE}/api/invitations
+      - ./services/organizations/api:/src/${MICROSERVICE}/api/organizations
+    env_file:
+      - ./${SYSENV}.env
+    environment:
+      - SRV_NAME=${MICROSERVICE}
+      - DEBUG=${DEBUG}
+    links:
+      - queue:queue
+      - mongodb:mongodb
+      # - postgresdb:postgresdb
+    depends_on:
+      - queue
+      - mongodb
+      # - postgresdb
+    command: /bin/bash -c '[[ "$DEBUG" == "0" ]] && node /src/${MICROSERVICE} || sleep 360000'
+    restart: 'on-failure:50'
+    network_mode: "bridge"

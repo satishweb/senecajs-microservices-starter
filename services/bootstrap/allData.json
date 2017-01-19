@@ -1,0 +1,105 @@
+[{
+    "collection": "permissions",
+    "data": [{
+            "resource": "User List",
+            "permissions": [
+                "View All",
+                "Disable Users",
+                "Invite Users",
+                "Assign Role",
+                "Add To Group",
+                "Invite Employee"
+            ]
+        },
+        {
+            "resource": "Self Profile",
+            "permissions": [
+                "View",
+                "Edit Profile",
+                "Change Password",
+                "Forgot Password",
+                "Roles",
+                "Groups"
+            ]
+        },
+        {
+            "resource": "Others Profile",
+            "permissions": [
+                "View",
+                "Edit Profile",
+                "Show Roles",
+                "Show Groups"
+            ]
+        },
+        {
+            "resource": "Group",
+            "permissions": [
+                "CRUD",
+                "Add Remove Users",
+                "Assign Revoke Role",
+                "View All"
+            ]
+        },
+        {
+            "resource": "Roles",
+            "permissions": [
+                "CRUD",
+                "View All"
+            ]
+        }
+    ]
+}, {
+    "collection": "users",
+    "data": [{
+        "_id": "582090689210640000000001",
+        "facebookChannelSet": true,
+        "passwordStatus": "passwordSet",
+        "profileComplete": true,
+        "lastLoggedInTime": 1478529128921442.0,
+        "avatar": null,
+        "facebookId": "189941524786980",
+        "linkedInId": null,
+        "googleId": null,
+        "password": "password",
+        "accountType": "company",
+        "lastName": null,
+        "firstName": "Admin",
+        "email": "admin@example.io",
+        "state": "skipped",
+        "companyName": "example",
+        "contact": "1234567890",
+        "customerStrength": "1000-10000",
+        "website": "www.example.com",
+        "industry": "ABC",
+        "informedAboutFacebookAuthentication": true,
+        "currentOrgId": "582090689210640000000006",
+        "orgIds": ["582090689210640000000006", "582090689210640000000027"],
+        "isDeleted": false
+    }]
+}, {
+    "collection": "582090689210640000000006_users",
+    "data": [{
+        "_id": "582090689210640000000024",
+        "email": "test1@mailinator.com",
+        "firstName": "test1",
+        "lastName": "test12",
+        "currentOrgId": null,
+        "invitationPending": false,
+        "gender": null,
+        "birthDate": null,
+        "contactNumber": null,
+        "address": null,
+        "password": "$2a$10$UzHDdj9M9nRccSr3WV2mCutrvmEVTK7xo.RB8.VN8rzDiidsOp3RG",
+        "googleId": null,
+        "facebookId": null,
+        "linkedInId": null,
+        "avatar": null,
+        "lastLoggedInTime": null,
+        "profileComplete": false,
+        "informedAboutFacebookAuthentication": false,
+        "status": "offline",
+        "passwordStatus": "passwordSet",
+        "groupIds": ["582090689210640000000026"],
+        "isDeleted": false
+    }]
+}]

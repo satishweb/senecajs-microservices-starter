@@ -1,0 +1,70 @@
+---
+swagger: "2.0"
+info:
+  title: "Email API"
+  description: |
+    Provides functionalities like sending emails.
+    #### Send email:
+    Send emails with the specified subject and content to an array of email Ids.
+  version: "1.0.0"
+host: 'key-local-api.example.com'
+basePath: /email
+schemes:
+  - https
+produces:
+  - application/json
+consumes:
+  - application/json
+paths:
+  "/v1/send":
+    post:
+      tags:
+        - "Send email"
+      summary: "Send email with the same subject and content to multiple users."
+      parameters:
+        - name: mailInput
+          in: body
+          required: true
+          schema:
+            $ref: "#/definitions/mailInput"
+      responses:
+        "200":
+          description: "Successful"
+          schema:
+            $ref: "#/definitions/Response"
+definitions:
+  mailInput:
+    type: object
+    required:
+      - emailId
+      - content
+      - subject
+    description: "Contains the array of email Ids to send email to, content and subject"
+    properties:
+      emailId:
+        type: array
+        items:
+          type: string
+      content:
+        type: string
+      subject:
+        type: string
+  Response:
+    description: "The output for successful upload."
+    type: object
+    properties:
+      success:
+        type: boolean
+        description: "Whether the operation was successful or not."
+      message:
+        $ref: "#/definitions/Message"
+  Message:
+    type: object
+    properties:
+      id:
+        type: integer
+        format: int32
+        description: "The message code for the operation status."
+      desc:
+        type: string
+        description: "The message for the operation status."

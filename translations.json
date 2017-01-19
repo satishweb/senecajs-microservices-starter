@@ -1,0 +1,185 @@
+{
+    "ResetPasswordSubject": {
+        "en": "reset password link"
+    },
+    "ResetPasswordMessage": {
+        "en": "<br><br>Dear $[1],<p>To reset your password, please click on the link given below or copy and paste it into the browser <br><br>$[2]<p>Sincerely,<p> Team"
+    },
+    "InvitationSubject": {
+        "en": "Tech invitation"
+    },
+    "InvitationMessage": {
+        "en": "<br><br>Dear $[1],<p>To Sign-Up to Tech, please click on the link given below or copy and paste it into the browser <br><br>$[2]<p>Sincerely,<p>Tech Team"
+    },
+    "ConfirmUserSubject": {
+        "en": "Tech account setup."
+    },
+    "ConfirmUserBody": {
+        "en": "<br>Dear $[1],<p>To activate your account set your password by visiting the following link.<br>$[2]"
+    },
+    "100": {
+        "en": "$[1]"
+    },
+    "101": {
+        "en": "Please contact administrator."
+    },
+    "102": {
+        "en": "Something went wrong."
+    },
+    "103": {
+        "en": "Constructor failed."
+    },
+    "104": {
+        "en": "Fatal error - try using Catch"
+    },
+    "1000": {
+        "en": "$[1]"
+    },
+    "1010": {
+        "en": "Please log in to continue."
+    },
+    "1020": {
+        "en": "Invalid $[1]."
+    },
+    "1030": {
+        "en": "$[1] is not active."
+    },
+    "1040": {
+        "en": "$[1] required."
+    },
+    "1050": {
+        "en": "$[1] failed."
+    },
+    "1060": {
+        "en": "$[1] fetching failed."
+    },
+    "1070": {
+        "en": "$[1] updating failed."
+    },
+    "1080": {
+        "en": "$[1] removing failed."
+    },
+    "1090": {
+        "en": "$[1] already exists."
+    },
+    "1100": {
+        "en": "$[1] does not exist."
+    },
+    "1110": {
+        "en": "$[1] sending failed."
+    },
+    "1120": {
+        "en": "Operation could not be performed."
+    },
+    "1130": {
+        "en": "Invalid $[1] format. We support only $[2] file types."
+    },
+    "1140": {
+        "en": "You are not authorized to access this."
+    },
+    "1150": {
+        "en": "$[1] linking failed."
+    },
+    "1180": {
+        "en": "Invalid session."
+    },
+    "1190": {
+        "en": "$[1] not allowed on $[2] env"
+    },
+    "2000": {
+        "en": "$[1]"
+    },
+    "2001": {
+        "en": "Empty result set."
+    },
+    "2010": {
+        "en": "User logged in successfully"
+    },
+    "2020": {
+        "en": "User logged out successfully"
+    },
+    "2030": {
+        "en": "$[1] saved successfully"
+    },
+    "2040": {
+        "en": "$[1] fetched successfully."
+    },
+    "2050": {
+        "en": "$[1] updated successfully."
+    },
+    "2060": {
+        "en": "$[1] deleted successfully."
+    },
+    "2070": {
+        "en": "$[1] validated successfully."
+    },
+    "2080": {
+        "en": "$[1] has been uploaded successfully."
+    },
+    "2090": {
+        "en": "$[1] has been sent successfully."
+    },
+    "2100": {
+        "en": "$[1] link has been sent successfully."
+    },
+    "2110": {
+        "en": "$[1] has been performed successfully."
+    },
+    "2120": {
+        "en": "$[1] has been activated successfully."
+    },
+    "2130": {
+        "en": "$[1] found."
+    },
+    "2140": {
+        "en": "$[1] registered successfully."
+    },
+    "2150": {
+        "en": "$[1] linked successfully."
+    },
+    "2160": {
+        "en": "$[1] downloaded successfully."
+    },
+    "2170": {
+        "en": "$[1] completed successfully."
+    },
+    "2180": {
+        "en": "$[1] reset successfully."
+    },
+    "2190": {
+        "en": "$[1] applied successfully."
+    },
+    "2200": {
+        "en": "$[1] converted to $[2] successfully."
+    },
+    "2210": {
+        "en": "$[1] cleared successfully."
+    },
+    "2220": {
+        "en": "$[1] verification successful."
+    },
+    "2230": {
+        "en": "$[1] flushed successfully."
+    },
+    "2240": {
+        "en": "$[1] sent successfully."
+    },
+    "2250": {
+        "en": "Agent(s) added successfully to $[1]."
+    },
+    "2260": {
+        "en": "Agent(s) removed successfully from $[1]."
+    },
+    "2270": {
+        "en": "User with $[1] not found."
+    },
+    "2280": {
+        "en": "To sign in using email, reset your password."
+    },
+    "2290": {
+        "en": "Error comparing passwords."
+    },
+    "2300": {
+        "en": "Sorry, this email id is already exists. Please try with another email id."
+    }
+}

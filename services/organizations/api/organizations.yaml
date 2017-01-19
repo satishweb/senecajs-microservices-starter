@@ -1,0 +1,154 @@
+swagger: "2.0"
+info:
+  title: "KEY API"
+  version: "1.0.0"
+host: 'key-local-api.example.com'
+basePath: /organization
+schemes:
+  - https
+produces:
+  - application/json
+consumes:
+  - application/json
+paths:
+  "/v1/create":
+    post:
+      parameters:
+        - name: createOrganization
+          in: body
+          required: true
+          schema:
+            $ref: "#/definitions/createOrganization"
+      responses:
+        "200":
+          description: "Ok"
+          schema:
+            $ref: "#/definitions/Output"
+        default:
+          description: Unexpected error
+          schema:
+            $ref: "#/definitions/Error"
+      security:
+        - jwt.secured: []
+  "/v1/update":
+    post:
+      parameters:
+        - name: updateOrganization
+          in: body
+          required: true
+          schema:
+            $ref: "#/definitions/updateOrganization"
+      responses:
+        "200":
+          description: "Ok"
+          schema:
+            $ref: "#/definitions/Output"
+        default:
+          description: Unexpected error
+          schema:
+            $ref: "#/definitions/Error"
+      security:
+        - jwt.secured: []
+  "/v1/delete":
+    delete:
+      parameters:
+        - name: deleteOrganization
+          in: body
+          required: true
+          schema:
+            $ref: "#/definitions/deleteOrganization"
+      responses:
+        "200":
+          description: "Ok"
+          schema:
+            $ref: "#/definitions/Output"
+        default:
+          description: Unexpected error
+          schema:
+            $ref: "#/definitions/Error"
+      security:
+        - jwt.secured: []
+  "/v1/get":
+    post:
+      parameters:
+        - name: getOrganization
+          in: body
+          required: true
+          schema:
+            type: object
+      responses:
+        "200":
+          description: "Ok"
+          schema:
+            $ref: "#/definitions/Output"
+        default:
+          description: Unexpected error
+          schema:
+            $ref: "#/definitions/Error"
+      security:
+        - jwt.secured: []
+securityDefinitions:
+  jwt.secured:
+    type: apiKey
+    name: Authorization
+    in: header
+definitions:
+  Message:
+    type: object
+    properties:
+      id:
+        type: integer
+        format: int32
+        description: "The message code for the operation status."
+      msg:
+        type: string
+        description: "The message for the operation status."
+  Output:
+    type: object
+    properties:
+      success:
+        type: string
+        format: boolean
+        description: Tell's whether action is performed succesfully or not
+      message:
+        $ref: '#/definitions/Message'
+  Error:
+    properties:
+      code:
+        description: "Error Code"
+        format: int32
+        type: integer
+      message:
+        description: "Error message"
+        type: string
+  createOrganization:
+    type: object
+    properties:
+      subDomain:
+        type: string
+      description:
+        type: string
+      name:
+        type: string
+      website:
+        type: string
+  updateOrganization:
+    type: object
+    properties:
+      subDomain:
+        type: string
+      description:
+        type: string
+      name:
+        type: string
+      website:
+        type: string
+      ownerId:
+        type: string
+      orgId:
+        type: string
+  deleteOrganization:
+    type: object
+    properties:
+      orgId:
+        type: string

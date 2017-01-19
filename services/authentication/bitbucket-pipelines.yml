@@ -1,0 +1,34 @@
+# This is a sample build configuration for other languages.
+# Check our guides at https://confluence.atlassian.com/x/VYk8Lw for more examples.
+# Only use spaces to indent your .yml configuration.
+# -----
+# You can specify a custom docker image from Docker Hub as your build environment.
+# image: docker-image:tag
+#
+# Below variables are used from pipeline variables under Project Settings
+# DEPLOY_KEY = KEY
+# SSH_PORT = 22222
+# REPO_ROOT = /opt/src
+# REPO_BASEURL = git@bitbucket.org:PROJECT (base URL is the main GIT URL without repository name)
+# DEPLOY_USER = root
+# PROJECTKEY = key
+# DOMAIN = example.com
+# AWS_ACCESS_KEY_ID = KEY
+# AWS_SECRET_ACCESS_KEY = SECRET KEY
+#
+pipelines:
+  branches:
+    develop:
+      - step:
+          script:
+            - # Setting the target environment
+            - export ENV=dev
+            - # We need access to target server to deploy code but temporary container do not have ssh. Hence create the ssh folder and set the appropriate permissions required for ssh
+            - (mkdir -p ~/.ssh ; chmod 700 ~/.ssh)
+            - # Set Umask to allow only current user (root by default inside temporary container) to have access.
+            - # SSH binary requires 077 mask. Decrypt the SSH private key from variable to default ssh key location for automatic authentication 
+            - (umask  077 ; echo $DEPLOY_KEY | base64 -di > ~/.ssh/id_rsa)
+            - # SSH to target server to run the deployment script. REPO_ROOT is defined as /opt/src and script expects that this location stays same on all target servers.
+            - # $BITBUCKET_REPO_SLUG is nothing but repo name in lowercase that matches with target checkout location for current REPO. For example SLUG for Microservices repo is "microservices".
+            - # Deploy script will get the latest code from bitbucket automatically and relaunch the affected service containers.
+            - ssh -o StrictHostKeyChecking=no -p $SSH_PORT $DEPLOY_USER@$PROJECTKEY-api-$ENV.$DOMAIN "/bin/bash $REPO_ROOT/microservices/deploy.sh $REPO_BASEURL/$BITBUCKET_REPO_SLUG.git $REPO_ROOT $BITBUCKET_BRANCH"

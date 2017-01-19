@@ -1,0 +1,41 @@
+{
+    "success": true,
+    "message": {
+        "id": 100,
+        "description": "Config fetched successfully."
+    },
+    "data": {
+        "shared": {
+            "apiUrl": "https://key-local-api.example.com/",
+            "apiVersion": "v1",
+            "dataUrl": "https://key-local-data.example.com/",
+            "isLive": true,
+            "maintenance": false,
+            "maintenanceMsg": ""
+        },
+        "android": {
+            "apiVersion": "To be specified only if version is different than shared config",
+            "currentAppVersion": "1.2",
+            "compatibleVersions": [
+                "1.1",
+                "1.0"
+            ],
+            "debugMode": false,
+            "httpTimeout": 30
+        },
+        "ios": {
+            "apiVersion": "To be specified only if version is different than shared config",
+            "currentAppVersion": "1.2",
+            "compatibleVersions": [
+                "1.1",
+                "1.0"
+            ],
+            "debugMode": false,
+            "httpTimeout": 30
+        },
+        "facebook": {
+            "apiVersion": "To be specified only if version is different than shared config",
+            "currentAppVersion": "1.0.0"
+        }
+    }
+}

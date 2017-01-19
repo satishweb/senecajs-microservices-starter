@@ -1,0 +1,48 @@
+#!/bin/bash
+# Author: Satish Gaikwad <satish@satishweb.com>
+
+projectKey=$1
+sysEnv=$2
+delay=10
+usage() {
+		echo "ERR: Incorrect parameters"
+		echo "Usage: $0 <ProkectKey> <SystemENV>"
+		echo "Example: $0 agi dev"
+		exit 1
+}
+case $sysEnv in
+	dev|local)
+		branch=develop
+		;;
+	qa)
+		branch=qa
+		;;
+	stg)
+		branch=stg
+		;;
+	pp|prod)
+		branch=master
+		;;
+	*)
+		usage
+		;;
+esac
+srcFolder=$(dirname "${BASH_SOURCE[0]}")
+cd $srcFolder
+srcFolder=`pwd`
+echo $(docker ps -a|grep "$projectKey-$sysEnv-ms-"|awk {'print $1'}) > .containersList
+
+echo "INFO: Stopping all existing Microservices..."
+for i in $(grep -v '^#' .containersList)
+do
+	docker stop $i >/dev/null 2>&1 &
+done
+sleep $delay
+echo "INFO: Starting all Microservices one at a time... with $delay seconds delay"
+for i in $(grep -v '^#' .containersList)
+do
+	docker start $i | sed 's/^/| DOCKER: /'
+	sleep $delay
+done
+docker restart $projectKey-$sysEnv-web
+rm .containersList

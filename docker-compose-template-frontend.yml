@@ -1,0 +1,24 @@
+version: '2'
+services:
+  pubconfig:
+    image: nginx:${NGINXVERSION}
+    container_name: ${PROJECTKEY}-${SYSENV}-pubconfig
+    expose:
+      - 80
+    volumes:
+      - ./pubconfig/htdocs:/usr/share/nginx/html
+    environment:
+      - DEBUG=${DEBUG}
+    restart: 'on-failure:10'
+    network_mode: "bridge"
+
+  web:
+    volumes:
+      - ./data/etc-nginx-conf.d/web-${SYSENV}-pubconfig.conf:/etc/nginx/conf.d/web-${SYSENV}-pubconfig.conf
+    environment:
+      - DEBUG=${DEBUG}
+    links:
+      - pubconfig:pubconfig
+    depends_on:
+      - pubconfig
+    network_mode: "bridge"

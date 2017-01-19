@@ -1,0 +1,16 @@
+callback({
+    "apiUrl": '//key-local-api.example.com/',
+    "apiVersion": "v1",
+    "isLive": true,
+    "debugMode": false,
+    "maintenanceMode": false,
+    "maintenanceMsg": "",
+    "currentAppVersion": "v1",
+    "compatibleVersions": [
+        "1.1",
+        "1.0"
+    ],
+    "facebookId": "CHANGEME",
+    "googleId": "CHANGEME",
+    "linkedInId": "CHANGEME"
+});

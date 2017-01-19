@@ -1,0 +1,181 @@
+#!/bin/bash
+# Author: Satish Gaikwad <satish@satishweb.com>
+
+projectEnv=$1
+action=$2
+serviceName=$3
+srcFolder=$(dirname "${BASH_SOURCE[0]}")
+cd $srcFolder
+srcFolder=`pwd`
+msDir=$srcFolder/services
+dcTmplBackend=docker-compose-template-backend.yml
+dcTmplFrontend=docker-compose-template-frontend.yml
+dcTmplMS=docker-compose-template-ms.yml
+
+if [[ ! -f ms.list ]]
+	then
+		echo "ERR: ms.list file missing in the $srcFolder"
+		exit 1
+fi
+bower=$(which bower)
+gulp=$(which gulp)
+if [[ ! -f $bower || ! -f $gulp ]]
+    then
+        echo "| ERR: Bower or gulp not installed at global level."
+        echo "|      Please run below command to install at global level."
+        echo "|      sudo npm install -g bower gulp"
+        exit 1
+fi
+######## Functions ##########
+usage() {
+	 echo "| ERR: invalid parameters"
+     echo "| Usage: $0 <ProjectENV> <up|down|pause|unpause|restart|rm|kill> <all|ServiceName (Default is empty = all)> <Docker Compose command flags (post command flags only)>"
+     echo "| Example 1: $0 dev up all # this will launch all services for dev environment in daemon mode"
+     echo "| Example 2: $0 dev up ms-user # this will launch ms-user microservice container and all dependant containers if not running"
+     exit 1
+}
+case $projectEnv in
+	dev) ;;
+	qa)	;;
+	stg) ;;
+	local) ;;
+	prod) ;;
+	pp) ;;
+	*)
+		usage
+		;;
+esac
+
+####### Validations ############
+
+if [[ ! -f $(which docker-compose) ]]
+	then
+		echo "| ERR: Docker Compose command not found. Please install docker compose."
+ 		exit 1
+ fi
+
+if [[ ! -f $(which envsubst) ]]
+	then
+	echo "| ERR: On MacOSX, please install envsubst command using below commands (non root shell/terminal/iterm):"
+	echo "| 	wget http://ftp.gnu.org/gnu/gettext/gettext-0.18.2.tar.gz"
+	echo "| 	tar -zxvf gettext-0.18.2.tar.gz"
+	echo "| 	cd gettext-0.18.2"
+	echo "| 	./configure"
+	echo "| 	make"
+	echo "| 	sudo make install"
+	exit 2
+fi
+
+if [[ "$projectEnv" == "local" ]]
+	then
+		dcCmd="docker-compose -f .$projectEnv-docker-compose-backend.yml -f .$projectEnv-docker-compose-frontend.yml"
+	else
+		dcCmd="docker-compose -f .$projectEnv-docker-compose-backend.yml"
+fi
+cdir=$(pwd)
+echo -n "| INFO: Applying $projectEnv Environment variables... "
+for i in $(cat $projectEnv.env)
+do
+	eval $(echo $i|sed 's/^/export /')
+done
+nodeImage=node:$NODEVERSION
+echo " [ OK ]"
+if [[ $PROJECTKEY == "" ]]
+	then
+		echo "| ERR: PROJECTKEY ENV variable missing in $projectEnv.env file"
+		exit 2
+ fi
+
+if [[ ! -f $dcTmplBackend || ! -f $dcTmplFrontend ]]
+	then
+		echo "| ERR: Docker template file $dcTmplBackend or $dcTmplFrontend is missing."
+		exit 1
+ fi
+
+if [[ "$serviceName" == "all" ]]
+	then
+		echo -n "| INFO: Removing old config files... "
+		rm -rf .$projectEnv-docker-compose* >/dev/null 2>&1
+		echo " [ OK ]"
+		echo -n "| INFO: Generating Docker Compose config files for backend and frontend services... "
+		envsubst < "$dcTmplBackend" > ".$projectEnv-docker-compose-backend.yml"
+		envsubst < "$dcTmplFrontend" > ".$projectEnv-docker-compose-frontend.yml"
+		echo " [ OK ]"
+		echo "| INFO: Generating Docker config files for current active MicroServices:"
+		for i in $(grep -v '^#' ms.list)
+		do
+			if [[ -d "$msDir/$i" ]]
+				then
+					export MICROSERVICE=$i
+					[[ -f $msDir/$i/$dcTmplMS ]] && tmpl=$msDir/$i/$dcTmplMS || tmpl=$dcTmplMS
+					echo -n "| MS: Processing: $i .. "
+					envsubst < $tmpl > .$projectEnv-docker-compose-$i.yml
+					echo " [ OK ]"
+					dcCmd="$dcCmd -f .$projectEnv-docker-compose-$i.yml"
+				else
+					echo " [ SKIPPED/ERROR ]"
+			fi
+		done
+fi
+
+####### Validations ############
+
+if [[ "$serviceName" == "" ]]
+	then
+		usage
+ fi
+if [[ ! -f $projectEnv.env ]]
+	then
+		echo "| ERR: $projectEnv.env file not found."
+		exit 1
+ fi
+[[ "$action" == "up" && "$serviceName" == "all" && "$projectEnv" != "local" ]] && dcFlags="$dcFlags $4"
+
+case $action in
+	up)
+		[[ "$serviceName" == "all" ]] && dcCmd="$dcCmd up -d" || dcCmd="docker start $PROJECTKEY-$projectEnv-$serviceName"
+		;;
+	down)
+		[[ "$serviceName" == "all" ]] && dcCmd="$dcCmd down" || dcCmd="docker stop $PROJECTKEY-$projectEnv-$serviceName"
+		;;
+	pause)
+		[[ "$serviceName" == "all" ]] && dcCmd="$dcCmd pause" || dcCmd="docker stop $PROJECTKEY-$projectEnv-$serviceName"
+		;;
+	unpause)
+		[[ "$serviceName" == "all" ]] && dcCmd="$dcCmd unpause" || dcCmd="docker start $PROJECTKEY-$projectEnv-$serviceName"
+		;;
+	restart)
+		[[ "$serviceName" == "all" ]] && dcCmd="$dcCmd restart" || dcCmd="docker restart $PROJECTKEY-$projectEnv-$serviceName"
+		;;
+	rm)
+		[[ "$serviceName" == "all" ]] && dcCmd="$dcCmd rm -f" || dcCmd="docker rm -f $PROJECTKEY-$projectEnv-$serviceName"
+		;;
+	kill)
+		[[ "$serviceName" == "all" ]] && dcCmd="$dcCmd kill" || dcCmd="docker kill $PROJECTKEY-$projectEnv-$serviceName"
+		;;
+	*)
+		usage
+		;;
+esac
+
+######### Lets do it! ##########
+[[ "$serviceName" == "all" ]] && dcCmd="$dcCmd $dcFlags"
+if [[ "$action" == "up" ]]
+	then
+		echo "| INFO: Preparing node packages ..."
+		[[ "$projectEnv" != "local" ]] && npmCmd="npm install --production --no-optional" || npmCmd="npm install --no-optional"
+		docker run -v "$srcFolder:/src" -w "/src" --rm -it $nodeImage bash -c "$npmCmd 2>&1" 2>&1|sed 's/^/| NPM: /'
+		[[ -f ../apidocs/src/build.sh ]] && echo "| INFO: Clean apidocs yaml collection..." && ../apidocs/src/build.sh clean|sed 's/^/| APIDocs: /'
+fi
+echo "| INFO: Docker Command: $dcCmd"
+echo "| INFO: Running Docker-compose/Docker command (Press Ctrl + C to stop) ... "
+eval "$dcCmd 2>&1"
+errCode=$?
+[[ $4 == "-d" ]] && echo "| INFO: Docker Compose launched services into background. Use docker commands to interact with containers..."
+if [[ $errCode != 0 ]]
+	then
+		echo "| ERR: Docker-compose/Docker command failed, please see logs above to investigate and fix it"
+	else
+		echo "| INFO: All done here!"
+ fi
+[[ "$projectEnv" == "prod" ]] && docker stop $PROJECTKEY-$projectEnv-ms-bootstrap >/dev/null 2>&1

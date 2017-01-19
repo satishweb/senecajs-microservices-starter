@@ -1,0 +1,308 @@
+---
+swagger: "2.0"
+info:
+  title: "Authentication API"
+  description: |
+    Provides functionality for User sign up, sign in, sign out and changing passwords.
+    #### Sign in:
+    Registered user signs in using his/her email and password or through social media(Facebook, Google, LinkedIn).
+    For successful login, the JWT token(containing the user's userId and his/her role) and user's data is returned.
+    If user signs in using social media and is currently not registered, the user gets registered.
+    #### Sign out:
+    Logged in user logs out. The JWT token for the user is verified and his/her session destroyed.
+    #### Sign up:
+    New users can register by using email or through social media. In case of email sign up, a mail containing
+    a link to set the password is sent to that email. The user is logged in on signing up.
+    #### Forgot Password:
+    Registered user can send an email to his/her registered email Id containing a link to reset his/her password.
+    The link has an expiry time and should be used before it.
+    #### Change Password:
+    Logged in user can change their password. The old password is not needed.
+    #### Reset Password:
+    A user who has received a reset password link, can reset their password by providing the reset token. If the
+    reset token has expired or does not match with the one stored, the password is not changed. Password can only be
+    once using a link.
+  version: "1.0.0"
+host: 'key-local-api.example.com'
+basePath: /auth
+schemes:
+  - https
+produces:
+  - application/json
+consumes:
+  - application/json
+paths:
+  "/v1/signIn":
+    post:
+      tags:
+        - "Sign in"
+      summary: "User sign in"
+      description: "User logs in using email and password or through social media(Facebook, Google)."
+      parameters:
+        - name: UserLogin
+          in: body
+          description: "Contains the type of login(email, facebook, google, linkedin), user's email and password in case of email
+          login or socialId in case of social login along with user data from social site."
+          required: true
+          schema:
+            description: "User login input"
+            type: object
+            required:
+              - 'type'
+            properties:
+              type:
+                description: "The type of login, whether using email or name of social media if not using email."
+                type: string
+                enum:
+                  - 'email'
+                  - 'facebook'
+                  - 'google'
+                  - 'linkedIn'
+              email:
+                type: string
+                description: "User's registered email address."
+              password:
+                type: string
+                description: "User's password."
+              socialId:
+                type: string
+                description: "User's Social Id returned by Social media on successful authentication."
+              socialName:
+                type: string
+                description: "Name of the user from social site"
+              socialProfilePic:
+                type: string
+                description: "Profile picture of the user from social site"
+              socialEmail:
+                type: string
+                description: "Email id of the user from social site"
+              gender:
+                type: string
+                description: "Gender of user returned by social site"
+              birthDate:
+                type: string
+                description: "BirthDate of user returned by social site"
+      responses:
+        "200":
+          description: "Successful"
+          schema:
+            $ref: "#/definitions/OutputWithData"
+  "/v1/signUp":
+    post:
+      summary: "User sign up"
+      description: "User sign-up using email and password or through social media(Facebook, Google, LinkedIn)."
+      parameters:
+        - description: "Contains detail about user who is signing-up"
+          in: body
+          name: signUpData
+          required : true
+          schema:
+            type: object
+            properties:
+              signUpType:
+                type: string
+                description: "Specify which type of signUp"
+              accountType:
+                type: string
+                description: "Specify which type of account"
+              email:
+                type: string
+                description: "EmailId of the user"
+              name:
+                type: string
+                description: "Password of the user"
+              socialId:
+                type: string
+                description: "Id of the user from social site"
+              socialName:
+                type: string
+                description: "Name of the user from social site"
+              socialEmail:
+                type: string
+                description: "Email Id of the user from social site"
+              socialProfilePic:
+                type: string
+                description: "Profile picture of the user from social site"
+      responses:
+        "200":
+          description: "OK"
+          schema:
+            $ref: "#/definitions/OutputWithoutData"
+        default:
+          description: Unexpected error
+          schema:
+            $ref: "#/definitions/Error"
+  "/v1/signOut":
+    delete:
+      summary: "User sign out"
+      description: "Signed in user can sign out."
+      parameters:
+        - name: Authorization
+          in: header
+          required: true
+          type: string
+          description: "JWT token"
+      responses:
+        "200":
+          description: "Successful"
+          schema:
+            description: "The output for successful logout."
+            type: object
+            properties:
+              success:
+                type: boolean
+                description: "Whether the operation was successful or not."
+              message:
+                $ref: "#/definitions/Message"
+      security:
+        - jwt.secured: []
+  "/v1/forgotPassword":
+    post:
+      summary: "User forgot password"
+      description: "If the input email Id has been registered, an email is sent to it with a reset link having an expiry time."
+      parameters:
+        - name: forgotPassword
+          in: body
+          required: true
+          schema:
+            $ref: "#/definitions/forgotPassword"
+      responses:
+        "200":
+          description: "Ok"
+          schema:
+            $ref: "#/definitions/OutputWithData"
+        default:
+          description: Unexpected error
+          schema:
+            $ref: "#/definitions/Error"
+  "/v1/changePassword":
+    put:
+      summary: "Signed in User changes his/her password."
+      description: "Signed in user can change his/her password without entering the old password."
+      parameters:
+        - name: Authorization
+          in: header
+          required: true
+          type: string
+        - name: changePassword
+          in: body
+          required: true
+          schema:
+            $ref: "#/definitions/changePassword"
+      responses:
+        "200":
+          description: "Ok"
+          schema:
+            $ref: "#/definitions/OutputWithoutData"
+        default:
+          description: Unexpected error
+          schema:
+            $ref: "#/definitions/Error"
+      security:
+        - jwt.secured: []
+  "/v1/resetPassword":
+    put:
+      summary: "User resets his/her password using link"
+      description: "User resets password using reset link sent on email by using Forgot Password API."
+      parameters:
+        - name: Authorization
+          in: header
+          required: true
+          type: string
+        - name: resetPassword
+          in: body
+          required: true
+          schema:
+            $ref: "#/definitions/changePassword"
+      responses:
+        "200":
+          description: "Ok"
+          schema:
+            $ref: "#/definitions/OutputWithoutData"
+        default:
+          description: Unexpected error
+          schema:
+            $ref: "#/definitions/Error"
+  "/v1/validateResetToken":
+    post:
+      summary: "Validate reset token"
+      description: "Checks if the reset token has expired or is invalid."
+      parameters:
+        - name: Authorization
+          in: header
+          required: true
+          type: string
+      responses:
+        "200":
+          description: "Ok"
+          schema:
+            $ref: "#/definitions/OutputWithoutData"
+        default:
+          description: Unexpected error
+          schema:
+            $ref: "#/definitions/Error"
+securityDefinitions:
+  jwt.secured:
+    type: apiKey
+    name: Authorization
+    in: header
+definitions:
+  Message:
+    type: object
+    properties:
+      id:
+        type: integer
+        format: int32
+        description: "The message code for the operation status."
+      msg:
+        type: string
+        description: "The message for the operation status."
+  OutputWithoutData:
+    type: object
+    properties:
+      success:
+        type: boolean
+        description: "Whether the operation was successful or not."
+      message:
+        $ref: '#/definitions/Message'
+      timestamp:
+        type: integer
+        format: int64
+        description: "The timestamp at the time of sending reply"
+      version:
+        type: string
+        description: "The version"
+  OutputWithData:
+    type: object
+    properties:
+      success:
+        type: boolean
+        description: "Whether the operation was successful or not."
+      message:
+        $ref: "#/definitions/Message"
+      data:
+        description: "The data returned on successful operation"
+        type: object
+  Error:
+    properties:
+      code:
+        description: "Error Code"
+        format: int32
+        type: integer
+      message:
+        description: "Error message"
+        type: string
+  changePassword:
+    type: object
+    required:
+      - password
+    properties:
+      password:
+        type: string
+  forgotPassword:
+    type: object
+    required:
+      - email
+    properties:
+      email:
+        type: string
