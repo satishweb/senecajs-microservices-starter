@@ -46,7 +46,9 @@ var transporter = nodemailer.createTransport({
  */
 function sendEmail(body) {
     return new Promise(function(resolve) {
-        var sent = []; // array to store the responses of each mail
+        var accepted = []; // array to store the responses of each accepted email
+        var rejected = []; // array to store the responses of each rejected email
+        var emailLength = body.emailId.length;
         body = JSON.parse(JSON.stringify(body));
         body.emailId = lodash.uniqBy(body.emailId); // remove any repeated emailIds
         // construct email message
@@ -62,12 +64,18 @@ function sendEmail(body) {
             // send the email
             transporter.sendMail(message, function(error, info) {
                 console.log("Info about Sending mail ---- ", error, info);
-                if (info && info.accepted && info.accepted[0]) {
-                    sent.push(info.accepted[0]); // add the response returned to sent array
+                if (info) {
+                    //console.log(info.accepted[0], emailLength);
+                    if (info.accepted[0]) { accepted.push(info.accepted[0]); } // add the response returned to accepted array
+                    if (info.rejected[0]) { rejected.push(info.rejected[0]); } // add the response returned to rejected array
+                    emailLength--;
+                }
+                if (emailLength === 0) {
+                    //console.log(accepted);
+                    resolve({ accepted: accepted, rejected: rejected });
                 }
             });
         });
-        resolve(sent);
     });
 }
 
@@ -76,22 +84,17 @@ function sendEmail(body) {
  * @method sendResponse
  * @param done - the done method that returns the response.
  */
-function sendResponse(done) {
-    done(null, {
-        statusCode: 200,
-        content: outputFormatter.format(true, 2090, null, "Emails")
-    });
-}
-var sendResponse = function(result, done) {
-    if (result !== null) {
+
+var sendResponse = function(success, result, done) {
+    if (success) {
         done(null, {
             statusCode: 200,
-            content: outputFormatter.format(true, 2010, result)
+            content: outputFormatter.format(true, 2000, result, 'Email sent successfully')
         });
     } else {
         done(null, {
             statusCode: 200,
-            content: outputFormatter.format(false, 102)
+            content: outputFormatter.format(false, 1000, null, result)
         });
     }
 };
@@ -101,33 +104,30 @@ var sendResponse = function(result, done) {
 module.exports = function(options) {
     var seneca = options.seneca;
     return function(args, done) {
-        // console.log("----------- Send mail called -------------");
-        if ( args.header.origin === process.env.HTTPSCHEME+'://'+process.env.APP_URL || args.header.origin === ) {
+        //console.log(args.header);
+        if ((args.header.origin === process.env.HTTPSCHEME + '://' + process.env.APP_URL) || (process.env !== 'prod' && (args.header.origin && args.header.origin.match('chrome-extension')) || args.header['user-agent'].match('PostmanRuntime'))) {
             utils.checkInputParameters(args.body, validationSchema)
-                .then(function () {
+                .then(function() {
                     var body = JSON.parse(JSON.stringify(args.body));
                     return sendEmail(body);
                 })
-                .then(function () {
-                    return sendResponse(done);
+                .then(function(response) {
+                    return sendResponse(true, response, done);
                 })
-                .catch(function (error) {
-                    seneca.log.error('[ ' + process.env.SRV_NAME + ': ' + __filename.split('/').slice(-1) + ' ]',
-                        "ERROR" +
-                        " : ", err);
+                .catch(function(error) {
+                    seneca.log.error('[ ' + process.env.SRV_NAME + ': ' + __filename.split('/').slice(-1) + ' ]', "ERROR" + " : ", error);
                     done(null, {
                         statusCode: 200,
-                        content   : error.success ===
-                        true ||
-                        error.success ===
-                        false ?
-                            error :
-                            utils.error(error.id || 400, error.msg || "Unexpected error", microtime.now())
+                        content: error.success ===
+                            true ||
+                            error.success ===
+                            false ?
+                            error : utils.error(error.id || 400, error.msg || "Unexpected error", microtime.now())
                     });
                 });
+        } else {
+            sendResponse(false, 'Host not allowed to send email using this API', done);
         }
-        else {
 
-        }
     };
 };
