@@ -62,7 +62,7 @@ module.exports = function(options) {
         Token = Token || mongoose.model('Tokens');
 
         // check if input token is valid
-        authentication.verifyTokenAndDecode(args.header.authorization)
+        utils.verifyTokenAndDecode(args.header.authorization)
             .then(function() {
                 // check if token is stored in database
                 return verifyTokenDetails(args.header.authorization)

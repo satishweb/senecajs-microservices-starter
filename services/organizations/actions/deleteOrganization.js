@@ -1,7 +1,7 @@
 'use strict';
 
 var response = require(__base + '/sharedlib/utils'); //what is response here???
-var authentication = require(__base + '/sharedlib/authentication');
+
 var Locale = require(__base + '/sharedlib/formatter');
 var outputFormatter = new Locale(__base);
 var Joi = require('joi');
@@ -92,7 +92,7 @@ function sendResponse(result, done) {
 module.exports = function() {
     return function(args, done) {
         Organization = Organization || mongoose.model('Organizations');
-        authentication.checkInputParameters(args.body, OrganizationSchema)
+        utils.checkInputParameters(args.body, OrganizationSchema)
             .then(function() {
                 return verifyTokenAndDecode(args);
             })

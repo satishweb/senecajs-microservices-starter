@@ -1,7 +1,6 @@
 'use strict';
 
 var utils = require(__base + '/sharedlib/utils');
-var authentication = require(__base + '/sharedlib/authentication');
 var Locale = require(__base + '/sharedlib/formatter');
 var outputFormatter = new Locale(__dirname + '/../');
 var lodash = require('lodash');
@@ -104,7 +103,7 @@ function verifyTokenAndDecode(args) {
     return new Promise(function(resolve) {
         // Check if token is present in the header
         if (args && args.header && args.header.authorization) {
-            authentication.verifyTokenAndDecode(args.header.authorization)
+            utils.verifyTokenAndDecode(args.header.authorization)
                 .then(function(decoded) {
                     resolve(decoded);
                 })
@@ -165,7 +164,7 @@ function sendEmailToUser(args, url, userDetails, seneca) {
         // if request is not from sendInvitations, send mail to user
         if (!args.body.fromInvitation) {
             // create JWT token for microservice call
-            var token = authentication.createMsJwt();
+            var token = utils.createMsJwt();
             // default subject and content for formatter input
             var subject = "ResetPasswordSubject";
             var content = "ResetPasswordMessage";
@@ -223,7 +222,7 @@ module.exports = function(options) {
         var orgId = null;   // stores the organization fetched using the sub-domain
         var userDetails = null; // stores the user details fetched
         
-        authentication.checkInputParameters(args.body, forgotPasswordSchema)
+        utils.checkInputParameters(args.body, forgotPasswordSchema)
             .then(function() {
                 // set the reset password URL
                 resetURL = args.header ? args.header.origin || 'https://' + process.env.APP_URL : 'https://' + process.env.APP_URL;

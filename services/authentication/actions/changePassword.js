@@ -144,9 +144,9 @@ module.exports = function(options) {
             action = action[action.length - 1];
         }
 
-        authentication.checkInputParameters(args.body, changePasswordSchema)
+        utils.checkInputParameters(args.body, changePasswordSchema)
             .then(function() {
-                return authentication.verifyTokenAndDecode(args.header.authorization);
+                return utils.verifyTokenAndDecode(args.header.authorization);
             })
             .then(function(response) {
                 decodedToken = response;
@@ -167,7 +167,7 @@ module.exports = function(options) {
                 // if new user is created, remove invitation and add invited user to general
                 if (updateResponse && updateResponse.upserted && updateResponse.upserted[0] && updateResponse.upserted[0]) {
                     // create a token to send to API in microservice calls containing organization Id
-                    var header = authentication.createMsJWT({ orgId: decodedToken.orgId, isMicroservice: true });
+                    var header = utils.createMsJWT({ orgId: decodedToken.orgId, isMicroservice: true });
                     removeInvitation(decodedToken.emailId, header, seneca);
                     addInvitedToGeneral(updateResponse.upserted[0]._id, header, seneca);
                 }

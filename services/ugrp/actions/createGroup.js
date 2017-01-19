@@ -1,7 +1,6 @@
 'use strict';
 
 var response = require(__base + '/sharedlib/utils');
-var authentication = require(__base + '/sharedlib/authentication');
 var groupsLib = require(__base + '/sharedlib/groups');
 var Locale = require(__base + '/sharedlib/formatter');
 var outputFormatter = new Locale(__base);
@@ -141,9 +140,9 @@ module.exports = function(options) {
                 Group = mongoose.model('DynamicGroup', Group.schema, orgId + '_groups');
                 User = mongoose.model('DynamicUser', User.schema, orgId + '_users');
                 if (response.isMicroservice) {
-                    return authentication.checkInputParameters(args.body, microSchema);
+                    return utils.checkInputParameters(args.body, microSchema);
                 } else {
-                    return authentication.checkInputParameters(args.body, GroupSchema)
+                    return utils.checkInputParameters(args.body, GroupSchema)
                 }
             })
             .then(function() {

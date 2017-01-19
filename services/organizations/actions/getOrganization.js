@@ -1,7 +1,6 @@
 'use strict';
 
 var response = require(__base + '/sharedlib/utils'); // what is response here????
-var authentication = require(__base + '/sharedlib/authentication');
 var Locale = require(__base + '/sharedlib/formatter');
 var outputFormatter = new Locale(__base);
 var InitCompositeGrid = require(__base + '/sharedlib/grid/initCompositeGrid');
@@ -83,7 +82,7 @@ function sendResponse(result, done) {
 
 
 function getOrganizationByFqdn(args, done) {
-    authentication.checkInputParameters(args.body, schemaByFqdn)
+    utils.checkInputParameters(args.body, schemaByFqdn)
         .then(function() {
             return fetchOrganization(args.body);
         })
@@ -165,7 +164,7 @@ function fetchOrgById(orgId) {
 // };
 
 function fetchOrganizationById(args, done) {
-    authentication.checkInputParameters(args.body, schemaById)
+    utils.checkInputParameters(args.body, schemaById)
         .then(function() {
             return verifyTokenAndDecode(args);
         })
@@ -270,7 +269,7 @@ function getOrganizationList(options, args, done) {
             "show": false
         }
     };
-    authentication.checkInputParameters(args.body, schemaList)
+    utils.checkInputParameters(args.body, schemaList)
         .then(function() {
             return verifyTokenAndDecode(args)
         })

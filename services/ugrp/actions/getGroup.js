@@ -1,7 +1,6 @@
 'use strict';
 
 var response = require(__base + '/sharedlib/utils');
-var authentication = require(__base + '/sharedlib/authentication');
 var InitCompositeGrid = require(__base + '/sharedlib/grid/initCompositeGrid');
 var Locale = require(__base + '/sharedlib/formatter');
 var outputFormatter = new Locale(__base);
@@ -100,7 +99,7 @@ function getGroupCalls(options, args, done) {
     var orgId = null;
     var finalResponse = null;
     // console.log('fetch contact called-----------------', args.body);
-    authentication.checkInputParameters(args.body, getSchema)
+    utils.checkInputParameters(args.body, getSchema)
         .then(function() {
             return verifyTokenAndDecode(args);
         })
@@ -197,9 +196,9 @@ function listGroupCalls(options, args, done) {
             "displayName": "Description"
         }
     };
-    authentication.checkInputParameters(args.body, schemaList)
+    utils.checkInputParameters(args.body, schemaList)
         .then(function() {
-            return authentication.verifyTokenAndDecode(args.header.authorization);
+            return utils.verifyTokenAndDecode(args.header.authorization);
         })
         .then(function(decoded) {
             if (args.body && args.body.filter && args.body.filter.userIds) {

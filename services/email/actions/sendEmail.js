@@ -5,7 +5,6 @@
  * It is used to send emails using nodemailer module
  */
 var utils = require(__base + '/sharedlib/utils');
-var authentication = require(__base + '/sharedlib/authentication');
 var Locale = require(__base + '/sharedlib/formatter.js');
 var outputFormatter = new Locale(__dirname + '/../');
 var lodash = require('lodash');
@@ -18,6 +17,7 @@ var nodemailer = require('nodemailer');
  */
 
 //Joi validation Schema
+//TODO: MOVE THIS
 var validationSchema = Joi.object().keys({
     emailId: Joi.array().items(
         Joi.string().regex(/^\s*[\w\-\+​_]+(\.[\w\-\+_​]+)*\@[\w\-\+​_]+\.[\w\-\+_​]+(\.[\w\-\+_]+)*\s*$/).required()
@@ -61,13 +61,13 @@ function sendEmail(body) {
 
             // send the email
             transporter.sendMail(message, function(error, info) {
-                // console.log("Info about Sending mail ---- ", error, info);
+                console.log("Info about Sending mail ---- ", error, info);
                 if (info && info.accepted && info.accepted[0]) {
                     sent.push(info.accepted[0]); // add the response returned to sent array
                 }
             });
         });
-        resolve(true);
+        resolve(sent);
     });
 }
 
@@ -82,7 +82,19 @@ function sendResponse(done) {
         content: outputFormatter.format(true, 2090, null, "Emails")
     });
 }
-
+var sendResponse = function(result, done) {
+    if (result !== null) {
+        done(null, {
+            statusCode: 200,
+            content: outputFormatter.format(true, 2010, result)
+        });
+    } else {
+        done(null, {
+            statusCode: 200,
+            content: outputFormatter.format(false, 102)
+        });
+    }
+};
 /**
  * This is a sendEmail action for the Email microservice
  */
@@ -90,21 +102,32 @@ module.exports = function(options) {
     var seneca = options.seneca;
     return function(args, done) {
         // console.log("----------- Send mail called -------------");
-        authentication.checkInputParameters(args.body, validationSchema)
-            .then(function() {
-                var body = JSON.parse(JSON.stringify(args.body));
-                return sendEmail(body);
-            })
-            .then(function() {
-                return sendResponse(done);
-            })
-            .catch(function(error) {
-                seneca.log.error('[ ' + process.env.SRV_NAME + ': ' + __filename.split('/').slice(-1) + ' ]', "ERROR" +
-                  " : ", err);
-                done(null, {
-                    statusCode: 200,
-                    content: error.success === true || error.success === false ? error : utils.error(error.id || 400, error.msg || "Unexpected error", microtime.now())
+        if ( args.header.origin === process.env.HTTPSCHEME+'://'+process.env.APP_URL || args.header.origin === ) {
+            utils.checkInputParameters(args.body, validationSchema)
+                .then(function () {
+                    var body = JSON.parse(JSON.stringify(args.body));
+                    return sendEmail(body);
+                })
+                .then(function () {
+                    return sendResponse(done);
+                })
+                .catch(function (error) {
+                    seneca.log.error('[ ' + process.env.SRV_NAME + ': ' + __filename.split('/').slice(-1) + ' ]',
+                        "ERROR" +
+                        " : ", err);
+                    done(null, {
+                        statusCode: 200,
+                        content   : error.success ===
+                        true ||
+                        error.success ===
+                        false ?
+                            error :
+                            utils.error(error.id || 400, error.msg || "Unexpected error", microtime.now())
+                    });
                 });
-            });
+        }
+        else {
+
+        }
     };
 };

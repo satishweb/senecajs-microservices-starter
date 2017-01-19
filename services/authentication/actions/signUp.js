@@ -98,7 +98,7 @@ module.exports = function(options) {
                 response.isOwner = true;    // only organization owner's can sign up, so set isOwner to true in response
                 response.orgId = null;
                 // create a session token for the signed up user
-                return authentication.createJWT(response, args.header);
+                return utils.createJWT(response, args.header);
             })
             .then(function(response) {
                 finalResponse = response;   // store the final response for further use

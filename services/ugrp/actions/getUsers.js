@@ -2,7 +2,6 @@
 
 var mongoose = require('mongoose');
 var response = require(__base + '/sharedlib/utils');
-var authentication = require(__base + '/sharedlib/authentication');
 var InitCompositeGrid = require(__base + '/sharedlib/grid/initCompositeGrid');
 var Joi = require('joi');
 var jwt = require('jsonwebtoken');
@@ -198,7 +197,7 @@ module.exports = function(options) {
         // console.log("Get Channel called -----", args.body);
         User = mongoose.model('Users');
         // if input contains email id, convert it to lowercase
-        authentication.checkInputParameters(args.body, userGetSchema)
+        utils.checkInputParameters(args.body, userGetSchema)
             .then(function() {
                 console.log("Header ------ ", args.header.authorization);
                 return verifyTokenAndDecode(args.header.authorization)

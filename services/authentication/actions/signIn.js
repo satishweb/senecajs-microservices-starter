@@ -131,7 +131,7 @@ module.exports = function(options) {
         if (args.body.email) {
             args.body.email = args.body.email.toLowerCase();
         }
-        authentication.checkInputParameters(args.body, signInSchema)
+        utils.checkInputParameters(args.body, signInSchema)
             .then(function() {
                 return fetchOrganisationId(args.header, seneca);
             })
@@ -154,7 +154,7 @@ module.exports = function(options) {
                 }
                 userDetails.isOwner = isOwner;
                 userDetails.orgId = orgId;
-                return authentication.createJWT(userDetails, args.header);
+                return utils.createJWT(userDetails, args.header);
             })
             .then(function(response) {
                 finalResponse = response.output;
@@ -168,7 +168,8 @@ module.exports = function(options) {
             })
             .catch(function(err) {
                 delete mongoose.connection.models['DynamicUser'];
-                seneca.log.error('[ ' + process.env.SRV_NAME + ' ]', __filename.split('/').slice(-1), err);
+                // TODO: Implement this log for all messages
+                utils.senecaLog(seneca, 'error', __filename.split('/').slice(-1).join(''), err);
                 var error = err || { id: 400, msg: "Unexpected error" };
                 done(null, { statusCode: 200, content: 'success' in error ? error : utils.error(error.id, error.msg, microtime.now()) });
             });

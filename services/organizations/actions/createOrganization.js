@@ -9,7 +9,7 @@ var mongoose = require('mongoose');
 var Promise = require('bluebird');
 var jwt = require('jsonwebtoken');
 var microtime = require('microtime');
-var authentication = require(__base + '/sharedlib/authentication');
+
 var utils = require(__base + '/sharedlib/utils'); // is this being used here????
 var Organization = null;
 
@@ -115,7 +115,7 @@ module.exports = function(options) {
         if (args.body.name) {
             args.body.name = args.body.name.toLowerCase();
         }
-        authentication.checkInputParameters(args.body, schema)
+        utils.checkInputParameters(args.body, schema)
             .then(function() {
                 return verifyTokenAndDecode(args);
             })
@@ -128,7 +128,7 @@ module.exports = function(options) {
                     orgId: response.orgId,
                     isOwner: true
                 };
-                var header = authentication.createMsJWT(data);
+                var header = utils.createMsJWT(data);
                 createGenGroup(header, seneca);
                 addToUserOrg(response.orgId, response.ownerId, header, seneca);
                 return sendResponse(response, done);

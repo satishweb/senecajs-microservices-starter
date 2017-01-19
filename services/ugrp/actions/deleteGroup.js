@@ -1,7 +1,6 @@
 'use strict';
 
 var response = require(__base + '/sharedlib/utils');
-var authentication = require(__base + '/sharedlib/authentication');
 var groupsLib = require(__base + '/lib/groups');
 var Locale = require(__base + '/sharedlib/formatter');
 var outputFormatter = new Locale(__base);
@@ -138,7 +137,7 @@ module.exports = function(options) {
         User = User || mongoose.model('Users');
         Group = Group || mongoose.model('Groups');
         var orgId = null;
-        authentication.checkInputParameters(args.body, GroupSchema)
+        utils.checkInputParameters(args.body, GroupSchema)
             .then(function() {
                 return verifyTokenAndDecode(args);
             })

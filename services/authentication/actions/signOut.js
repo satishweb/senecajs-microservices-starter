@@ -25,7 +25,7 @@ module.exports = function(options) {
 
         Session = Session || mongoose.model('Sessions');
 
-        authentication.verifyTokenAndDecode(args)
+        utils.verifyTokenAndDecode(args)
             .then(function(response) {
                 // delete the users sessions from DB
                 session.deleteSessions(Session, response.userId, response.orgId, null);

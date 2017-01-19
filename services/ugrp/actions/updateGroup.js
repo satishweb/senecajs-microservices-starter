@@ -9,7 +9,6 @@ var mongoose = require('mongoose');
 var Promise = require('bluebird');
 var jwt = require('jsonwebtoken');
 var microtime = require('microtime');
-var authentication = require(__base + '/sharedlib/authentication');
 var groupsLib = require(__base + '/lib/groups');
 var Group = null;
 var User = null;
@@ -73,7 +72,7 @@ function addUserToGroupCalls(options, args, done) {
     var seneca = options.seneca;
     var orgId = null;
     var isMicroservice = false;
-    authentication.checkInputParameters(args.body, addGroupSchema)
+    utils.checkInputParameters(args.body, addGroupSchema)
         .then(function() {
             return groupsLib.verifyTokenAndDecode(args);
         })
@@ -183,7 +182,7 @@ function removeUsersFromGroupCalls(options, args, done) {
     var seneca = options.seneca;
     var orgId = null;
 
-    authentication.checkInputParameters(args.body, removeGroupSchema)
+    utils.checkInputParameters(args.body, removeGroupSchema)
         .then(function() {
             return groupsLib.verifyTokenAndDecode(args);
         })
@@ -272,7 +271,7 @@ function updateGroupCalls(options, args, done) {
     if (args.body.name) {
         args.body.name = args.body.name.toLowerCase()
     }
-    authentication.checkInputParameters(args.body, GroupSchema)
+    utils.checkInputParameters(args.body, GroupSchema)
         .then(function() {
             return groupsLib.verifyTokenAndDecode(args);
         })

@@ -2,6 +2,6 @@ bootstrap
 email
 api
 authentication
-#ugrp
-#invitations
-#organizations
+ugrp
+invitations
+organizations

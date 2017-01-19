@@ -3,7 +3,6 @@
 var response = require(__base + '/sharedlib/utils');
 var Locale = require(__base + '/sharedlib/formatter');
 var outputFormatter = new Locale(__base);
-var authentication = require(__base + '/sharedlib/authentication');
 var Joi = require('joi');
 var lodash = require('lodash');
 var mongoose = require('mongoose');
@@ -100,7 +99,7 @@ module.exports = function() {
         User = User || mongoose.model('Users');
         Group = Group || mongoose.model('Groups');
 
-        authentication.checkInputParameters(args.body, userSchema)
+        utils.checkInputParameters(args.body, userSchema)
             .then(function() {
                 return verifyTokenAndDecode(args);
             })

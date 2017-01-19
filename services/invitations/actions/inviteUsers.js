@@ -3,7 +3,7 @@
 var response = require(__base + '/sharedlib/utils'); //what is response here???
 var utils = require(__base + '/sharedlib/utils');
 var Locale = require(__base + '/sharedlib/formatter');
-var authentication = require(__base + '/sharedlib/authentication');
+
 var outputFormatter = new Locale(__base);
 var Joi = require('joi');
 var lodash = require('lodash');
@@ -75,7 +75,7 @@ var fetchMatchingPendingInvitations = function fetchMatchingPendingInvitations(e
 var fetchUsers = function fetchUsers(seneca, emailIds, orgId) {
     return new Promise(function(resolve, reject) {
         utils.microServiceCall(seneca, 'users', 'getUsers', { action: "list", filter: { email: emailIds } },
-            authentication.createMsJWT({ orgId: orgId, isMicroservice: true }),
+            utils.createMsJWT({ orgId: orgId, isMicroservice: true }),
             function(err, response) {
                 console.log("Response of listUsers ------ ", err, response);
                 if (err || (response && response.content && !response.content.success)) {

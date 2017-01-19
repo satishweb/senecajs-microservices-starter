@@ -1,7 +1,7 @@
 'use strict';
 
 var response = require(__base + '/sharedlib/utils'); //what is response here???
-var authentication = require(__base + '/sharedlib/authentication');
+
 var Locale = require(__base + '/sharedlib/formatter');
 var outputFormatter = new Locale(__dirname + '/../');
 var lodash = require('lodash');
@@ -68,7 +68,7 @@ module.exports = function() {
     return function(args, done) {
         console.log("------------- Delete invitation called ----------", args.body);
         Invitation = Invitation || mongoose.model('Invitations');
-        authentication.checkInputParameters(args.body, schema)
+        utils.checkInputParameters(args.body, schema)
             .then(function() {
                 return updateInvitation(args.body.email)
             })

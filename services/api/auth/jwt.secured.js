@@ -3,7 +3,7 @@ var util = require('util');
 var Boom = require('boom');
 var lodash = require('lodash');
 var session = require(__base + 'sharedlib/session.js');
-var authentication = require(__base + 'sharedlib/authentication.js');
+var authentication = require(__base + 'sharedlib/utils.js');
 
 /**
  * Function used for authorization before forwarding the request to the API
@@ -26,7 +26,7 @@ function schema(server, options) {
                 return reply(Boom.unauthorized(null, 'Custom'));
             }
             var decodedToken = null;
-            authentication.verifyTokenAndDecode(authorization)
+            utils.verifyTokenAndDecode(authorization)
                 .then(function(response) {
                     decodedToken = response;
                     return session.validateSession(response, req.headers); // check if headers match with decoded token

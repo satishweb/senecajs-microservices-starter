@@ -1,7 +1,6 @@
 'use strict';
 
 var response = require(__base + '/sharedlib/utils'); //what is response here???
-var authentication = require(__base + '/sharedlib/authentication');
 var Locale = require(__base + '/sharedlib/formatter');
 var outputFormatter = new Locale(__base);
 var Joi = require('joi');
@@ -108,7 +107,7 @@ module.exports = function() {
         if (args.body.name) {
             args.body.name = args.body.name.toLowerCase();
         }
-        authentication.checkInputParameters(args.body, OrganizationSchema)
+        utils.checkInputParameters(args.body, OrganizationSchema)
             .then(function() {
                 return verifyTokenAndDecode(args);
             })
