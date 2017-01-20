@@ -30,7 +30,7 @@ esac
 srcFolder=$(dirname "${BASH_SOURCE[0]}")
 cd $srcFolder
 srcFolder=`pwd`
-echo $(docker ps -a|grep "$projectKey-$sysEnv-ms-"|awk {'print $1'}) > .containersList
+echo $(docker ps -a|grep "$projectKey-$sysEnv-"|awk {'print $1'}) > .containersList
 
 echo "INFO: Stopping all existing Microservices..."
 for i in $(grep -v '^#' .containersList)
