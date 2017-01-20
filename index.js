@@ -95,7 +95,6 @@ function workerPlugin() {
             var opts = {
                 seneca: seneca
             };
-
             // add a seneca action, it will respond on every message tath will match role and cmd.
             // role is the microservice name, while cmd is the module file name which contains the action
             var action = ['role:', process.env.SRV_NAME, ',cmd:', f].join('');

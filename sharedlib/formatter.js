@@ -41,6 +41,7 @@ outputFormatter.prototype.format = function(success, code, data, args) {
     //Take all the arguments of this function except for success, code and data 
     var temp = Array.prototype.splice.call(arguments, 3, arguments.length - 1);
     newArr = lodash.concat(newArr, temp);
+    // TODO: Replace hardcoded version by version in input
     var response = {
         "success": success,
         "message": {

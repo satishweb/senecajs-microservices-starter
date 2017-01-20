@@ -2,7 +2,6 @@
 
 var Locale = require('./formatter');
 var utils = require('./utils');
-var authentication = require('./authentication');
 var outputFormatter = new Locale(__dirname + '/../');
 var lodash = require('lodash');
 var Joi = require('joi');
@@ -196,8 +195,7 @@ module.exports.saveUserDetails = function(User, userDetails, flag) {
 module.exports.callForgotPassword = function callForgotPassword(userDetails, header, seneca) {
     return new Promise(function(resolve) {
         // create JWT token to send in header
-        var token = authentication.createMsJwt({isMicroservice: true});
-        console.log("In callForgotPassword ------ ", userDetails.email);
+        var token = utils.createMsJwt({isMicroservice: true});
         
         // input to forgotPassword
         var body = {

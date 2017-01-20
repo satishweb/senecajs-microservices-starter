@@ -1,7 +1,6 @@
 'use strict';
 
 var utils = require(__base + 'sharedlib/utils');
-var authentication = require(__base + 'sharedlib/authentication');
 var Locale = require(__base + 'sharedlib/formatter');
 var outputFormatter = new Locale(__dirname + '/../');
 var lodash = require('lodash');

@@ -78,11 +78,6 @@ module.exports.deleteSessions = function deleteSessions(Session, userId, orgId, 
     }
     // remove sessions matching the find query
     Session.remove(find, function(err, response) {
-        if (err) {
-            console.log('Error in Delete Session', err);
-        } else {
-            console.log('Session Deleted');
-        }
     });
 };
 

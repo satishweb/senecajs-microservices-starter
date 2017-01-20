@@ -138,7 +138,7 @@ paths:
       description: "Signed in user can sign out."
       parameters:
         - name: Authorization
-          in: header
+          in: headers
           required: true
           type: string
           description: "JWT token"
@@ -181,7 +181,7 @@ paths:
       description: "Signed in user can change his/her password without entering the old password."
       parameters:
         - name: Authorization
-          in: header
+          in: headers
           required: true
           type: string
         - name: changePassword
@@ -206,10 +206,10 @@ paths:
       description: "User resets password using reset link sent on email by using Forgot Password API."
       parameters:
         - name: Authorization
-          in: header
+          in: headers
           required: true
           type: string
-        - name: resetPassword
+        - name: changePassword
           in: body
           required: true
           schema:
@@ -229,7 +229,7 @@ paths:
       description: "Checks if the reset token has expired or is invalid."
       parameters:
         - name: Authorization
-          in: header
+          in: headers
           required: true
           type: string
       responses:

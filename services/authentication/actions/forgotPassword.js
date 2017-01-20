@@ -31,31 +31,54 @@ var forgotPasswordSchema = Joi.object().keys({
  * Get the organization details from the origin URL
  * @method getOrgID
  * @param {String} orgId The value of organization Id or fromSignUp flag
- * @param {String} origin The URL that generated the request
+ * @param {String} header The request headers
  * @param {Seneca} seneca The seneca instance
  * @returns {Promise} Promise with the organization Id if successful, else resolved with null
  */
-function getOrgId(orgId, origin, seneca) {
-    return new Promise(function(resolve) {
+function getOrgId(orgId, header, seneca) {
+    return new Promise(function(resolve, reject) {
+
         // if orgId is absent and origin is present
-        if (!orgId && origin) {
-            // get the fqdn from the URL
-            var header = url.parse(origin);
-            header = header.host;
-            var urlComp = header.split(':');
-            // Pass the extracted fqdn to fetch the corresponding organization
-            utils.microServiceCall(seneca, 'organizations', 'getOrganization', { action: 'fqdn', 'fqdn': urlComp[0] }, null, function(err, result) {
-                if (err) {
-                    resolve(null);
-                } else {
-                    // if successful response, resolve the organization Id
-                    if (result.content.success) {
-                        resolve(result.content.data.orgId)
-                    } else {
-                        resolve(null);
-                    }
-                }
-            });
+        if (!orgId && header && (header.origin || header['user-agent'])) {
+            // check if the request has come from Postman
+            if ((process.env.SYSENV !== 'prod' && ((header.origin && header.origin.match('chrome-extension')) ||
+                (header['user-agent'] && header['user-agent'].match('PostmanRuntime'))))) {
+
+                // if request is from Postman, resolve with sample organization details
+                resolve({name: 'Example', orgId: '582090689210640000000006', ownerId: "582090689210640000000001"});
+            } else {
+
+                // if the request is not from Postman, separate the fqdn and fetch the matching organization
+
+                header = url.parse(header.origin);
+                header = header.host;
+                var urlComp = header.split(':');    // remove the trailing port for localhost
+
+                // find the organization corresponding to the sub-domain by calling getOrganization of organizations
+                // microservice
+                utils.microServiceCall(seneca, 'organizations', 'getOrganization', {action: 'fqdn', fqdn: urlComp[0]}, null,
+                    function (err, orgResult) {
+
+                        if (err) {
+                            resolve(err);
+                        } else if (orgResult.content && lodash.isEmpty(orgResult.content.data)) { // if data
+                            // returned is empty, organization was not found
+                            resolve(null);
+                        } else if (orgResult.content &&
+                            orgResult.content.data &&
+                            orgResult.content.data.isDeleted ==
+                            false) {
+                            // if organization details are returned, check if the organization has not been deleted and
+                            // return the details
+                            resolve(orgResult.content.data);
+                        } else {    // if organization has been deleted, return error message
+                            reject({
+                                id: 400,
+                                msg: 'This Organization is currently disabled. Please contact Organization Admin.'
+                            });
+                        }
+                    });
+            }
         } else {
             resolve(null);
         }
@@ -156,15 +179,15 @@ function createTokenAndSaveDetails(args, orgId, invitedUserDetails) {
  * @param {Object} args Used to get the input parameter (emailId)
  * @param {String} url Contains the reset URL to be sent in email
  * @param {Object} userDetails The user details fetched from database, used to get the user name for the email
+ * @param {Object} header The request headers to forward to send email
  * @param {Seneca} seneca The seneca instance, used to call other microservice
  * @returns {Promise} Promise containing true
  */
-function sendEmailToUser(args, url, userDetails, seneca) {
+function sendEmailToUser(args, url, userDetails, header, seneca) {
     return new Promise(function(resolve) {
         // if request is not from sendInvitations, send mail to user
         if (!args.body.fromInvitation) {
             // create JWT token for microservice call
-            var token = utils.createMsJwt();
             // default subject and content for formatter input
             var subject = "ResetPasswordSubject";
             var content = "ResetPasswordMessage";
@@ -180,7 +203,7 @@ function sendEmailToUser(args, url, userDetails, seneca) {
             // add array of emails and email content to the input
             body.emailId = [args.body.email];
             body.content = outputFormatter.email(content, userDetails.firstName, url, expireTime);
-            utils.microServiceCall(seneca, 'email', 'sendEmail', body, token, null);
+            utils.microServiceCall(seneca, 'email', 'sendEmail', body, header, null);
         }
         resolve(true);
     });
@@ -208,9 +231,8 @@ function sendResponse(result, done) {
  */
 
 module.exports = function(options) {
-    options = options || {};
+    // options = options || {};
     var seneca = options.seneca;
-
     return function(args, done) {
         
         // load mongoose models
@@ -227,10 +249,10 @@ module.exports = function(options) {
                 // set the reset password URL
                 resetURL = args.header ? args.header.origin || 'https://' + process.env.APP_URL : 'https://' + process.env.APP_URL;
                 resetURL = resetURL + '/#/reset-password?token=';
-                return getOrgId(args.body.orgId || args.body.fromSignUp, args.header.origin, seneca); // fetch user organization
+                return getOrgId(args.body.orgId || args.body.fromSignUp, args.header, seneca); // fetch user organization
             })
             .then(function(response) {
-                orgId = args.body.orgId || response;
+                orgId = response ? (args.body.orgId || response.orgId) : args.body.orgId;
                 // if organization id is returned, 
                 if (!lodash.isEmpty(orgId)) {
                     User = mongoose.model('DynamicUser', User.schema, orgId + '_users');
@@ -247,7 +269,7 @@ module.exports = function(options) {
             .then(function(result) {
                 resetURL = resetURL + result.token; // add created token to reset password URL
                 token = result.token;
-                return sendEmailToUser(args, resetURL, userDetails, seneca);
+                return sendEmailToUser(args, resetURL, userDetails, args.header, seneca);
             })
             .then(function() {
 

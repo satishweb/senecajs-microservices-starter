@@ -48,6 +48,20 @@
             ]
         }
     ]
+},{
+    "collection": "organizations",
+    "data": [
+        {
+            "_id" : "582090689210640000000006",
+            "ownerId" : "582090689210640000000001",
+            "isDeleted" : false,
+            "website" : "www.example.com",
+            "description" : "Example",
+            "fqdn" : "key-app-example-dev.example.com",
+            "domain" : "example.com",
+            "subDomain" : "key-app-example-dev",
+            "name" : "Example"
+        }]
 }, {
     "collection": "users",
     "data": [{
@@ -73,7 +87,7 @@
         "industry": "ABC",
         "informedAboutFacebookAuthentication": true,
         "currentOrgId": "582090689210640000000006",
-        "orgIds": ["582090689210640000000006", "582090689210640000000027"],
+        "orgIds": ["582090689210640000000006"],
         "isDeleted": false
     }]
 }, {

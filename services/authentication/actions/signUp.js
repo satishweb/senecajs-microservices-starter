@@ -1,7 +1,6 @@
 'use strict';
 
 var signUp = require(__base + 'sharedlib/signUp');
-var authentication = require(__base + 'sharedlib/authentication');
 var session = require(__base + 'sharedlib/session');
 var utils = require(__base + 'sharedlib/utils');
 var Locale = require(__base + 'sharedlib/formatter');
@@ -76,7 +75,7 @@ module.exports = function(options) {
         flag = false;   // used to determine if user is a new user or already registered user with other login type
         var finalResponse = null;   // stores the user details to be sent in response
 
-        signUp.checkInputParameters(args.body, signUpSchema)
+        utils.checkInputParameters(args.body, signUpSchema)
             .then(function() {
                 if (args.body.email) { // if email is present, convert email to lowercase
                     args.body.email = args.body.email.toLowerCase();
@@ -104,7 +103,7 @@ module.exports = function(options) {
                 finalResponse = response;   // store the final response for further use
                 // if user signed up using email, send confirmation mail with set password link
                 if (args.body.email) {
-                    return signUp.callForgotPassword(response.output, seneca);
+                    return signUp.callForgotPassword(response.output, args.header, seneca);
                 } else {    // else continue
                     return new Promise(function(resolve) {
                         resolve(response.output);

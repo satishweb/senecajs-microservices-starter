@@ -1,7 +1,6 @@
 'use strict';
 
-var response = require(__base + '/sharedlib/utils'); //what is response here???
-
+var utils = require(__base + '/sharedlib/utils'); //what is response here???
 var Locale = require(__base + '/sharedlib/formatter');
 var outputFormatter = new Locale(__dirname + '/../');
 var lodash = require('lodash');
@@ -24,7 +23,7 @@ var schema = Joi.object().keys({
 /**
  * Save invitation details in database
  * @method updateInvitation
- * @param {Object} args Used to get the input parameter
+ * @param {String} email Used to get the input parameter
  * @returns {Promise} Promise containing created invitation document if successful, else containing
  * the error message
  */
@@ -44,7 +43,7 @@ function updateInvitation(email) {
 /**
  * Formats the output response and returns the response
  * @method sendResponse
- * @param {String} result The final result to be returned, contains the token created
+ * @param {Object} result The final result to be returned, contains the token created
  * @param {Function} done The done formats and sends the response
  */
 function sendResponse(result, done) {
@@ -66,7 +65,7 @@ function sendResponse(result, done) {
 module.exports = function() {
 
     return function(args, done) {
-        console.log("------------- Delete invitation called ----------", args.body);
+        // console.log("------------- Delete invitation called ----------", args.body);
         Invitation = Invitation || mongoose.model('Invitations');
         utils.checkInputParameters(args.body, schema)
             .then(function() {

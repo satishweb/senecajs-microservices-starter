@@ -1,9 +1,8 @@
 'use strict';
-var util = require('util');
 var Boom = require('boom');
 var lodash = require('lodash');
 var session = require(__base + 'sharedlib/session.js');
-var authentication = require(__base + 'sharedlib/utils.js');
+var utils = require(__base + 'sharedlib/utils.js');
 
 /**
  * Function used for authorization before forwarding the request to the API

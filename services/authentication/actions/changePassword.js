@@ -3,7 +3,6 @@
 var mongoose = require('mongoose');
 var bcrypt = require('bcrypt');
 var utils = require(__base + 'sharedlib/utils');
-var authentication = require(__base + 'sharedlib/authentication');
 var Locale = require(__base + 'sharedlib/formatter');
 var outputFormatter = new Locale(__dirname + '/../');
 var Joi = require('joi');
@@ -117,11 +116,11 @@ var addInvitedToGeneral = function(userId, header, seneca) {
  * @param {Function} done The done formats and sends the response
  */
 var sendResponse = function(result, done) {
-    if (result !== null) {
+    if (result && result.nModified == 1) {
         done(null, { statusCode: 200, content: outputFormatter.format(true, 2050, null, 'Password') });
     } else {
-        var error = { id: 400, msg: 'Unexpected error' };
-        done(null, { statusCode: 200, content: utils.error(error.id, error.msg, microtime.now()) });
+        done(null, { statusCode: 200, content: outputFormatter.format(true, 1000, null, 'Something went wrong.' +
+            ' Please Try again.') });
     }
 };
 

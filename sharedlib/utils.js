@@ -42,12 +42,14 @@ module.exports.createJWT = function(userDetails, requestHeaders) {
         var key = process.env.JWT_SECRET_KEY;   // set the JWT key being used to sign the token
         var options = { expiresIn: process.env.JWT_EXPIRY_TIME }; // set the token expiry time
         var sessionData = { // Extract user details that need to be stored in the JWT token
-            firstName: userDetails.firstName,
-            lastName: userDetails.lastName,
-            avatar: userDetails.avatar,
-            userId: userDetails.userId,
-            emailId: userDetails.email,
-            accountType: userDetails.accountType,
+            firstName       : userDetails.firstName,
+            lastName        : userDetails.lastName,
+            orgId           : userDetails.orgId,
+            avatar          : userDetails.avatar,
+            userId          : userDetails.userId,
+            emailId         : userDetails.email,
+            isOwner         : userDetails.isOwner || false,
+            accountType     : userDetails.accountType,
             lastLoggedInTime: userDetails.lastLoggedInTime
         };
         var tokenData = { // Extract the request header details to be added to the token

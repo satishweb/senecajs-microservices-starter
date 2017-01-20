@@ -9,7 +9,6 @@ var mongoose = require('mongoose');
 var Promise = require('bluebird');
 var jwt = require('jsonwebtoken');
 var microtime = require('microtime');
-
 var utils = require(__base + '/sharedlib/utils'); // is this being used here????
 var Organization = null;
 

@@ -16,8 +16,8 @@ var nodemailer = require('nodemailer');
  * @module sendEmail
  */
 
-//Joi validation Schema
-//TODO: MOVE THIS
+    //Joi validation Schema
+    //TODO: MOVE THIS
 var validationSchema = Joi.object().keys({
     emailId: Joi.array().items(
         Joi.string().regex(/^\s*[\w\-\+​_]+(\.[\w\-\+_​]+)*\@[\w\-\+​_]+\.[\w\-\+_​]+(\.[\w\-\+_]+)*\s*$/).required()
@@ -46,10 +46,6 @@ var transporter = nodemailer.createTransport({
  */
 function sendEmail(body) {
     return new Promise(function(resolve) {
-        var accepted = []; // array to store the responses of each accepted email
-        var rejected = []; // array to store the responses of each rejected email
-        var emailLength = body.emailId.length;
-        body = JSON.parse(JSON.stringify(body));
         body.emailId = lodash.uniqBy(body.emailId); // remove any repeated emailIds
         // construct email message
         var message = {
@@ -64,18 +60,9 @@ function sendEmail(body) {
             // send the email
             transporter.sendMail(message, function(error, info) {
                 console.log("Info about Sending mail ---- ", error, info);
-                if (info) {
-                    //console.log(info.accepted[0], emailLength);
-                    if (info.accepted[0]) { accepted.push(info.accepted[0]); } // add the response returned to accepted array
-                    if (info.rejected[0]) { rejected.push(info.rejected[0]); } // add the response returned to rejected array
-                    emailLength--;
-                }
-                if (emailLength === 0) {
-                    //console.log(accepted);
-                    resolve({ accepted: accepted, rejected: rejected });
-                }
             });
         });
+        resolve();
     });
 }
 
@@ -104,30 +91,22 @@ var sendResponse = function(success, result, done) {
 module.exports = function(options) {
     var seneca = options.seneca;
     return function(args, done) {
-        //console.log(args.header);
-        if ((args.header.origin === process.env.HTTPSCHEME + '://' + process.env.APP_URL) || (process.env !== 'prod' && (args.header.origin && args.header.origin.match('chrome-extension')) || args.header['user-agent'].match('PostmanRuntime'))) {
+        if ((args.header.origin === process.env.HTTPSCHEME + '://' + process.env.APP_URL) ||
+            (process.env.SYSENV !== 'prod' && ((args.header.origin && args.header.origin.match('chrome-extension')) ||
+            (args.header['user-agent'] && args.header['user-agent'].match('PostmanRuntime'))))) {
             utils.checkInputParameters(args.body, validationSchema)
                 .then(function() {
-                    var body = JSON.parse(JSON.stringify(args.body));
-                    return sendEmail(body);
+                    return sendEmail(args.body);
                 })
                 .then(function(response) {
-                    return sendResponse(true, response, done);
+                    sendResponse(true, response, done);
                 })
                 .catch(function(error) {
                     seneca.log.error('[ ' + process.env.SRV_NAME + ': ' + __filename.split('/').slice(-1) + ' ]', "ERROR" + " : ", error);
-                    done(null, {
-                        statusCode: 200,
-                        content: error.success ===
-                            true ||
-                            error.success ===
-                            false ?
-                            error : utils.error(error.id || 400, error.msg || "Unexpected error", microtime.now())
-                    });
+                    sendResponse(false, error, done);
                 });
         } else {
             sendResponse(false, 'Host not allowed to send email using this API', done);
         }
-
     };
 };

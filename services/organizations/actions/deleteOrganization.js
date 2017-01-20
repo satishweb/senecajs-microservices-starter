@@ -1,7 +1,6 @@
 'use strict';
 
 var response = require(__base + '/sharedlib/utils'); //what is response here???
-
 var Locale = require(__base + '/sharedlib/formatter');
 var outputFormatter = new Locale(__base);
 var Joi = require('joi');

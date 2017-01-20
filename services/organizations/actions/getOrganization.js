@@ -40,7 +40,6 @@ function fetchOrganization(args) {
             find = { _id: args.orgId };
         }
         Organization.findOne(find, function(err, findResponse) {
-            console.log("Result of fetch ---- ", err, findResponse);
             if (err) {
                 reject({ id: 400, msg: err });
             } else {
@@ -90,7 +89,6 @@ function getOrganizationByFqdn(args, done) {
             return sendResponse(response, done);
         })
         .catch(function(err) {
-            console.log("Error in fetchOrganization FQDN----- ", err);
             done(null, {
                 statusCode: 200,
                 content: err.success === true || err.success === false ? err : response.error(err.id || 400, err ? err.msg : 'Unexpected error', microtime.now())
@@ -137,7 +135,6 @@ function fetchOrgById(orgId) {
             if (err) {
                 reject({ id: 400, msg: err.message });
             } else {
-                // console.log('fetch Contact ---- ', fetchResponse);
                 if (lodash.isEmpty(fetchResponse)) {
                     reject({ id: 400, msg: 'Organization not found.' });
                 } else {
@@ -148,20 +145,6 @@ function fetchOrgById(orgId) {
         })
     })
 }
-
-// /**
-//  * Formats the output response and returns the response.
-//  * @param result: The final result to return.
-//  * @param done: The done method that returns the response.
-//  */
-// var sendResponse = function (result, done) {
-//   if (result !== null) {
-//     done(null, {statusCode: 200, content: outputFormatter.format(true, 2040, result, 'Organization')});
-//   } else {
-//     var error = {id: 400, msg: 'Unexpected error'};
-//     done(null, {statusCode: 200, content: response.error(error.id, error.msg, microtime.now())});
-//   }
-// };
 
 function fetchOrganizationById(args, done) {
     utils.checkInputParameters(args.body, schemaById)
@@ -186,43 +169,6 @@ function fetchOrganizationById(args, done) {
 
 
 /********************************************* Fetch Organization List Start **************************************/
-
-
-// /**
-//  * Verify token and return the decoded token
-//  * @method verifyTokenAndDecode
-//  * @param {Object} args Used to access the JWT in the header
-//  * @returns {Promise} Promise containing decoded token if successful, else containing the error message
-//  */
-// function verifyTokenAndDecode(args) {
-//   return new Promise(function (resolve, reject) {
-//     jwt.verify(args.header.authorization, process.env.JWT_SECRET_KEY, function (err, decoded) {
-//       if (err) {
-//         reject({id: 404, msg: err});
-//       } else {
-//         resolve(decoded);
-//       }
-//     });
-//   });
-// }
-
-
-// /**
-//  * Formats the output response and returns the response.
-//  * @param result: The final result to return.
-//  * @param done: The done method that returns the response.
-//  */
-// var sendResponse = function (result, done) {
-//   if (result && result.configuration) {
-//     delete result.configuration;
-//   }
-//   if (result !== null) {
-//     done(null, {statusCode: 200, content: outputFormatter.format(true, 2040, result, 'Organization')});
-//   } else {
-//     var error = {id: 400, msg: 'Unexpected error'};
-//     done(null, {statusCode: 200, content: response.error(error.id, error.msg, microtime.now())});
-//   }
-// };
 
 //Joi validation Schema
 var schemaList = Joi.object().keys({

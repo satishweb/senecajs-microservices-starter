@@ -2,7 +2,6 @@
 
 var signIn = require(__base + 'sharedlib/signIn');
 var session = require(__base + 'sharedlib/session');
-var authentication = require(__base + 'sharedlib/authentication');
 var mongoose = require('mongoose');
 var lodash = require('lodash');
 var utils = require(__base + 'sharedlib/utils');
@@ -19,27 +18,27 @@ var isOwner = false;
  * @module signIn
  */
 
-// create Joi schema
+    // create Joi schema
 var signInSchema = Joi.object().keys({
-    type: Joi.string().trim().valid('email', 'google', 'linkedIn', 'facebook').required(),
-    email: Joi.string().trim().when('type', {
-        is: 'email',
+    type            : Joi.string().trim().valid('email', 'google', 'linkedIn', 'facebook').required(),
+    email           : Joi.string().trim().when('type', {
+        is  : 'email',
         then: Joi.string().regex(/^\s*[\w\-\+​_]+(\.[\w\-\+_​]+)*\@[\w\-\+​_]+\.[\w\-\+_​]+(\.[\w\-\+_]+)*\s*$/)
             .required()
     }), // required only if type is email
-    password: Joi.string().trim().when('type', {
-        is: 'email',
+    password        : Joi.string().trim().when('type', {
+        is  : 'email',
         then: Joi.string().required()
     }), // required only if type is email
-    socialId: Joi.string().trim().when('type', {
-        is: ['google', 'linkedIn', 'facebook'],
+    socialId        : Joi.string().trim().when('type', {
+        is  : ['google', 'linkedIn', 'facebook'],
         then: Joi.string().required()
     }), // required only if type is facebook or google
-    socialName: Joi.string().trim(),
+    socialName      : Joi.string().trim(),
     socialProfilePic: Joi.string().trim(),
-    socialEmail: Joi.string().regex(/^\s*[\w\-\+_]+(\.[\w\-\+_]+)*\@[\w\-\+_]+\.[\w\-\+_]+(\.[\w\-\+_]+)*\s*$/),
-    gender: Joi.string().trim(),
-    birthDate: Joi.string().trim()
+    socialEmail     : Joi.string().regex(/^\s*[\w\-\+_]+(\.[\w\-\+_]+)*\@[\w\-\+_]+\.[\w\-\+_]+(\.[\w\-\+_]+)*\s*$/),
+    gender          : Joi.string().trim(),
+    birthDate       : Joi.string().trim()
 }).without('email', ['socialId', 'socialEmail', 'socialName', 'socialProfilePic']);
 // if email is present, the other fields should not be present
 
@@ -49,18 +48,74 @@ var signInSchema = Joi.object().keys({
  * @param {Object} result - The final result to return.
  * @param {Function} done - the done formats and sends the response.
  */
-var sendResponse = function(result, done) {
+var sendResponse = function (result, done) {
     if (result !== null) {
         done(null, {
             statusCode: 200,
-            content: outputFormatter.format(true, 2010, result)
+            content   : outputFormatter.format(true, 2010, result)
         });
     } else {
         done(null, {
             statusCode: 200,
-            content: outputFormatter.format(false, 102)
+            content   : outputFormatter.format(false, 102)
         });
     }
+};
+
+/**
+ * Get the organization by matching the request header's origin to organization sub-domain.
+ * If request is from Postman, returns the sample organization from bootstrap.
+ * If the fqdn doesn't match with any organization's, null is returned.
+ * If the corresponding organization has been deleted, error message is returned.
+ * @method fetchOrganisationId
+ * @param {Object} header The input headers to get the request origin
+ * @param {Seneca} seneca The Seneca instance to call microservice
+ * @returns {Promise} Resolved promise containing the organization details if the request origin matches a non deleted
+ * organization or null if no match is found or rejected promise containing the error message.
+ */
+function fetchOrganisationId(header, seneca) {
+    return new Promise(function (resolve, reject) {
+        
+        // check if the request has come from Postman
+        if ((process.env.SYSENV !== 'prod' && ((header.origin && header.origin.match('chrome-extension')) ||
+            (header['user-agent'] && header['user-agent'].match('PostmanRuntime'))))) {
+
+            // if request is from Postman, resolve with sample organization details
+            resolve({name: 'Example', orgId: '582090689210640000000006', ownerId: "582090689210640000000001"});
+        } else {
+
+            // if the request is not from Postman, separate the fqdn and fetch the matching organization
+
+            header = url.parse(header.origin);
+            header = header.host;
+            var urlComp = header.split(':');    // remove the trailing port for localhost
+
+            // find the organization corresponding to the sub-domain by calling getOrganization of organizations
+            // microservice
+            utils.microServiceCall(seneca, 'organizations', 'getOrganization', {action: 'fqdn', fqdn: urlComp[0]}, null,
+                function (err, orgResult) {
+
+                    if (err) {
+                        resolve(err);
+                    } else if (orgResult.content && lodash.isEmpty(orgResult.content.data)) { // if data
+                        // returned is empty, organization was not found
+                        resolve(null);
+                    } else if (orgResult.content &&
+                        orgResult.content.data &&
+                        orgResult.content.data.isDeleted ==
+                        false) {
+                        // if organization details are returned, check if the organization has not been deleted and
+                        // return the details
+                        resolve(orgResult.content.data);
+                    } else {    // if organization has been deleted, return error message
+                        reject({
+                            id: 400,
+                            msg: 'This Organization is currently disabled. Please contact Organization Admin.'
+                        });
+                    }
+                });
+        }
+    });
 };
 
 /**
@@ -76,35 +131,43 @@ var sendResponse = function(result, done) {
  */
 
 function signInCall(ownerId, input, header, seneca) {
-    return new Promise(function(resolve, reject) {
+    return new Promise(function (resolve, reject) {
+
         // log in user depending on the sub domain
         signIn.loginUser(User, input, header, seneca)
-          .then(function(response) {
-              // if user is found and password matches, resolve the user details
-            resolve(response)})
-          .catch(function(err) {
-              // if user login fails the first time, check if user was not found in collection (code: 2270) and
-              // user was searched in the organization collection the first time
-            if (err.success == false && err.message.id == 2270 && ownerId) {
-                // if user was not found in organization collection, search in main user collection
-                User = mongoose.model('Users'); // change the mongoose model to point to main user collection
-                signIn.loginUser(User, input, header, seneca).then(function(response) {
-                    // if user is found, check if user is the owner of the organization
-                    // if owner, return the userDetails, else return error message
-                    if (response.userId == ownerId) {
-                        isOwner = true;
-                        resolve(response);
-                    } else {
-                        reject(outputFormatter.format(false, 2270, null, 'email'));
-                    }
-                }).catch(function(err) {
-                    // if error in signing in, return error
+            .then(function (response) {
+
+                // if user is found and password matches, resolve the user details
+                resolve(response)
+            })
+            .catch(function (err) {
+                
+                // if user login fails the first time, check if user was not found in collection (code: 2270) and if the
+                // user was searched in the organization collection
+                if (err.success == false && err.message.id == 2270 && ownerId) {
+
+                    // if user was not found in organization collection, search in main user collection
+                    User = mongoose.model('Users'); // change the mongoose model to point to main user collection
+                    signIn.loginUser(User, input, header, seneca).then(function (response) {
+                        // if user is found, check if user is the owner of the organization
+                        // if owner, return the userDetails, else return error message
+
+                        if (response.userId == ownerId) {
+                            isOwner = true;
+                            resolve(response);
+                        } else {
+                            reject(outputFormatter.format(false, 2270, null, 'email'));
+                        }
+                    }).catch(function (err) {
+                        // if error in signing in, return error
+                        reject(err);
+                    })
+                } else {
+                    // if user is not found and was not searched in organization collection, return
+                    // error
                     reject(err);
-                })
-            } else {
-                reject(err);
-            }
-        })
+                }
+            })
     });
 }
 
@@ -113,65 +176,79 @@ function signInCall(ownerId, input, header, seneca) {
  * Used to Sign in user using email or social login
  * @param {Object} options - Variables needed for database connection and microservices related details
  */
-module.exports = function(options) {
+module.exports = function (options) {
     options = options || {};
     var seneca = options.seneca;
-    return function(args, done) {
-        
+    return function (args, done) {
+
         var finalResponse = null;   // stores the final response to be returned
         var orgId = null;           // stores the organization Id fetched by sub-domain
         var orgName = null;         // stores the organization name
-        isOwner = false;            // whether the user is owner of the organization
+        isOwner = false;            // flag for whether the user is owner of the organization
 
         // load mongoose models
         User = mongoose.model('Users');
         Session = Session || mongoose.model('Sessions');
-        
+
         // if input contains email id, convert it to lowercase
         if (args.body.email) {
             args.body.email = args.body.email.toLowerCase();
         }
         utils.checkInputParameters(args.body, signInSchema)
-            .then(function() {
+            .then(function () {
                 return fetchOrganisationId(args.header, seneca);
             })
-            .then(function(response) {
+            .then(function (response) {
+
+                // if organization is returned, store the organization Id and name and switch the mongoose model to
+                // point to the organization users collection
                 if (!lodash.isEmpty(response)) {
                     orgId = response.orgId;
                     orgName = response.name;
                     User = mongoose.model('DynamicUser', User.schema, response.orgId + '_users');
                 }
-                var ownerId = response ? response.ownerId : null;
+                var ownerId = response ? response.ownerId : null;   // if organization is fetched, set the
+                // organization owner Id
                 return signInCall(ownerId, args.body, args.header, seneca);
-                // return signIn.loginUser(User, args.body, args.header, seneca);
             })
-            .then(function(userDetails) {
+            .then(function (userDetails) {
+                // if login was successful, update the last logged in time for user to current time
                 return signIn.updateLoginTime(User, userDetails);
             })
-            .then(function(userDetails) {
+            .then(function (userDetails) {
+
+                // if organization Id is not set, user is main user, so set isOwner to true
                 if (!orgId) {
                     isOwner = true;
                 }
+                // set the organization related fields in the response
                 userDetails.isOwner = isOwner;
                 userDetails.orgId = orgId;
+
+                // create JWT session token for the user
                 return utils.createJWT(userDetails, args.header);
             })
-            .then(function(response) {
+            .then(function (response) {
+                // store the final response to be returned
                 finalResponse = response.output;
+
+                // create a session in database using token and user details
                 return session.createSession(Session, response.output.token, response.sessionData);
             })
-            .then(function(response) {
+            .then(function (response) {
                 delete mongoose.connection.models['DynamicUser'];
-                finalResponse.orgName = orgName;
-                console.log("Final response ---- ", finalResponse);
+                finalResponse.orgName = orgName;    // add the organization name to the response
                 sendResponse(finalResponse, done);
             })
-            .catch(function(err) {
+            .catch(function (err) {
                 delete mongoose.connection.models['DynamicUser'];
                 // TODO: Implement this log for all messages
                 utils.senecaLog(seneca, 'error', __filename.split('/').slice(-1).join(''), err);
-                var error = err || { id: 400, msg: "Unexpected error" };
-                done(null, { statusCode: 200, content: 'success' in error ? error : utils.error(error.id, error.msg, microtime.now()) });
+                var error = err || {id: 400, msg: "Unexpected error"};
+                done(null, {
+                    statusCode: 200,
+                    content: 'success' in error ? error : utils.error(error.id, error.msg, microtime.now())
+                });
             });
     };
 };
