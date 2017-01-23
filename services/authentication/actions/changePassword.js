@@ -116,7 +116,8 @@ var addInvitedToGeneral = function(userId, header, seneca) {
  * @param {Function} done The done formats and sends the response
  */
 var sendResponse = function(result, done) {
-    if (result && result.nModified == 1) {
+    // if any document was modified or created, send success response
+    if (result && result.n == 1) {
         done(null, { statusCode: 200, content: outputFormatter.format(true, 2050, null, 'Password') });
     } else {
         done(null, { statusCode: 200, content: outputFormatter.format(true, 1000, null, 'Something went wrong.' +

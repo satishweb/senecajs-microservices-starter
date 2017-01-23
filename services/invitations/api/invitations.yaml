@@ -33,14 +33,10 @@ paths:
   "/v1/validateInvitation":
     post:
       parameters:
-        - name: invitation
-          in: body
+        - name: Authorization
+          in: headers
           required: true
-          schema:
-            type: object
-            properties:
-              token:
-                type: string
+          type: string
       responses:
         "200":
           description: "Ok"

@@ -1,7 +1,7 @@
 'use strict';
 
 var mongoose = require('mongoose');
-var response = require(__base + '/sharedlib/utils');
+var utils = require(__base + '/sharedlib/utils');
 var InitCompositeGrid = require(__base + '/sharedlib/grid/initCompositeGrid');
 var Joi = require('joi');
 var jwt = require('jsonwebtoken');
@@ -26,25 +26,6 @@ var userGetSchema = Joi.object().keys({
     sort: Joi.any().when('action', { is: 'list', then: Joi.object(), otherwise: Joi.any().forbidden() }),
     limit: Joi.any().when('action', { is: 'list', then: Joi.number(), otherwise: Joi.any().forbidden() })
 }).without('userId', ['searchKeyword', 'filter', 'sort', 'limit']);
-
-/**
- * Verify token and return the decoded token
- * @method verifyTokenAndDecode
- * @param {Object} token Used to access the JWT in the header
- * @returns {Promise} Promise containing decoded token if successful, else containing the error message
- */
-function verifyTokenAndDecode(token) {
-    return new Promise(function(resolve, reject) {
-        console.log("token ----- ", token);
-        jwt.verify(token, process.env.JWT_SECRET_KEY, function(err, decoded) {
-            if (err) {
-                reject({ id: 404, msg: err });
-            } else {
-                resolve(decoded);
-            }
-        });
-    });
-}
 
 var getUser = function(userId) {
     return new Promise(function(resolve, reject) {
@@ -161,7 +142,6 @@ var listUsers = function(input, orgId) {
  */
 var sendResponse = function(result, done) {
     if (result !== null) {
-        // console.log("Returning user ---- ", result);
         if (result && result.data) {
             result = result.data;
             if (result.configuration) {
@@ -190,17 +170,13 @@ var sendResponse = function(result, done) {
  * This is a POST action for the User microservice
  */
 module.exports = function(options) {
-
-    // options = options || {};
-    // var seneca = options.seneca;
+    var seneca = options.seneca;
     return function(args, done) {
-        // console.log("Get Channel called -----", args.body);
+        console.log("----------- Get users called -----------");
         User = mongoose.model('Users');
-        // if input contains email id, convert it to lowercase
         utils.checkInputParameters(args.body, userGetSchema)
             .then(function() {
-                console.log("Header ------ ", args.header.authorization);
-                return verifyTokenAndDecode(args.header.authorization)
+                return utils.verifyTokenAndDecode(args.header.authorization)
             })
             .then(function(decoded) {
                 switch (args.body.action) {
@@ -222,11 +198,9 @@ module.exports = function(options) {
                 }
             })
             .then(function(result) {
-                // console.log("Result ----- ", JSON.stringify(result), result.data.pagination.total, args.body.filter.userId.length, result.data.pagination.total < args.body.filter.userId.length);
                 return getOwners(args.body, result);
             })
             .then(function(result) {
-                // console.log("Result of getUsers ----- ", JSON.stringify(result));
                 delete mongoose.connection.models['DynamicUser'];
                 sendResponse(result, done);
             })

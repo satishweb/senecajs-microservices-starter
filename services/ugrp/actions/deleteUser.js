@@ -61,7 +61,7 @@ function deleteUser(args) {
 
 function removeFromGroups(userId) {
     return new Promise(function(resolve, reject) {
-        Group.update({ userIds: { $in: [userId] } }, { $pull: { userIds: { $in: [userId] } } }, { new: true }, function(err, updateResponse) {
+        Group.update({ userIds: { $in: [userId] } }, { $pull: { userIds: { $in: [userId] } } }, { new: true, multi: true }, function(err, updateResponse) {
             if (err) {
                 reject({ id: 400, msg: err });
             } else {

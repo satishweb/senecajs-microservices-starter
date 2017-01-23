@@ -91,22 +91,27 @@ var sendResponse = function(success, result, done) {
 module.exports = function(options) {
     var seneca = options.seneca;
     return function(args, done) {
-        if ((args.header.origin === process.env.HTTPSCHEME + '://' + process.env.APP_URL) ||
-            (process.env.SYSENV !== 'prod' && ((args.header.origin && args.header.origin.match('chrome-extension')) ||
-            (args.header['user-agent'] && args.header['user-agent'].match('PostmanRuntime'))))) {
-            utils.checkInputParameters(args.body, validationSchema)
-                .then(function() {
-                    return sendEmail(args.body);
-                })
-                .then(function(response) {
-                    sendResponse(true, response, done);
-                })
-                .catch(function(error) {
-                    seneca.log.error('[ ' + process.env.SRV_NAME + ': ' + __filename.split('/').slice(-1) + ' ]', "ERROR" + " : ", error);
-                    sendResponse(false, error, done);
-                });
-        } else {
-            sendResponse(false, 'Host not allowed to send email using this API', done);
-        }
+        utils.verifyTokenAndDecode(args.header.authorization)
+            .then(function (decodedToken){
+                if (decodedToken.isMicroservice || (args.header.origin === process.env.HTTPSCHEME + '://' + process.env.APP_URL) ||
+                    (process.env.SYSENV !== 'prod' && ((args.header.origin && args.header.origin.match('chrome-extension')) ||
+                    (args.header['user-agent'] && args.header['user-agent'].match('PostmanRuntime'))))) {
+                    return utils.checkInputParameters(args.body, validationSchema)
+                } else {
+                    return new Promise(function (resolve, reject) {
+                        reject('Host not allowed to send email using this API');
+                    })
+                }
+            })
+            .then(function() {
+                return sendEmail(args.body);
+            })
+            .then(function(response) {
+                sendResponse(true, response, done);
+            })
+            .catch(function(error) {
+                seneca.log.error('[ ' + process.env.SRV_NAME + ': ' + __filename.split('/').slice(-1) + ' ]', "ERROR" + " : ", error);
+                sendResponse(false, error, done);
+            });
     };
 };

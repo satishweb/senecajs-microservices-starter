@@ -80,14 +80,15 @@ module.exports.createMsJWT = function(input) {
  * Verify token and return the decoded token
  * @method verifyTokenAndDecode
  * @param {Object} token The token to be decoded
+ * @param {String} errorMsg The error message to be returned in case of invalid token
  * @returns {Promise} Promise containing decoded token if successful, else containing the error message
  */
-module.exports.verifyTokenAndDecode = function(token) {
+module.exports.verifyTokenAndDecode = function(token, errorMsg) {
     return new Promise(function(resolve, reject) {
         // use JWT's verify function that verifies the signature and decodes the token
         jwt.verify(token, process.env.JWT_SECRET_KEY, function(err, decoded) {
             if (err) {
-                reject({ id: 400, msg: err });
+                reject({ id: 400, msg: errorMsg || err });
             } else {
                 resolve(decoded);
             }
@@ -155,15 +156,15 @@ module.exports.microServiceCallPromise = function(seneca, role, cmd, body, heade
 };
 
 /**
- * Prints the formatted seneca logs with the service name, file name and message
+ * Prints the formatted seneca logs with the microservice name, file name and message
  * @function senecaLog
  * @param {seneca} seneca The seneca instance
- * @param {String} type The type of seneca log
+ * @param {String} type The type of seneca log(info, error, debug)
  * @param {String} file The name of the file
  * @param {String} msg The message to be printed
  */
 module.exports.senecaLog = function (seneca, type, file, msg) {
-    seneca.log[type]('[ ' + process.env.SRV_NAME + ' ]', file, msg);
+    seneca.log[type]('[ ' + process.env.SRV_NAME + ' : ' + file + ' ]', msg);
 };
 
 /**

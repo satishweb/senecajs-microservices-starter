@@ -6,6 +6,7 @@ module.exports = function(options) {
     options = options || {};
     var seneca = options.seneca;
     var log = (seneca && seneca.log) || console;
+    
     // schemas and modules compilation
     var Token = new mongoose.Schema({
         email: { type: String, default: null },

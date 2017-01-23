@@ -243,7 +243,7 @@ module.exports = function (options) {
             .catch(function (err) {
                 delete mongoose.connection.models['DynamicUser'];
                 // TODO: Implement this log for all messages
-                utils.senecaLog(seneca, 'error', __filename.split('/').slice(-1).join(''), err);
+                utils.senecaLog(seneca, 'error', __filename.split('/').pop(), err);
                 var error = err || {id: 400, msg: "Unexpected error"};
                 done(null, {
                     statusCode: 200,

@@ -29,7 +29,7 @@ var userSchema = Joi.object().keys({
     companyName: Joi.string().allow('').trim(),
     address: Joi.string().allow('').trim(),
     gender: Joi.string().trim().valid('male', 'female', 'other'), // specify allowed values for gender
-    birthDate: Joi.date().format('MM/DD/YYYY').allow(''), // specify date format
+    birthDate: Joi.date().allow(''), // specify date format
     facebookId: Joi.string().allow('').trim()
 });
 

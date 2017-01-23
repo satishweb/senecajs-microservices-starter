@@ -1,6 +1,6 @@
 'use strict';
 
-var utils = require(__base + '/sharedlib/utils'); //what is response here???
+var utils = require(__base + '/sharedlib/utils');
 var Locale = require(__base + '/sharedlib/formatter');
 var outputFormatter = new Locale(__dirname + '/../');
 var lodash = require('lodash');
@@ -21,19 +21,21 @@ var schema = Joi.object().keys({
 
 
 /**
- * Save invitation details in database
- * @method updateInvitation
- * @param {String} email Used to get the input parameter
- * @returns {Promise} Promise containing created invitation document if successful, else containing
+ * Delete invitation details in database
+ * @method deleteInvitation
+ * @param {String} email The email corresponding to the invitation to be deleted
+ * @returns {Promise} Promise containing response of remove operation if successful, else containing
  * the error message
  */
-function updateInvitation(email) {
+function deleteInvitation(email) {
     return new Promise(function(resolve, reject) {
-        Invitation.remove({ email: email }, function(err, findResponse) {
-            if (err || lodash.isEmpty(findResponse)) {
+        
+        // remove the invitation corresponding to the email address
+        Invitation.remove({ email: email }, function(err, removeResponse) {
+            if (err || removeResponse.n < 1) {
                 reject({ id: 400, msg: err || 'Invitation not found' });
             } else {
-                resolve(findResponse)
+                resolve(removeResponse)
             }
         })
     });
@@ -61,24 +63,36 @@ function sendResponse(result, done) {
     }
 }
 
-
-module.exports = function() {
-
+/**
+ * This is only called by other microservice, not an API
+ * It is used to delete the invitation that the user uses to register
+ * @param {Object} options Contains the seneca instance
+ */
+module.exports = function(options) {
+    var seneca = options.seneca;
     return function(args, done) {
-        // console.log("------------- Delete invitation called ----------", args.body);
+        
+        // load mongoose model for invitations
         Invitation = Invitation || mongoose.model('Invitations');
+        
+        // check if input parameters are according to schema
         utils.checkInputParameters(args.body, schema)
             .then(function() {
-                return updateInvitation(args.body.email)
+                // delete the invitation
+                return deleteInvitation(args.body.email)
             })
             .then(function(response) {
+                // send the response if no error occurred
                 return sendResponse(response, done);
             })
             .catch(function(err) {
-                console.log("Error in delete invitation ----- ", err);
+                // in case of error, print the error and send as response
+                utils.senecaLog(seneca, 'error', __filename.split('/').pop(), err);
+                
+                // if the error message is formatted, send it as reply, else format it and then send
                 done(null, {
                     statusCode: 200,
-                    content: err.success === true || err.success === false ? err : response.error(err.id || 400, err ? err.msg : 'Unexpected error', microtime.now())
+                    content: err.success === true || err.success === false ? err : utils.error(err.id || 400, err ? err.msg : 'Unexpected error', microtime.now())
                 });
             });
     };
