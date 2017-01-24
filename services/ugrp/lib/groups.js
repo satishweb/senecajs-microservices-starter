@@ -1,5 +1,6 @@
 'use strict';
 var lodash = require('lodash');
+var Promise = require('bluebird');
 var mongoose = require('mongoose');
 var jwt = require('jsonwebtoken');
 
@@ -29,12 +30,10 @@ module.exports.verifyTokenAndDecode = function(args) {
  * @param Model
  * @param groupId
  * @param userIds
- * @param orgId
- * @param seneca
  * @returns {Promise} Promise containing the created Group details if successful, else containing the appropriate
  * error message
  */
-module.exports.addUsers = function(Model, groupId, userIds, orgId, seneca) {
+module.exports.addUsers = function(Model, groupId, userIds) {
     return new Promise(function(resolve, reject) {
         Model.findOneAndUpdate({ _id: groupId }, { $addToSet: { userIds: { $each: userIds } } }, { new: true }, function(err, updateResponse) {
             if (err) {
@@ -44,13 +43,6 @@ module.exports.addUsers = function(Model, groupId, userIds, orgId, seneca) {
                     reject({ id: 400, msg: 'Invalid Group Id' });
                 } else {
                     updateResponse = JSON.parse(JSON.stringify(updateResponse));
-                    var msg = {
-                        path: "API URl",
-                        action: "users",
-                        data: []
-                    };
-                    msg.data.push(updateResponse);
-                    conversationLib.sendMessageToSocket(orgId, groupId, msg, seneca);
                     resolve(updateResponse);
                 }
             }
@@ -85,15 +77,6 @@ module.exports.removeUsers = function(Model, groupId, userIds, orgId, seneca) {
                     reject({ id: 400, msg: 'Invalid group Id' });
                 } else {
                     updateResponse = JSON.parse(JSON.stringify(updateResponse));
-                    if (!lodash.isEmpty(updateResponse.userIds)) {
-                        disableChat(Model, groupId);
-                    }
-                    var msg = {
-                        path: "API URl",
-                        action: "removeUsers",
-                        data: []
-                    };
-                    msg.data.push(updateResponse);
                     resolve(updateResponse);
                 }
             }

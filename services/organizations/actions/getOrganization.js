@@ -1,186 +1,65 @@
 'use strict';
 
-var response = require(__base + '/sharedlib/utils'); // what is response here????
+var utils = require(__base + '/sharedlib/utils');
 var Locale = require(__base + '/sharedlib/formatter');
 var outputFormatter = new Locale(__base);
 var InitCompositeGrid = require(__base + '/sharedlib/grid/initCompositeGrid');
 var lodash = require('lodash');
 var Joi = require('joi');
-var mongoose = require('mongoose'); //is this being used here??
+var mongoose = require('mongoose');
 var Promise = require('bluebird');
-var jwt = require('jsonwebtoken');
 var microtime = require('microtime');
 var Organization = null;
 
 /**
- * @module fetchOrganization
+ * @module getOrganization
  */
 
-//Joi validation Schema
-//TODO: MOVE
-var schemaByFqdn = Joi.object().keys({
-    fqdn: Joi.string(),
-    orgId: Joi.string()
-}).without('fqdn', 'orgId').without('orgId', 'fqdn');
 
 /**
- * Fetch Organization details
+ * Fetch Organization details by fqdn or organization Id
  * @method fetchOrganization
  * @param {Object} args Used to get input parameters
- * @returns {Promise} Promise containing created Organization document if successful, else containing
+ * @returns {Promise} Promise containing matching Organization document if successful, else containing
  * the error message
  */
 function fetchOrganization(args) {
     return new Promise(function(resolve, reject) {
         var find = null;
+
+        // if input has fqdn in input, create find query using fqdn in query
         if (args.fqdn) {
-            find = { fqdn: args.fqdn };
+            find = { fqdn: args.fqdn, isDeleted: false};
         }
+        // if input has organization Id in input, create find query using organization Id
         if (args.orgId) {
-            find = { _id: args.orgId };
+            find = { _id: args.orgId, isDeleted: false};
         }
+
+        // Find the organization using find query created
         Organization.findOne(find, function(err, findResponse) {
-            if (err) {
-                reject({ id: 400, msg: err });
-            } else {
-                if (lodash.isEmpty(findResponse)) {
-                    reject({ id: 400, msg: 'Invalid organization.' })
-                } else {
-                    findResponse = JSON.parse(JSON.stringify(findResponse));
-                    resolve(findResponse);
-                }
+            // if error or organization is not found, reject with error message
+            if (err || lodash.isEmpty(findResponse)) {
+                reject({ id: 400, msg: err || 'Invalid organization.'});
+            } else { // else return organization document fetched
+                findResponse = JSON.parse(JSON.stringify(findResponse));
+                resolve(findResponse);
             }
         })
     });
 }
 
-
 /**
- * Formats the output response and returns the response
- * @method sendResponse
- * @param {String} result The final result to be returned, contains the token created
- * @param {Function} done The done formats and sends the response
+ * Fetch list of organizations using grid library for searching, filtering, sorting and pagination
+ * @method getOrganizationList
+ * @param {Seneca} seneca The seneca instance used for microservice calls in grid library
+ * @param {Object} input The input
+ * @returns {Promise} Promise containing the formatted result if resolved successfully or the error if rejected.
  */
-function sendResponse(result, done) {
-    if (result && result.configuration) {
-        delete result.configuration;
-    }
-    if (result !== null) {
-        done(null, {
-            statusCode: 200,
-            content: outputFormatter.format(true, 2040, result, 'Organization')
-        });
-    } else {
-        //else return error
-        done(null, {
-            statusCode: 200,
-            content: outputFormatter.format(false, 102)
-        });
-    }
-}
 
-
-function getOrganizationByFqdn(args, done) {
-    utils.checkInputParameters(args.body, schemaByFqdn)
-        .then(function() {
-            return fetchOrganization(args.body);
-        })
-        .then(function(response) {
-            return sendResponse(response, done);
-        })
-        .catch(function(err) {
-            done(null, {
-                statusCode: 200,
-                content: err.success === true || err.success === false ? err : response.error(err.id || 400, err ? err.msg : 'Unexpected error', microtime.now())
-            });
-        });
-}
-
-/********************************************* Fetch Organization by FQDN End ***************************************/
-
-
-/********************************************* Fetch Organization by ID Start ***************************************/
-
-var schemaById = Joi.object().keys({
-    orgId: Joi.string().required()
-});
-
-/**
- * Verify token and return the decoded token
- * @method verifyTokenAndDecode
- * @param {Object} args Used to access the JWT in the header
- * @returns {Promise} Promise containing decoded token if successful, else containing the error message
- */
-function verifyTokenAndDecode(args) {
-    return new Promise(function(resolve, reject) {
-        jwt.verify(args.header.authorization, process.env.JWT_SECRET_KEY, function(err, decoded) {
-            if (err) {
-                reject({ id: 404, msg: err });
-            } else {
-                resolve(decoded);
-            }
-        });
-    });
-}
-
-/**
- * Fetch Organization details
- * @method fetchOrgById
- * @param {String}orgId Organisation Id
- * @returns {Promise} Promise containing the Contact details if resolved, else the error message
- */
-function fetchOrgById(orgId) {
-    return new Promise(function(resolve, reject) {
-        Organization.findOne({ _id: orgId, isDeleted: false }, function(err, fetchResponse) {
-            if (err) {
-                reject({ id: 400, msg: err.message });
-            } else {
-                if (lodash.isEmpty(fetchResponse)) {
-                    reject({ id: 400, msg: 'Organization not found.' });
-                } else {
-                    fetchResponse = JSON.parse(JSON.stringify(fetchResponse));
-                    resolve(fetchResponse);
-                }
-            }
-        })
-    })
-}
-
-function fetchOrganizationById(args, done) {
-    utils.checkInputParameters(args.body, schemaById)
-        .then(function() {
-            return verifyTokenAndDecode(args);
-        })
-        .then(function() {
-            return fetchOrgById(args.body.orgId);
-        })
-        .then(function(response) {
-            sendResponse(response, done)
-        })
-        .catch(function(err) {
-            console.log("Error in fetch Organisation ID --- ", err);
-            done(null, {
-                statusCode: 200,
-                content: response.error(err.id || 400, err.msg ? err.msg : 'Unexpected error', microtime.now())
-            });
-        });
-}
-/********************************************* Fetch Organization by ID End ****************************************/
-
-
-/********************************************* Fetch Organization List Start **************************************/
-
-//Joi validation Schema
-var schemaList = Joi.object().keys({
-    filter: Joi.object(),
-    searchKeyword: Joi.object(),
-    sort: Joi.object(),
-    limit: Joi.number()
-});
-
-function getOrganizationList(options, args, done) {
-    var seneca = options.seneca;
-    var config = {};
+function getOrganizationList(seneca, input) {
+    var config;
+    // create the configuration object for grid
     var collection = {
         "orgId": {
             "databaseName": "_id",
@@ -215,69 +94,153 @@ function getOrganizationList(options, args, done) {
             "show": false
         }
     };
-    utils.checkInputParameters(args.body, schemaList)
-        .then(function() {
-            return verifyTokenAndDecode(args)
-        })
-        .then(function() {
-            config = { 'listOrganization': { 'collections': {} } };
-            config.listOrganization.collections['organizations'] = collection;
+    config = { 'listOrganization': { 'collections': {} } };
+    config.listOrganization.collections['organizations'] = collection;
 
-            if (args.body && args.body.filter && args.body.filter.ownerId) {
-                var idArray = [];
-                args.body.filter.ownerId.forEach(function(items) {
-                    idArray.push(mongoose.Types.ObjectId(items));
-                });
-                args.body.filter.ownerId = idArray;
-            }
-            if (args.body.filter) {
-                args.body.filter.isDeleted = false;
-            } else {
-                args.body.filter = {
-                    isDeleted: false
-                }
-            }
-            var compositeGrid = InitCompositeGrid.initFromConfigObject(args.body, 'listOrganization', mongoose.connection.db, seneca, config);
-            return compositeGrid.fetch()
-        })
-        .then(function(response) {
-            sendResponse(response.data, done)
-        })
-        .catch(function(err) {
-            console.log("Error in fetch Organisation list --- ", err);
-            done(null, {
-                statusCode: 200,
-                content: response.error(err.id || 400, err.msg ? err.msg : 'Unexpected error', microtime.now())
-            });
+    // if the input contains ownerIds in filter, convert them to mongoose ObjectIds
+    if (input && input.filter && input.filter.ownerId) {
+        var idArray = [];
+        input.filter.ownerId.forEach(function(items) {  // iterate over the owner Ids
+            idArray.push(mongoose.Types.ObjectId(items));   // convert the owner Id to Object Id and add to new array
         });
+        input.filter.ownerId = idArray; // replace input array with converted array of owner Ids
+    }
+
+    // add filter to always return only non deleted organizations
+    // if filter is present in input, add it to filter
+    if (input.filter) {
+        input.filter.isDeleted = false;
+    } else {    // if filter object is not present in input, create filter and set is deleted
+        input.filter = {
+            isDeleted: false
+        }
+    }
+
+    // create instance of composite grid from config object created
+    var compositeGrid = InitCompositeGrid.initFromConfigObject(input, 'listOrganization', mongoose.connection.db, seneca, config);
+
+    // fetch the result using instance
+    return compositeGrid.fetch();
 }
-/********************************************* Fetch Organization List End ****************************************/
 
+/**
+ * Formats the output response and returns the response
+ * @method sendResponse
+ * @param {String} result The final result to be returned, contains the token created
+ * @param {Function} done The done formats and sends the response
+ */
+function sendResponse(result, done) {
+    // list output is already formatted and contains configurations object
+    // if success is present in result, no need to format output and remove configuration object
+    if ('success' in result) {
+        // used to remove configuration object from list output
+        // if configuration is present in output, delete it
+        if (result && result.data && result.data.configuration) {
+            delete result.data.configuration;
+        }
+        done(null, { statusCode: result.success ? 200 : 400, content: result})
+    } else if (!lodash.isEmpty(result)) {   // else format the output
+        done(null, {
+            statusCode: 200,
+            content: outputFormatter.format(true, 2040, result, 'Organization')
+        });
+    } else {    //else return error
+        done(null, {
+            statusCode: 200,
+            content: outputFormatter.format(false, 102)
+        });
+    }
+}
 
+/**
+ * Creates a Joi validation schema depending on the input action. If an incorrect action is provided, error is returned.
+ * @method createSchema
+ * @param {Object} input The input
+ * @returns {Promise} The Promise containing the Joi validation schema created according to the input action or the
+ * error message if incorrect or no action provided.
+ */
 
-module.exports = function(options) {
-    return function(args, done) {
-        Organization = Organization || mongoose.model('Organizations');
-        // console.log("-------------- getOrganization called ---------------", args.body);
-        switch (args.body.action) {
+function createSchema (input) {
+    var joiSchema;
+    return new Promise(function (resolve, reject) {
+        switch (input.action) {
+            // if action is either 'id' or 'fqdn', create same schema
             case 'id':
-                delete args.body.action;
-                fetchOrganizationById(args, done);
-                break;
             case 'fqdn':
-                delete args.body.action;
-                getOrganizationByFqdn(args, done);
+                //Joi validation Schema for action fqdn or orgId
+                //TODO: MOVE
+                joiSchema = Joi.object().keys({
+                    fqdn : Joi.string(),
+                    orgId: Joi.string()
+                }).without('fqdn', 'orgId').without('orgId', 'fqdn'); // input should have either fqdn or orgId
+                resolve(joiSchema);
                 break;
             case 'list':
-                delete args.body.action;
-                getOrganizationList(options, args, done);
+                //Joi validation Schema for list
+                joiSchema = Joi.object().keys({
+                    filter       : Joi.object(),
+                    searchKeyword: Joi.object(),
+                    sort         : Joi.object(),
+                    limit        : Joi.number()
+                });
+                resolve(joiSchema);
                 break;
             default:
+                // if action doesn't match any of the above, return error
+                reject({id: 400, msg: "Enter a valid action."});
+        }
+    });
+}
+
+/**
+ * This is a POST action for the Organizations microservice
+ * It fetches a single organization if input action is 'id' or 'fqdn', or a list of organizations if input action is
+ * 'list'. If action doesn't match the above actions or no action provided, it returns an error message.
+ * @param {Object} options Contains the seneca instance
+ */
+
+module.exports = function(options) {
+    var seneca = options.seneca;
+    return function(args, done) {
+        var action = null;
+
+        // load the mongoose model for Organizations
+        Organization = Organization || mongoose.model('Organizations');
+
+        // create appropriate schema depending on input action
+        createSchema(args.body)
+            .then(function (schema){
+
+                // copy the action before deleting it from input
+                action = args.body.action;
+                delete args.body.action;    // delete action from input
+
+                // validate input against Joi schema
+                return utils.checkInputParameters(args.body, schema);
+            })
+            .then(function () {
+                // depending on action, call appropriate function
+                switch (action) {
+                    case 'id':
+                    case 'fqdn':
+                        return fetchOrganization(args.body);    // if action is 'fqdn' or 'id', call fetchOrganization
+                        break;
+                    case 'list':
+                        return getOrganizationList(options, args.body); // if action is 'list', call getOrganizationList
+                }
+            })
+            .then(function (result) {
+                sendResponse(result, done);
+            })
+            .catch(function (err) {
+                // in case of error, print the error and send as response
+                utils.senecaLog(seneca, 'error', __filename.split('/').pop(), err);
+
+                // if the error message is formatted, send it as reply, else format it and then send
                 done(null, {
                     statusCode: 200,
-                    content: response.error(400, 'Enter a valid action', microtime.now())
+                    content: err.success === true || err.success === false ? err : utils.error(err.id || 400, err ? err.msg : 'Unexpected error', microtime.now())
                 });
-                break;
-        }
+            })
     };
 };

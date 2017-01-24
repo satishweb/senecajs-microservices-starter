@@ -57,7 +57,7 @@ function deleteOrganization(orgId) {
         // update the organization to isDeleted true by the orgId and return the updated document
         Organization.findOneAndUpdate({ _id: orgId }, { 'isDeleted': true }, { new: true }, function(err, updateResponse) {
             if (err || lodash.isEmpty(updateResponse)) {  // if error or empty, reject with the error message
-                reject({ id: 400, msg: err || "Invalid Organization Id"});
+                reject({ id: 400, msg: err.message || "Invalid Organization Id"});
             } else {    // resolve the returned updated organization document
                 updateResponse = JSON.parse(JSON.stringify(updateResponse));
                 resolve(updateResponse);
@@ -105,7 +105,7 @@ module.exports = function(options) {
         utils.checkInputParameters(args.body, OrganizationSchema)
             .then(function() {
                 // verify and decode input token and check if owner
-                return verifyTokenAndDecode(args.headers.authorization);
+                return verifyTokenAndDecode(args.header.authorization);
             })
             .then(function() {
                 // soft delete the organization

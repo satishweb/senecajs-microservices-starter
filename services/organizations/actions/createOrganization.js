@@ -94,7 +94,7 @@ function createOrganization(ownerId, input) {
  */
 function createDefaultGroup(header, seneca) {
     // make seneca call to create group named 'users'
-    utils.microServiceCall(seneca, 'groups', 'createGroup', { name: 'users' }, header, null);
+    utils.microServiceCall(seneca, 'ugrp', 'createGroup', { name: 'users' }, header, null);
 }
 
 /**
@@ -108,7 +108,7 @@ function createDefaultGroup(header, seneca) {
  */
 function addToUserOrg(orgId, userId, header, seneca) {
     // make seneca call to add organization to user's array of organization Ids
-    utils.microServiceCall(seneca, 'users', 'addOrganization', { userId: userId, orgId: orgId }, header, null);
+    utils.microServiceCall(seneca, 'ugrp', 'addOrganization', { userId: userId, orgId: orgId }, header, null);
 }
 
 /**

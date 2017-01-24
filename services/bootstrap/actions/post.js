@@ -70,6 +70,14 @@ var convertObjectIds = function() {
                       // URL to the image address if it has been uploaded.
                     }*/
                 }
+
+                if (items.collection === 'organizations') { // check if collection is user collection
+
+                    // if organizations contains owner Id, convert the owner Id to ObjectId
+                    if (item.ownerId) {
+                        item.ownerId = new mongodb.ObjectID(item.ownerId);   // convert owner id to ObjectId
+                    }
+                }
             });
         });
         resolve(true);

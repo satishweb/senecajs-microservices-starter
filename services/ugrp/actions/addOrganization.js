@@ -1,13 +1,12 @@
 'use strict';
 
-var response = require(__base + '/sharedlib/utils');
+var utils = require(__base + '/sharedlib/utils');
 var Locale = require(__base + '/sharedlib/formatter');
 var outputFormatter = new Locale(__base);
 var Joi = require('joi');
 var lodash = require('lodash');
 var mongoose = require('mongoose');
 var Promise = require('bluebird');
-var jwt = require('jsonwebtoken');
 var microtime = require('microtime');
 var User = null;
 
@@ -22,61 +21,26 @@ var userSchema = Joi.object().keys({
 });
 
 /**
- * Check input parameter using Joi
- * @method checkInputParameters
- * @param {Object} args Used to get the input parameters to validate
- * @returns {Promise} Promise containing true if input validated successfully, else containing the error message
- */
-function checkInputParameters(args) {
-    return new Promise(function(resolve, reject) {
-        Joi.validate(args.body, userSchema, function(err) {
-            if (err) {
-                reject({ id: 400, msg: err.details[0].message });
-            } else {
-                resolve(true);
-            }
-        });
-    });
-}
-
-/**
- * Verify token and return the decoded token
- * @method verifyTokenAndDecode
- * @param {Object} args Used to access the JWT in the header
- * @returns {Promise} Promise containing decoded token if successful, else containing the error message
- */
-function verifyTokenAndDecode(args) {
-    return new Promise(function(resolve, reject) {
-        jwt.verify(args.header.authorization, process.env.JWT_SECRET_KEY, function(err, decoded) {
-            if (err) {
-                reject({ id: 404, msg: err });
-            } else {
-                resolve(decoded);
-            }
-        });
-    });
-}
-
-/**
- * Update user details
+ * Update user details by adding organization Id to user's organization array
  * @method updateUser
- * @param {Object} args Used to get the input user details
+ * @param {Object} input Used to get the input user details, user Id and organization Id
  * @returns {Promise} Promise containing the updated user details if successful, else containing the appropriate
  * error message
  */
-function updateUser(args) {
+function updateUser(input) {
     return new Promise(function(resolve, reject) {
-        User.update({ _id: args.userId }, { $addToSet: { orgIds: args.orgId } }, { new: true }, function(err, updateResponse) {
-            if (err) {
+        // Update the user document by adding the organization Id to array of organizations
+        // addToSet makes sure there are no duplicates by not adding an existing organization Id
+        User.update({ _id: input.userId }, { $addToSet: { orgIds: input.orgId } }, function(err, updateResponse) {
+            if (err) {  // if there is an error in updating, return error
                 reject({ id: 400, msg: err });
-            } else {
+            } else {    // return the response of update query in case of no errors
                 updateResponse = JSON.parse(JSON.stringify(updateResponse));
                 resolve(updateResponse);
             }
         });
     });
 }
-
 
 /**
  * Formats the output response and returns the response
@@ -99,25 +63,40 @@ function sendResponse(result, done) {
     }
 }
 
+/**
+ * This action has no API end point, called by actions in other microservices
+ * It adds the organization Id provided in the user's array of organization Ids.
+ * @param {Object} options Contains the seneca instance
+ */
 
-module.exports = function() {
+module.exports = function(options) {
+    var seneca = options.seneca;
     return function(args, done) {
+
+        // load the mongoose model for Users
         User = User || mongoose.model('Users');
-        checkInputParameters(args)
+        
+        // validate input parameters as per Joi schema
+        utils.checkInputParameters(args.body, userSchema)
             .then(function() {
-                return verifyTokenAndDecode(args);
+                // verify and decode JWT token
+                return utils.verifyTokenAndDecode(args);
             })
-            .then(function(response) {
+            .then(function() {
+                // update the user document by adding the organization Id
                 return updateUser(args.body);
             })
             .then(function(response) {
                 sendResponse(response, done);
             })
             .catch(function(err) {
-                console.log('err in add organization------- ', err);
+                // in case of error, print the error and send as response
+                utils.senecaLog(seneca, 'error', __filename.split('/').pop(), err);
+
+                // if the error message is formatted, send it as reply, else format it and then send
                 done(null, {
                     statusCode: 200,
-                    content: response.error(err.id || 400, err.msg ? err.msg : 'Unexpected error', microtime.now())
+                    content: err.success === true || err.success === false ? err : utils.error(err.id || 400, err ? err.msg : 'Unexpected error', microtime.now())
                 });
             });
     };

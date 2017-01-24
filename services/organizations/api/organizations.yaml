@@ -31,7 +31,7 @@ paths:
       security:
         - jwt.secured: []
   "/v1/update":
-    post:
+    put:
       parameters:
         - name: updateOrganization
           in: body

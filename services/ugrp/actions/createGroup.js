@@ -1,14 +1,13 @@
 'use strict';
 
-var response = require(__base + '/sharedlib/utils');
-var groupsLib = require(__base + '/sharedlib/groups');
+var utils = require(__base + '/sharedlib/utils');
+var groupsLib = require(__base + '/lib/groups');
 var Locale = require(__base + '/sharedlib/formatter');
 var outputFormatter = new Locale(__base);
 var Joi = require('joi');
 var lodash = require('lodash');
 var mongoose = require('mongoose');
 var Promise = require('bluebird');
-var jwt = require('jsonwebtoken');
 var microtime = require('microtime');
 var Group = null;
 var User = null;
@@ -50,7 +49,6 @@ function createGroup(ownerId, orgId, input) {
             data.chatEnabled = true;
         }
         data = lodash.assign(data, input);
-        // console.log("Data ----- ", data);
         var newGroup = new Group(data);
         newGroup.save(function(err, response) {
             if (err) {
@@ -80,16 +78,8 @@ function createGroup(ownerId, orgId, input) {
 //TODO: Remove this function and use from utils
 function fetchOrganizationDetails(orgId, token, seneca) {
     return new Promise(function(resolve, reject) {
-        seneca.client({
-            type: 'seneca-amqp-transport',
-            pin: ['role:*,cmd:*'].join(''),
-            host: process.env.QUEUE_HOST || '0.0.0.0'
-        }).act({
-            role: 'organizations',
-            cmd: 'getOrganization',
-            body: { action: "fqdn", orgId: orgId },
-            header: token
-        }, function(err, result) {
+        utils.microServiceCall(seneca, 'organizations', 'getOrganization', {action: "fqdn", orgId: orgId}, token, 
+            function(err, result) {
             if (err || !result.content.success) {
                 reject({ id: 400, msg: err || result.content.message.description });
             } else {
