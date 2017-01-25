@@ -171,7 +171,7 @@ module.exports = function(options) {
                     isOwner: true
                 };
                 var header = utils.createMsJWT(data); // create JWT token using above data
-                // create defaultgroup in the organization
+                // create default group in the organization
                 createDefaultGroup(header, seneca);
                 // add created organization to user's list of organizations
                 addToUserOrg(response.orgId, response.ownerId, header, seneca);

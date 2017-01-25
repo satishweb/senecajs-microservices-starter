@@ -73,6 +73,8 @@ module.exports = function(options) {
     var seneca = options.seneca;
     return function(args, done) {
 
+        console.log("Add Organization called ------- ", args.body);
+
         // load the mongoose model for Users
         User = User || mongoose.model('Users');
         
@@ -80,7 +82,7 @@ module.exports = function(options) {
         utils.checkInputParameters(args.body, userSchema)
             .then(function() {
                 // verify and decode JWT token
-                return utils.verifyTokenAndDecode(args);
+                return utils.verifyTokenAndDecode(args.header.authorization);
             })
             .then(function() {
                 // update the user document by adding the organization Id

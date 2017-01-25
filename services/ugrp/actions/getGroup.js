@@ -1,6 +1,6 @@
 'use strict';
 
-var response = require(__base + '/sharedlib/utils');
+var utils = require(__base + '/sharedlib/utils');
 var InitCompositeGrid = require(__base + '/sharedlib/grid/initCompositeGrid');
 var Locale = require(__base + '/sharedlib/formatter');
 var outputFormatter = new Locale(__base);

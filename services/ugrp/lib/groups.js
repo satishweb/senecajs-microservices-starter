@@ -35,18 +35,23 @@ module.exports.verifyTokenAndDecode = function(args) {
  */
 module.exports.addUsers = function(Model, groupId, userIds) {
     return new Promise(function(resolve, reject) {
-        Model.findOneAndUpdate({ _id: groupId }, { $addToSet: { userIds: { $each: userIds } } }, { new: true }, function(err, updateResponse) {
-            if (err) {
-                reject({ id: 400, msg: err });
-            } else {
-                if (lodash.isEmpty(updateResponse)) {
-                    reject({ id: 400, msg: 'Invalid Group Id' });
-                } else {
-                    updateResponse = JSON.parse(JSON.stringify(updateResponse));
-                    resolve(updateResponse);
-                }
-            }
-        })
+        if (userIds) {
+            Model.findOneAndUpdate({_id: groupId}, {$addToSet: {userIds: {$each: userIds}}}, {new: true},
+                function (err, updateResponse) {
+                    if (err) {
+                        reject({id: 400, msg: err});
+                    } else {
+                        if (lodash.isEmpty(updateResponse)) {
+                            reject({id: 400, msg: 'Invalid Group Id'});
+                        } else {
+                            updateResponse = JSON.parse(JSON.stringify(updateResponse));
+                            resolve(updateResponse);
+                        }
+                    }
+                })
+        } else {
+            resolve();
+        }
     });
 };
 
@@ -61,12 +66,10 @@ module.exports.addGroupInUser = function(User, groupId, userIds) {
  * @param Model
  * @param groupId
  * @param userIds
- * @param orgId
- * @param seneca
  * @returns {Promise} Promise containing the created group details if successful, else containing the appropriate
  * error message
  */
-module.exports.removeUsers = function(Model, groupId, userIds, orgId, seneca) {
+module.exports.removeUsers = function(Model, groupId, userIds) {
     return new Promise(function(resolve, reject) {
         Model.findOneAndUpdate({ _id: groupId }, { $pull: { userIds: { $in: userIds } } }, function(err, updateResponse) {
             // console.log('args--------- ', err, updateResponse);

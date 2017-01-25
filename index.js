@@ -17,13 +17,13 @@ function dbInit() {
     seneca.log.info('[ ' + process.env.SRV_NAME + ' ]', 'DB NAME: ', process.env.DB_NAME);
     var connection = mongoose.connection;
     // enables the debug mode of mongoose depending on the value of debug from 
-    mongoose.set('debug', function (){
+    mongoose.set('debug', true);/*function (){
         if (process.env.DEBUG) {    // return true if debug mode is on
             return true;
         } else {
             return false;   // return false if debug mode is off
         }
-    });
+    }*/
 
     // if mongodb connection gives error, show error message
     connection.on('error', function(error) {

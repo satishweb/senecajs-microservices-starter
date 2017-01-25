@@ -1,6 +1,6 @@
 'use strict';
 
-var response = require(__base + '/sharedlib/utils');
+var utils = require(__base + '/sharedlib/utils');
 var groupsLib = require(__base + '/lib/groups');
 var Locale = require(__base + '/sharedlib/formatter');
 var outputFormatter = new Locale(__base);
@@ -8,11 +8,10 @@ var Joi = require('joi');
 var lodash = require('lodash');
 var mongoose = require('mongoose');
 var Promise = require('bluebird');
-var jwt = require('jsonwebtoken');
 var microtime = require('microtime');
 var Group = null;
 var User = null;
-var Contact = null;
+
 /**
  * @module deleteGroup
  */
@@ -23,40 +22,42 @@ var GroupSchema = Joi.object().keys({
 });
 
 /**
- * Verify token and return the decoded token
+ * Verify token and return the decoded token if it belongs to organization owner
  * @method verifyTokenAndDecode
  * @param {Object} args Used to access the JWT in the header
  * @returns {Promise} Promise containing decoded token if successful, else containing the error message
  */
-function verifyTokenAndDecode(args) {
+/*function verifyTokenAndDecode(args) {
     return new Promise(function(resolve, reject) {
+        // verify and decode token
         jwt.verify(args.header.authorization, process.env.JWT_SECRET_KEY, function(err, decoded) {
             if (err) {
                 reject({ id: 404, msg: err });
-            } else if (decoded && decoded.orgId && decoded.isOwner) {
+            } else if (decoded && decoded.orgId && decoded.isOwner) { // check if token contains organization Id and
+                // belongs to an organization owner
                 resolve(decoded);
             } else {
                 reject({ id: 400, msg: "You are not authorized to delete a Group." });
             }
         });
     });
-}
+}*/
 
 
 /**
  * Delete Group
  * @method deleteGroup
- * @param {String} groupId Group Id
- * @returns {Promise} Promise containing the created Group details if successful, else containing the appropriate
- * error message
+ * @param {String} groupId Id of the group to be deleted
+ * @returns {Promise} Empty Promise if group is successfully deleted, else containing the appropriate error message
  */
+
 function deleteGroup(groupId) {
     return new Promise(function(resolve, reject) {
-        Group.remove({ _id: groupId }, function(err, response) {
-            if (err) {
-                reject({ id: 400, msg: err });
-            } else {
-                resolve(response);
+        Group.remove({_id: groupId}, function(err, response) {
+            if (err || response.n === 0) {   // Check for error or if group has been removed
+                reject({ id: 400, msg: err.message || 'Error removing group.'});
+            } else {    // else continue
+                resolve();
             }
         })
     });
@@ -64,24 +65,33 @@ function deleteGroup(groupId) {
 
 
 /**
- * Fetch Group details
+ * Fetch Group details from group Id and check if group being deleted is default 'users' group and if user is the
+ * owner of the group. Return error messages for 'users' group being deleted and non owner deleting a group
  * @method fetchGroup
- * @param {String}groupId Group Id
+ * @param {String} groupId Id of the group to be deleted
+ * @param {String} userId User Id fetched from token to check if group belongs to user
  * @returns {Promise} Promise containing the created Group details if successful, else containing the appropriate
  * error message
  */
-function fetchGroup(groupId) {
+function fetchGroup(groupId, userId) {
     return new Promise(function(resolve, reject) {
+
+        // fetch group details by group Id
         Group.findOne({ _id: groupId }, function(err, findResponse) {
-            if (err) {
-                reject({ id: 400, msg: err });
-            } else {
-                if (lodash.isEmpty(findResponse)) {
+            if (err) {  // if error, reject Promise with error message
+                reject({ id: 400, msg: err.message});
+            } else {    // else check for empty response, whether default group is being deleted or deleted by owner
+                // or not
+                if (lodash.isEmpty(findResponse)) { // check for empty response, meaning group Id is incorrect
                     reject({ id: 400, msg: "Invalid Group Id" });
-                } else if (findResponse.name == 'users') {
+                } else if (findResponse.name == 'users') {  // check if group being deleted is the default group
+                    // which can't be deleted
                     reject({ id: 400, msg: "Cannot delete users Group" });
-                } else {
-                    findResponse = JSON.parse(JSON.stringify(findResponse));
+                } else if (findResponse.ownerId != userId) {   // check if user is the owner of the group
+                    reject({ id: 400, msg: "Only owner of the group can delete the group." });
+                } else {    // if all conditions are met, return the fetched group
+                    findResponse = JSON.parse(JSON.stringify(findResponse));    // force mongoose tranform to
+                    // convert keys
                     resolve(findResponse);
                 }
             }
@@ -90,23 +100,18 @@ function fetchGroup(groupId) {
 }
 
 /**
+ * Remove the group Id from all user documents. Does not wait for completion of this operation. Action continues
+ * even if this operation fails.
  * @method removeGroupId
- * @param groupId
- * @param userIds
- * @param header
- * @param seneca
+ * @param {String} groupId The Id of the deleted group to be removed from the user documents
  */
 function removeGroupId(groupId) {
-    return new Promise(function(resolve, reject) {
-        User.update({ groupIds: { $in: [groupId] } }, { $pull: { groupIds: { $in: [groupId] } } }, { new: true }, function(err, updateResponse) {
-            if (err) {
-                reject({ id: 400, msg: err });
-            } else {
-                updateResponse = JSON.parse(JSON.stringify(updateResponse));
-                resolve(updateResponse);
-            }
-        })
-    });
+    // In user collection, find users with deleted group Id in their array of groups and remove it
+    User.update({ groupIds: { $in: [groupId] } }, { $pull: { groupIds: { $in: [groupId] } } }, { new: true }, function(err, updateResponse) {
+        if (err) {  // if error in updating, print error message
+            console.log("Error removing group from user documents : " , err);
+        }
+    })
 }
 
 /**
@@ -130,25 +135,42 @@ function sendResponse(result, done) {
     }
 }
 
+/**
+ * This is a DELETE action for the UGRP microservice
+ * It deletes the group with input Id from the collection. It also deletes the Id of the group from all the users
+ * documents.
+ * @param {Object} options Contains the seneca instance
+ */
 
 module.exports = function(options) {
     var seneca = options.seneca;
     return function(args, done) {
+        
+        // load mongoose models for Users and Groups
         User = User || mongoose.model('Users');
         Group = Group || mongoose.model('Groups');
-        var orgId = null;
+        
+        // validate input parameters
         utils.checkInputParameters(args.body, GroupSchema)
             .then(function() {
-                return verifyTokenAndDecode(args);
-            })
-            .then(function() {
-                return fetchGroup(args.body.groupId);
+                // verify, decode and check token
+                return groupsLib.verifyTokenAndDecode(args);
             })
             .then(function(response) {
-                removeGroupId(response.groupId, response.userIds, args.header, seneca);
+                // create temporary models pointing to organization related collections
+                Group = mongoose.model('DynamicGroup', Group.schema, response.orgId + '_groups');
+                User = mongoose.model('DynamicUser', User.schema, response.orgId + '_users');
+                // fetch group from input group Id
+                return fetchGroup(args.body.groupId, response.userId);
+            })
+            .then(function(response) {
+                // remove group Id from all user documents
+                removeGroupId(response.groupId);
+                // delete group document from database
                 return deleteGroup(args.body.groupId);
             })
             .then(function(response) {
+                // delete temporary models
                 delete mongoose.connection.models['DynamicGroup'];
                 delete mongoose.connection.models['DynamicUser'];
                 sendResponse(response, done);
@@ -157,9 +179,14 @@ module.exports = function(options) {
                 delete mongoose.connection.models['DynamicGroup'];
                 delete mongoose.connection.models['DynamicUser'];
                 console.log('err in delete Group---- ', err);
+
+                // in case of error, print the error and send as response
+                utils.senecaLog(seneca, 'error', __filename.split('/').pop(), err);
+
+                // if the error message is formatted, send it as reply, else format it and then send
                 done(null, {
                     statusCode: 200,
-                    content: response.error(err.id || 400, err.msg ? err.msg : 'Unexpected error', microtime.now())
+                    content: err.success === true || err.success === false ? err : utils.error(err.id || 400, err ? err.msg : 'Unexpected error', microtime.now())
                 });
             });
     };
