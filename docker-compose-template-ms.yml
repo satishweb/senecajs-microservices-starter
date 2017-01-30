@@ -20,7 +20,7 @@ services:
     links:
       - queue:queue
       - mongodb:mongodb
-      # - postgresdb:postgresdb
+      - postgresdb:postgresdb
     depends_on:
       - queue
       - mongodb

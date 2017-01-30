@@ -131,26 +131,36 @@ module.exports = function(options) {
         // read the bootstrap data from file
         data = JSON.parse(fs.readFileSync(__dirname + '/../allData.json'));
         var db = mongoose.connections[0].db;    // 
-        convertObjectIds()
-            .then(function() {
-                return clearDatabase(db);
-            })
-            .then(function() {
-                return insertDocuments(db);
-            })
-            .then(function() {
-                done(null, {
-                    statusCode: 200,
-                    content: utils.success(200, "Bootstrap data inserted successfully.", microtime.now())
+        if (process.env.DB_TYPE === 'mongodb') {
+            convertObjectIds()
+                .then(function() {
+                    return clearDatabase(db);
+                })
+                .then(function() {
+                    return insertDocuments(db);
+                })
+                .then(function() {
+                    done(null, {
+                        statusCode: 200,
+                        content: utils.success(200, "Bootstrap data inserted successfully.", microtime.now())
+                    });
+                })
+                .catch(function(err) {
+                    seneca.log.error('[ ' + process.env.SRV_NAME + ': ' + __filename.split('/').slice(-1) + ' ]', "ERROR" +
+                        " : ", err);
+                    done(null, {
+                        statusCode: 200,
+                        content: utils.error(400, err || "Unexpected error", microtime.now())
+                    });
                 });
-            })
-            .catch(function(err) {
-                seneca.log.error('[ ' + process.env.SRV_NAME + ': ' + __filename.split('/').slice(-1) + ' ]', "ERROR" +
-                  " : ", err);
-                done(null, {
-                    statusCode: 200,
-                    content: utils.error(400, err || "Unexpected error", microtime.now())
-                });
+        } else if (process.env.DB_TYPE === 'postgres'){
+            var sequelize = options.sequelize;
+            var User = sequelize.import(__base + 'sharedmodels/postgres/users.js');
+            User.sync();
+            done(null, {
+                statusCode: 200,
+                content: utils.success(200, "Bootstrap data inserted successfully.", microtime.now())
             });
+        }
     };
 };
