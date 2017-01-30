@@ -21,15 +21,19 @@ services:
     restart: 'on-failure:10'
     network_mode: "bridge"
 
-#  postgresdb:
-#    image: postgres:${POSTGRESVERSION}
-#    container_name: ${PROJECTKEY}-${SYSENV}-postgresdb
-#    ports:
-#      - 5432:5432
-##    volumes:
-##      - ./containers/${PROJECTKEY}-${SYSENV}-postgresdb/var-lib-postgresql:/var/lib/postgresql
-#    restart: 'on-failure:10'
-#    network_mode: "bridge"
+  postgresdb:
+    image: postgres:${POSTGRESVERSION}
+    container_name: ${PROJECTKEY}-${SYSENV}-postgresdb
+    ports:
+      - 5432:5432
+    environment:
+      - POSTGRES_PASSWORD=${PROJECTKEY}-${SYSENV}
+      - POSTGRES_USER=${PROJECTKEY}-${SYSENV}
+    volumes:
+      - ./containers/${PROJECTKEY}-${SYSENV}-postgresdb/var-lib-postgresql:/var/lib/postgresql
+    restart: 'on-failure:10'
+    network_mode: "bridge"
+
   # apidocs:
   #   image: node:${NODEVERSION}
   #   container_name: ${PROJECTKEY}-${SYSENV}-apidocs
