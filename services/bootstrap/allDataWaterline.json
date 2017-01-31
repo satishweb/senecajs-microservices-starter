@@ -1,7 +1,7 @@
 [{
     "collection": "users",
     "data": [{
-        "facebookChannelSet": true,
+        "userId": 1,
         "passwordStatus": "passwordSet",
         "profileComplete": true,
         "lastLoggedInTime": 1478529128921442.0,
@@ -10,17 +10,14 @@
         "linkedInId": null,
         "googleId": null,
         "password": "password",
-        "accountType": "company",
         "lastName": null,
         "firstName": "Admin",
         "email": "admin@example.io",
-        "state": "skipped",
-        "companyName": "example",
         "contact": "1234567890",
-        "informedAboutFacebookAuthentication": true,
-        "isDeleted": false
+        "isDeleted": false,
+        "orgId": null
     },{
-        "facebookChannelSet": true,
+        "userId": 2,
         "passwordStatus": "passwordSet",
         "profileComplete": true,
         "lastLoggedInTime": 1478529128921442.0,
@@ -29,14 +26,56 @@
         "linkedInId": null,
         "googleId": null,
         "password": "password",
-        "accountType": "company",
         "lastName": null,
-        "firstName": "Admin",
-        "email": "admin@example.io",
-        "state": "skipped",
-        "companyName": "example",
+        "firstName": "Admin1",
+        "email": "admin1@example.io",
         "contact": "1234567890",
-        "informedAboutFacebookAuthentication": true,
-        "isDeleted": false
+        "isDeleted": false,
+        "orgId": null
+    },{
+        "userId": 3,
+        "passwordStatus": "passwordSet",
+        "profileComplete": true,
+        "lastLoggedInTime": 1478529128921442.0,
+        "avatar": null,
+        "facebookId": "189941524786980",
+        "linkedInId": null,
+        "googleId": null,
+        "password": "password",
+        "lastName": null,
+        "firstName": "Employee1",
+        "email": "employee1@example.io",
+        "contact": "1234567890",
+        "isDeleted": false,
+        "orgId": 1
+    },{
+        "userId": 4,
+        "passwordStatus": "passwordSet",
+        "profileComplete": true,
+        "lastLoggedInTime": 1478529128921442.0,
+        "avatar": null,
+        "facebookId": "189941524786980",
+        "linkedInId": null,
+        "googleId": null,
+        "password": "password",
+        "lastName": null,
+        "firstName": "Employee2",
+        "email": "employee2@example.io",
+        "contact": "1234567890",
+        "isDeleted": false,
+        "orgId": 1
+    }]
+},{
+    "collection": "organizations",
+    "data": [{
+        "orgId" : 1,
+        "ownerId" : 1,
+        "isDeleted" : false,
+        "website" : "www.example.com",
+        "description" : "Example",
+        "fqdn" : "key-app-example-dev.example.com",
+        "domain" : "example.com",
+        "subDomain" : "key-app-example-dev",
+        "name" : "Example"
     }]
 }]

@@ -32,14 +32,33 @@ function dbInit(seneca) {
                 }
             }
         };
-    } else if(process.env.DB_TYPE === 'postgres') {
-        
+    } else if(process.env.DB_TYPE === 'postgresdb') {
+        var sailsPostgresAdapter = require('sails-postgresql');
+
+        var config = {
+            adapters: {
+                'postgres': sailsPostgresAdapter
+            },
+
+            connections: {
+                default: {
+                    adapter: 'postgres',
+                    database: process.env.DB_NAME,
+                    host: process.env.DB_HOST || 'localhost',
+                    user: process.env.DB_USER,
+                    password: process.env.DB_PASS,
+                    port: 5432,
+                    pool: true,
+                    ssl: false
+                }
+            }
+        };
     }
     waterline.initialize(config, function (err, ontology) {
         if (err) {
             return console.error("Error initializing ------ ", err);
         } else {
-            console.log("Connected to mongo db--------");
+            console.log("Connected to " + process.env.DB_TYPE + " --------");
             var options = {
                 seneca: seneca,
                 wInstance: ontology
@@ -75,7 +94,7 @@ function loadModels(waterline) {
     // Shared models path
     var SHARED_MODELS_PATH = path.join(__dirname, '/sharedmodels/' + 'waterline');
     // models path
-    var MODELS_PATH = path.join(__dirname, '/models/' + process.env.DB_TYPE);
+    var MODELS_PATH = path.join(__dirname, '/models/' + 'waterline');
 
     // TODO: search and load all files from multiple directories in single function
     // TODO: Make it recursive
@@ -187,9 +206,7 @@ if (process.env.SRV_NAME === 'api') {
 } else {
     // For all other worker microservices
     seneca.use('seneca-amqp-transport')
-        .use(workerPlugin, {
-            seneca: seneca
-        })
+        .use(workerPlugin)
         .listen({
             type: 'amqp',
             pin: ['role:', process.env.SRV_NAME, ',cmd:*'].join(''),

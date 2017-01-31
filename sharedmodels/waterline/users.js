@@ -9,12 +9,15 @@ module.exports = function(waterline) {
 
     var userCollection = Waterline.Collection.extend({
         identity: 'users',
+        tableName: 'users',
         connection: 'default',
+        autoPK: false,
         attributes: {
-            email: 'string',
+            userId: {type:'integer', primaryKey: true},
+            email: {type: 'string'},
             firstName: 'string',
             lastName: 'string',
-            isDeleted: { type: 'boolean'},
+            isDeleted: 'boolean',
             gender: 'string',
             birthDate: 'string',
             contactNumber: 'string',
@@ -24,12 +27,10 @@ module.exports = function(waterline) {
             facebookId: 'string',
             linkedInId: 'string',
             avatar: 'string',
-            lastLoggedInTime: { type: 'integer'},
-            profileComplete: { type: 'boolean'},
-            invitationPending: { type: 'boolean'},
-            informedAboutFacebookAuthentication: { type: 'boolean'},
-            status: { type: 'string'},
-            passwordStatus: { type: 'string'}
+            lastLoggedInTime: 'float',
+            profileComplete: 'boolean',
+            passwordStatus: 'string',
+            orgId: 'integer'
         }
     });
     waterline.loadCollection(userCollection);

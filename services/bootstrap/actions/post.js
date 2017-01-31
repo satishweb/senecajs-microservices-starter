@@ -103,12 +103,29 @@ var clearDatabase = function(db) {
  * @returns {Promise} Promise is always resolved after inserting all data into database
  */
 var insertDocuments = function(ontology) {
-    return new Promise(function(resolve) {
+    return new Promise(function(resolve, reject) {
+        var length = data.length;
+        var errors = [];
         data.forEach(function(items, i) {   // iterate over the different collections
             var collection = (items.collection);    // get the collection name
-            ontology.collections[collection].create(items.data).then(function () {
-                resolve();
-            });
+            ontology.collections[collection].create(items.data)
+                .then(function () {
+                    length--;
+                    console.log("After create ---- ");
+                    if(length === 0 && errors.length === 0) {
+                        resolve();
+                    } else if(length === 0 && errors.length > 0) {
+                        reject(errors);
+                    }
+                })
+                .catch(function (err) {
+                    length--;
+                    console.log("Error in insert ----- ", err);
+                    errors.push(err.message);
+                    if(length === 0) {
+                        reject(errors);
+                    }
+                });
             /*db.collection(collection, function(err, coll) {
                 coll.remove({}, function() { // delete the present data from the database before inserting the dummy data
                     coll.insertMany(items.data, function() { // insert the bootstrap data into the collection
@@ -131,23 +148,30 @@ module.exports = function(options) {
     var seneca = options.seneca;
     var ontology = options.wInstance;
     return function(args, done) {
+        console.log("Bootstrap called ------ ");
         // read the bootstrap data from file
         data = JSON.parse(fs.readFileSync(__dirname + '/../allDataWaterline.json'));
         // var db = mongoose.connections[0].db;    //
-        if (process.env.DB_TYPE === 'mongodb') {
             var User = ontology.collections.users;
 
-            insertDocuments(ontology).then(function () {
-                User.find({}).then(function (users){
+            insertDocuments(ontology)
+                .then(function () {
+                    return User.find({});
+                })
+                .then(function (users){
                     console.log("Users ---- ", users);
                     done(null, {
                         statusCode: 200,
                         content: utils.success(200, "Bootstrap data inserted successfully.", microtime.now())
                     });
-                }).catch(function (err) {
+                })
+                .catch(function (err) {
                     console.log("Error in bootstrap ---- ", err);
+                    done(null, {
+                        statusCode: 200,
+                        content: utils.fetchSuccess(400, "Bootstrap data unsuccessful.", err, microtime.now())
+                    });
                 });
-            });
             /*convertObjectIds()
                 .then(function() {
                     return clearDatabase(db);
@@ -169,8 +193,5 @@ module.exports = function(options) {
                         content: utils.error(400, err || "Unexpected error", microtime.now())
                     });
                 });*/
-        } else if (process.env.DB_TYPE === 'postgres'){
-
-        }
     };
 };
