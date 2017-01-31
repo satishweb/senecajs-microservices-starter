@@ -1,110 +1,52 @@
 'use strict';
-// var Waterline = require('waterline');
-// var waterline = new Waterline();
+var Waterline = require('waterline');
+var waterline = new Waterline();
 var seneca = require('seneca');
-var sequelize = null;
 seneca = new seneca();
 // Lets define base dir for use in require file paths
 global.__base = __dirname + '/';
 
 // add comments later
 
-function dbInit(done) {
+function dbInit(seneca) {
     seneca.log.info('[ ' + process.env.SRV_NAME + ' ]', 'Plugins Loaded ');
     seneca.log.info('[ ' + process.env.SRV_NAME + ' ]', 'DB TYPE: ', process.env.DB_TYPE);
     seneca.log.info('[ ' + process.env.SRV_NAME + ' ]', 'DB HOST: ', process.env.DB_HOST);
     seneca.log.info('[ ' + process.env.SRV_NAME + ' ]', 'DB NAME: ', process.env.DB_NAME);
 
+    loadModels(waterline);
     if(process.env.DB_TYPE === 'mongodb') {
-        var mongoose = require('mongoose');
+        var sailsMongoAdapter = require('sails-mongo');
 
-        // connect to mongodb using host and port from environment
-        mongoose.connect('mongodb://' + process.env.DB_HOST + '/' + process.env.DB_NAME);
+        var config = {
+            adapters: {
+                'mongo': sailsMongoAdapter
+            },
 
-        var connection = mongoose.connection;
-        // enables the debug mode of mongoose depending on the value of debug from
-        mongoose.set('debug', true);/*function (){
-        if (process.env.DEBUG) {    // return true if debug mode is on
-        return true;
-        } else {
-        return false;   // return false if debug mode is off
-        }
-        }*/
-
-        // if mongodb connection gives error, show error message
-        connection.on('error', function(error) {
-            seneca.log.error('[ ' + process.env.SRV_NAME + ' ]', 'DB Connection: Failed - ', error);
-        });
-
-        // on connecting to mongodb, show success message
-        connection.once('open', function() {
-            seneca.log.info('[ ' + process.env.SRV_NAME + ' ]', 'DB Connection: SUCCESS');
-        });
-    } else if(process.env.DB_TYPE === 'postgres') {
-        var Sequelize = require('sequelize');
-        sequelize = new Sequelize(process.env.DB_NAME, process.env.DB_USER, process.env.DB_PASS, {
-            host: process.env.DB_HOST || 'postgresdb',
-            dialect: 'postgres',
-
-            pool: {
-                max: 5,
-                min: 0,
-                idle: 10000
+            connections: {
+                default: {
+                    adapter: 'mongo',
+                    host: process.env.DB_HOST || 'localhost',
+                    port: 27017,
+                    database: process.env.DB_NAME
+                }
             }
-        });
-
-        sequelize
-            .authenticate()
-            .then(function(err) {
-                console.log('Connection has been established successfully.');
-                done();
-            })
-            .catch(function (err) {
-                console.log('Unable to connect to the database:', err);
-            });
+        };
+    } else if(process.env.DB_TYPE === 'postgres') {
+        
     }
-
-    /*************************** Waterline ***************************/
-    /*var sailsMongoAdapter = require('sails-mongo');
-    var userCollection = Waterline.Collection.extend({
-    identity: 'user',
-    connection: 'default',
-    attributes: {
-    firstName: 'string',
-    lastName: 'string'
-    }
-    });
-
-    var config = {
-    adapters: {
-    'mongo': sailsMongoAdapter
-    },
-
-    connections: {
-    default: {
-    adapter: 'mongo',
-    host: process.env.DB_HOST || 'localhost',
-    port: 27017,
-    database: process.env.DB_NAME
-    }
-    }
-    };
-
     waterline.initialize(config, function (err, ontology) {
-    if (err) {
-    return console.error("Error initializing ------ ", err);
-    } else {
-    console.log("Connected to mongo db--------");
-
-    waterline.loadCollection(userCollection);
-
-    var User = ontology.collections.user;
-
-    User.find().then(function (users) {
-    console.log("Users ----- ", users);
-    })
-    }
-    });*/
+        if (err) {
+            return console.error("Error initializing ------ ", err);
+        } else {
+            console.log("Connected to mongo db--------");
+            var options = {
+                seneca: seneca,
+                wInstance: ontology
+            };
+            loadActions(options);
+        }
+    });
 }
 
 /* add comments later - to be used only by enpoint api microservice type */
@@ -116,26 +58,24 @@ function dbInit(done) {
  */
 
 function workerPlugin() {
-    var fs = require('fs');
-    var path = require('path');
-
-    // actions path
-    var ACTS_PATH = path.join(__dirname, '/actions');
-    // Shared models path
-    var SHARED_MODELS_PATH = path.join(__dirname, '/sharedmodels/' + process.env.DB_TYPE);
-    // models path
-    var MODELS_PATH = path.join(__dirname, '/models/' + process.env.DB_TYPE);
 
     // Plugin init, for database connection setup
     seneca.add({
         init: process.env.SRV_NAME
-    }, dbInit(function () {}));
+    }, dbInit(seneca));
 
+    return process.env.SRV_NAME;
+};
 
-    var options = {
-        seneca: seneca,
-        sequelize: sequelize
-    };
+function loadModels(waterline) {
+
+    var fs = require('fs');
+    var path = require('path');
+
+    // Shared models path
+    var SHARED_MODELS_PATH = path.join(__dirname, '/sharedmodels/' + 'waterline');
+    // models path
+    var MODELS_PATH = path.join(__dirname, '/models/' + process.env.DB_TYPE);
 
     // TODO: search and load all files from multiple directories in single function
     // TODO: Make it recursive
@@ -143,9 +83,9 @@ function workerPlugin() {
     if(fs.existsSync(SHARED_MODELS_PATH))
     {
         fs.readdirSync(SHARED_MODELS_PATH).forEach(function(file) {
-          var f = path.basename(file, '.js');
-          seneca.log.info('[ ' + process.env.SRV_NAME + ' ]', 'Loading Shared Model: ', f);
-          require(path.join(SHARED_MODELS_PATH, file))(options);
+            var f = path.basename(file, '.js');
+            seneca.log.info('[ ' + process.env.SRV_NAME + ' ]', 'Loading Shared Model: ', f);
+            require(path.join(SHARED_MODELS_PATH, file))(waterline);
         });
     }
 
@@ -154,9 +94,18 @@ function workerPlugin() {
         fs.readdirSync(MODELS_PATH).forEach(function (file) {
             var f = path.basename(file, '.js');
             seneca.log.info('[ ' + process.env.SRV_NAME + ' ]', 'Loading Model: ', f);
-            require(path.join(MODELS_PATH, file))(options);
+            require(path.join(MODELS_PATH, file))(waterline);
         });
     }
+
+}
+
+function loadActions(options) {
+    var fs = require('fs');
+    var path = require('path');
+
+    // actions path
+    var ACTS_PATH = path.join(__dirname, '/actions');
 
     // Microservices actions
     if(fs.existsSync(ACTS_PATH)) {
@@ -169,9 +118,7 @@ function workerPlugin() {
             seneca.add(action, require(path.join(ACTS_PATH, file))(options));
         });
     }
-    return process.env.SRV_NAME;
-};
-
+}
 
 // Main function for microservice
 if (process.env.SRV_NAME === 'api') {

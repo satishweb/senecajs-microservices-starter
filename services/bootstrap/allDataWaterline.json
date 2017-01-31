@@ -1,0 +1,42 @@
+[{
+    "collection": "users",
+    "data": [{
+        "facebookChannelSet": true,
+        "passwordStatus": "passwordSet",
+        "profileComplete": true,
+        "lastLoggedInTime": 1478529128921442.0,
+        "avatar": null,
+        "facebookId": "189941524786980",
+        "linkedInId": null,
+        "googleId": null,
+        "password": "password",
+        "accountType": "company",
+        "lastName": null,
+        "firstName": "Admin",
+        "email": "admin@example.io",
+        "state": "skipped",
+        "companyName": "example",
+        "contact": "1234567890",
+        "informedAboutFacebookAuthentication": true,
+        "isDeleted": false
+    },{
+        "facebookChannelSet": true,
+        "passwordStatus": "passwordSet",
+        "profileComplete": true,
+        "lastLoggedInTime": 1478529128921442.0,
+        "avatar": null,
+        "facebookId": "189941524786980",
+        "linkedInId": null,
+        "googleId": null,
+        "password": "password",
+        "accountType": "company",
+        "lastName": null,
+        "firstName": "Admin",
+        "email": "admin@example.io",
+        "state": "skipped",
+        "companyName": "example",
+        "contact": "1234567890",
+        "informedAboutFacebookAuthentication": true,
+        "isDeleted": false
+    }]
+}]

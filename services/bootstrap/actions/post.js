@@ -9,10 +9,9 @@ var utils = require(__base + '/sharedlib/utils');
 var lodash = require('lodash');
 var Promise = require('bluebird');
 var fs = require('fs');
-var mongodb = require('mongodb');
+var Waterline = require('waterline');
 var bcrypt = require('bcrypt');
 var microtime = require('microtime');
-var mongoose = require('mongoose');
 var SALT_WORK_FACTOR = 10;
 var data = null;
 
@@ -103,11 +102,14 @@ var clearDatabase = function(db) {
  * @param {Object} db Database connection
  * @returns {Promise} Promise is always resolved after inserting all data into database
  */
-var insertDocuments = function(db) {
+var insertDocuments = function(ontology) {
     return new Promise(function(resolve) {
         data.forEach(function(items, i) {   // iterate over the different collections
             var collection = (items.collection);    // get the collection name
-            db.collection(collection, function(err, coll) {
+            ontology.collections[collection].create(items.data).then(function () {
+                resolve();
+            });
+            /*db.collection(collection, function(err, coll) {
                 coll.remove({}, function() { // delete the present data from the database before inserting the dummy data
                     coll.insertMany(items.data, function() { // insert the bootstrap data into the collection
                         if (i === data.length - 1) {    // if all collections have been added, resolve
@@ -115,7 +117,7 @@ var insertDocuments = function(db) {
                         }
                     });
                 });
-            });
+            });*/
         });
     });
 };
@@ -127,12 +129,26 @@ var insertDocuments = function(db) {
 
 module.exports = function(options) {
     var seneca = options.seneca;
+    var ontology = options.wInstance;
     return function(args, done) {
         // read the bootstrap data from file
-        data = JSON.parse(fs.readFileSync(__dirname + '/../allData.json'));
-        var db = mongoose.connections[0].db;    // 
+        data = JSON.parse(fs.readFileSync(__dirname + '/../allDataWaterline.json'));
+        // var db = mongoose.connections[0].db;    //
         if (process.env.DB_TYPE === 'mongodb') {
-            convertObjectIds()
+            var User = ontology.collections.users;
+
+            insertDocuments(ontology).then(function () {
+                User.find({}).then(function (users){
+                    console.log("Users ---- ", users);
+                    done(null, {
+                        statusCode: 200,
+                        content: utils.success(200, "Bootstrap data inserted successfully.", microtime.now())
+                    });
+                }).catch(function (err) {
+                    console.log("Error in bootstrap ---- ", err);
+                });
+            });
+            /*convertObjectIds()
                 .then(function() {
                     return clearDatabase(db);
                 })
@@ -152,15 +168,9 @@ module.exports = function(options) {
                         statusCode: 200,
                         content: utils.error(400, err || "Unexpected error", microtime.now())
                     });
-                });
+                });*/
         } else if (process.env.DB_TYPE === 'postgres'){
-            var sequelize = options.sequelize;
-            var User = sequelize.import(__base + 'sharedmodels/postgres/users.js');
-            User.sync();
-            done(null, {
-                statusCode: 200,
-                content: utils.success(200, "Bootstrap data inserted successfully.", microtime.now())
-            });
+
         }
     };
 };
