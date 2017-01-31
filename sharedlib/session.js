@@ -33,7 +33,7 @@ module.exports.createSession = function(Session, token, sessionData) {
 /**
  * Delete all previous sessions of a user related to a organization excluding session with Id sessionId
  * @method deleteSessions
- * @param {Object} Session Session mongoose model
+ * @param {Object} Session Session waterline model
  * @param {String} userId The the user whose sessions are being deleted
  * @param {String} orgId The organization whose sessions are to be deleted
  * @param {String} sessionId Optional, Current session Id if current session is not to be deleted
@@ -54,36 +54,40 @@ module.exports.deleteSessions = function deleteSessions(Session, userId, orgId, 
 /**
  * Get the session document from mongo corresponding to the token
  * @method getSession
+ * @param {Object} Session Session waterline model
  * @param {String} token Token whose session is being fetched
  * @returns {Promise} The resolved Promise containing the session if found and rejected Promise with error if error
  * or session not found
  */
 
 module.exports.getSession = function(Session, token) {
-    Session = Session || mongoose.model('Sessions');
     return new Promise(function(resolve, reject) {
-        Session.findOne({ JWT: token }, function(err, result) {
-            // if find returns error or no session found, reject with error message
-            if (err || lodash.isEmpty(result)) {
-                reject({ id: '501', msg: "Session does not exist. Please log in." })
-            } else {
-                resolve(result);
-            }
-        });
+        Session.findOne({ JWT: token })
+            .then(function(result) {
+                // if find returns error or no session found, reject with error message
+                if (lodash.isEmpty(result)) {
+                    reject({id: '501', msg: "Session does not exist. Please log in."})
+                } else {
+                    resolve(result);
+                }
+            })
+            .catch(function (err){
+                console.log("Error in getSession ----- ", err);
+                reject({id: '501', msg: "Session does not exist. Please log in."});
+            });
     });
 };
 
 /**
  * Check if the request header fields match those in the token to verify token belongs to requester
  * @method validateSession
- * @param {Object} Session Session model
  * @param {Object} decodedToken Decoded token
  * @param {Object} requestHeaders Header received in current request
  * @returns {Promise} The resolved Promise containing the decoded token data if token details and header
  * details match or rejected Promise with false if they don't
  */
 
-module.exports.validateSession = function(Session, decodedToken, requestHeaders) {
+module.exports.validateSession = function(decodedToken, requestHeaders) {
     return new Promise(function(resolve, reject) {
         // compare received header properties with those stored in token
         if (decodedToken.userAgent === requestHeaders['user-agent'] && decodedToken.origin === requestHeaders.origin &&

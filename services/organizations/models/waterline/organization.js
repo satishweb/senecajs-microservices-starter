@@ -20,7 +20,7 @@ module.exports = function(waterline) {
             fqdn       : 'string',
             description: 'string',
             website    : 'string',
-            isDeleted  : 'boolean',
+            isDeleted  : {type: 'boolean', defaultsTo: false},
             ownerId    : 'integer'
         }
     });

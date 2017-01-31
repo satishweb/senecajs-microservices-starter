@@ -6,7 +6,6 @@ var outputFormatter = new Locale(__base);
 var InitCompositeGrid = require(__base + '/sharedlib/grid/initCompositeGrid');
 var lodash = require('lodash');
 var Joi = require('joi');
-var mongoose = require('mongoose');
 var Promise = require('bluebird');
 var microtime = require('microtime');
 var Organization = null;
@@ -33,19 +32,24 @@ function fetchOrganization(args) {
         }
         // if input has organization Id in input, create find query using organization Id
         if (args.orgId) {
-            find = { _id: args.orgId, isDeleted: false};
+            find = { orgId: args.orgId, isDeleted: false};
         }
 
         // Find the organization using find query created
-        Organization.findOne(find, function(err, findResponse) {
-            // if error or organization is not found, reject with error message
-            if (err || lodash.isEmpty(findResponse)) {
+        Organization.findOne(find)
+            .then(function(findResponse) {
+                // if error or organization is not found, reject with error message
+                if (lodash.isEmpty(findResponse)) {
+                    reject({ id: 400, msg: 'Invalid organization.'});
+                } else { // else return organization document fetched
+                    findResponse = JSON.parse(JSON.stringify(findResponse));
+                    resolve(findResponse);
+                }
+            })
+            .catch(function (err) {
+                console.log("Error in fetchOrganization ---- ", err);
                 reject({ id: 400, msg: err || 'Invalid organization.'});
-            } else { // else return organization document fetched
-                findResponse = JSON.parse(JSON.stringify(findResponse));
-                resolve(findResponse);
-            }
-        })
+            })
     });
 }
 
@@ -201,11 +205,12 @@ function createSchema (input) {
 
 module.exports = function(options) {
     var seneca = options.seneca;
+    var ontology = options.wInstance;
     return function(args, done) {
         var action = null;
 
         // load the mongoose model for Organizations
-        Organization = Organization || mongoose.model('Organizations');
+        Organization = Organization || ontology.collections.organizations;
 
         // create appropriate schema depending on input action
         createSchema(args.body)

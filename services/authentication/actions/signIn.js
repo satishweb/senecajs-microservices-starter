@@ -78,13 +78,12 @@ function fetchOrganisationId(header, seneca) {
         // check if the request has come from Postman
         if ((process.env.SYSENV !== 'prod' && ((header.origin && header.origin.match('chrome-extension')) ||
             (header['user-agent'] && header['user-agent'].match('PostmanRuntime'))))) {
-
+        
             // if request is from Postman, resolve with sample organization details
             resolve({name: 'Example', orgId: 1, ownerId: 1});
         } else {
 
             // if the request is not from Postman, separate the fqdn and fetch the matching organization
-
             header = url.parse(header.origin);
             header = header.host;
             var urlComp = header.split(':');    // remove the trailing port for localhost
@@ -93,7 +92,6 @@ function fetchOrganisationId(header, seneca) {
             // microservice
             utils.microServiceCall(seneca, 'organizations', 'getOrganization', {action: 'fqdn', fqdn: urlComp[0]}, null,
                 function (err, orgResult) {
-
                     if (err) {
                         resolve(err);
                     } else if (orgResult.content && lodash.isEmpty(orgResult.content.data)) { // if data
@@ -135,8 +133,7 @@ function signInCall(ownerId, input, header, seneca) {
         // log in user depending on the sub domain
         signIn.loginUser(User, input, header, seneca)
             .then(function (response) {
-
-                if (response.orgId === input.orgId){
+                if (response.orgId == input.orgId){
                     resolve(response);
                 } else if (!response.orgId && response.userId == ownerId ) {
                     resolve(response);
@@ -169,8 +166,8 @@ module.exports = function (options) {
         isOwner = false;            // flag for whether the user is owner of the organization
 
         // load waterline models
-        User = ontology.collections.users;
-        Session = ontology.collections.sessions;
+        User = User || ontology.collections.users;
+        Session = Session || ontology.collections.sessions;
 
         // if input contains email id, convert it to lowercase
         if (args.body.email) {
@@ -220,12 +217,10 @@ module.exports = function (options) {
                 return session.createSession(Session, response.output.token, response.sessionData);
             })
             .then(function (response) {
-                delete mongoose.connection.models['DynamicUser'];
                 finalResponse.orgName = orgName;    // add the organization name to the response
                 sendResponse(finalResponse, done);
             })
             .catch(function (err) {
-                delete mongoose.connection.models['DynamicUser'];
                 console.log("Error in signIn ---- ", err);
                 // TODO: Implement this log for all messages
                 utils.senecaLog(seneca, 'error', __filename.split('/').pop(), err);

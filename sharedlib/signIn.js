@@ -83,11 +83,9 @@ module.exports.loginUser = function(User, input, header, seneca) {
             query[field] = input.socialId;
         }
         
-        console.log("Query ---- ", query);
         /************* Fetch user with matching email or socialID **************/
         User.findOne(query)
             .then(function(result) {
-                console.log("Result of find user ---- ", result);
             if (result === null) {
                 /***************** If sign in type is social and socialId not found, register user *****************/
                 if (input.type !== 'email') {
@@ -114,26 +112,21 @@ module.exports.loginUser = function(User, input, header, seneca) {
             } else if (input.type !== 'email') {
                 // if sign in type was social and user is found,
                 // delete password and return user details
-                result = JSON.parse(JSON.stringify(result));
                 delete result.password;
                 resolve(result);
             } else {
                 // if sign in type was email and user is found
-                result = JSON.parse(JSON.stringify(result));
                 // if user's password is not set, user had signed up using social login, ask him to reset his password.
                 if (result.password === null) {
                     reject(outputFormatter.format(false, 2280, null));
                     // reject({id: 400, msg: "To sign in using email, reset your password."});
                 } else {
                     // if user is found and password is set, compare saved password input password
-                    console.log("Passwords ---- ", input.password, result.password);
                     bcrypt.compare(input.password,
                         result.password,
                         function(err, isMatch) {
-                            console.log("Bcrypt compare ---- ", err, isMatch);
                             if (err) {
                                 reject(outputFormatter.format(false, 2290, null));
-                                // reject({id: 400, msg: "Error comparing passwords"});
                             }
                             if (isMatch) {
                                 // if passwords match, sign in successful, return user details
@@ -169,7 +162,7 @@ module.exports.updateLoginTime = function(User, userDetails) {
             .then(function (updatedUser) {
                 // if user details updated and returned,
                 // remove password and return remaining details
-                delete updatedUser.password;
+                delete updatedUser[0].password;
                 resolve(updatedUser[0]);
             })
             .catch(function (err) {
