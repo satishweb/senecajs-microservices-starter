@@ -27,7 +27,7 @@ module.exports = function(waterline) {
             facebookId: 'string',
             linkedInId: 'string',
             avatar: 'string',
-            lastLoggedInTime: 'float',
+            lastLoggedInTime: 'string',
             profileComplete: 'boolean',
             passwordStatus: 'string',
             orgId: 'integer'

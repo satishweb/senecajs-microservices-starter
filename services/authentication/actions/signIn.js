@@ -2,7 +2,6 @@
 
 var signIn = require(__base + 'sharedlib/signIn');
 var session = require(__base + 'sharedlib/session');
-var mongoose = require('mongoose');
 var lodash = require('lodash');
 var utils = require(__base + 'sharedlib/utils');
 var Locale = require(__base + 'sharedlib/formatter');
@@ -81,7 +80,7 @@ function fetchOrganisationId(header, seneca) {
             (header['user-agent'] && header['user-agent'].match('PostmanRuntime'))))) {
 
             // if request is from Postman, resolve with sample organization details
-            resolve({name: 'Example', orgId: '582090689210640000000006', ownerId: "582090689210640000000001"});
+            resolve({name: 'Example', orgId: 1, ownerId: 1});
         } else {
 
             // if the request is not from Postman, separate the fqdn and fetch the matching organization
@@ -137,36 +136,18 @@ function signInCall(ownerId, input, header, seneca) {
         signIn.loginUser(User, input, header, seneca)
             .then(function (response) {
 
-                // if user is found and password matches, resolve the user details
-                resolve(response)
+                if (response.orgId === input.orgId){
+                    resolve(response);
+                } else if (!response.orgId && response.userId == ownerId ) {
+                    resolve(response);
+                } else {
+                    reject(outputFormatter.format(false, 2270, null, 'email'));
+                }
             })
             .catch(function (err) {
-                
-                // if user login fails the first time, check if user was not found in collection (code: 2270) and if the
-                // user was searched in the organization collection
-                if (err.success == false && err.message.id == 2270 && ownerId) {
-
-                    // if user was not found in organization collection, search in main user collection
-                    User = mongoose.model('Users'); // change the mongoose model to point to main user collection
-                    signIn.loginUser(User, input, header, seneca).then(function (response) {
-                        // if user is found, check if user is the owner of the organization
-                        // if owner, return the userDetails, else return error message
-
-                        if (response.userId == ownerId) {
-                            isOwner = true;
-                            resolve(response);
-                        } else {
-                            reject(outputFormatter.format(false, 2270, null, 'email'));
-                        }
-                    }).catch(function (err) {
-                        // if error in signing in, return error
-                        reject(err);
-                    })
-                } else {
                     // if user is not found and was not searched in organization collection, return
                     // error
                     reject(err);
-                }
             })
     });
 }
@@ -179,6 +160,7 @@ function signInCall(ownerId, input, header, seneca) {
 module.exports = function (options) {
     options = options || {};
     var seneca = options.seneca;
+    var ontology = options.wInstance;
     return function (args, done) {
 
         var finalResponse = null;   // stores the final response to be returned
@@ -186,9 +168,9 @@ module.exports = function (options) {
         var orgName = null;         // stores the organization name
         isOwner = false;            // flag for whether the user is owner of the organization
 
-        // load mongoose models
-        User = mongoose.model('Users');
-        Session = Session || mongoose.model('Sessions');
+        // load waterline models
+        User = ontology.collections.users;
+        Session = ontology.collections.sessions;
 
         // if input contains email id, convert it to lowercase
         if (args.body.email) {
@@ -205,7 +187,9 @@ module.exports = function (options) {
                 if (!lodash.isEmpty(response)) {
                     orgId = response.orgId;
                     orgName = response.name;
-                    User = mongoose.model('DynamicUser', User.schema, response.orgId + '_users');
+                    if (orgId) {
+                        args.body.orgId = orgId;
+                    }
                 }
                 var ownerId = response ? response.ownerId : null;   // if organization is fetched, set the
                 // organization owner Id
@@ -242,6 +226,7 @@ module.exports = function (options) {
             })
             .catch(function (err) {
                 delete mongoose.connection.models['DynamicUser'];
+                console.log("Error in signIn ---- ", err);
                 // TODO: Implement this log for all messages
                 utils.senecaLog(seneca, 'error', __filename.split('/').pop(), err);
                 var error = err || {id: 400, msg: "Unexpected error"};

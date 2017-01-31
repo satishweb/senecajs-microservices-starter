@@ -36,10 +36,10 @@ var convertObjectIds = function() {
             items.data.forEach(function(item) { // item gives a single document from the collection
 
                 // if document contains an _id field, convert it to ObjectId
-                if (item._id) {
+                /*if (item._id) {
                     var Id = new mongodb.ObjectID(item._id);
                     item._id = Id;
-                }
+                }*/
 
                 // set the createdAt and updatedAt timestamps to present time
                 item.createdAt = d;
@@ -55,14 +55,14 @@ var convertObjectIds = function() {
 
                     // if organizations array is not empty, iterate over the Ids and convert the organization ids to
                     // ObjectIds
-                    if (!lodash.isEmpty(item.orgIds)) { 
+                    /*if (!lodash.isEmpty(item.orgIds)) {
                         var convertedOrgIds = [];
                         item.orgIds.forEach(function(orgId) { // iterate the organization array
                             var Id = new mongodb.ObjectID(orgId);   // convert id to ObjectId
                             convertedOrgIds.push(Id);   // push into new array
                         });
                         item.orgIds = convertedOrgIds;
-                    }
+                    }*/
                     // if avatar of user is set, complete it by prefixing it with data URL
                     /*if (item.avatar) {
                       item.profilePic = response.createBootstrapFileURL(item.profilePic);// add the S3 Data
@@ -70,13 +70,13 @@ var convertObjectIds = function() {
                     }*/
                 }
 
-                if (items.collection === 'organizations') { // check if collection is user collection
+                /*if (items.collection === 'organizations') { // check if collection is user collection
 
                     // if organizations contains owner Id, convert the owner Id to ObjectId
                     if (item.ownerId) {
                         item.ownerId = new mongodb.ObjectID(item.ownerId);   // convert owner id to ObjectId
                     }
-                }
+                }*/
             });
         });
         resolve(true);
@@ -99,7 +99,7 @@ var clearDatabase = function(db) {
 /**
  * Inserting bootstrap data for different collections into database from array of objects
  * @method insertDocuments
- * @param {Object} db Database connection
+ * @param {Object} ontology Database connection
  * @returns {Promise} Promise is always resolved after inserting all data into database
  */
 var insertDocuments = function(ontology) {
@@ -108,7 +108,15 @@ var insertDocuments = function(ontology) {
         var errors = [];
         data.forEach(function(items, i) {   // iterate over the different collections
             var collection = (items.collection);    // get the collection name
-            ontology.collections[collection].create(items.data)
+            ontology.collections[collection].destroy({})
+                .then(function () {
+                    console.log("Cleared the DB ----- ");
+                    return ontology.collections[collection].find({});
+                })
+                .then(function (data) {
+                    console.log("Current values in DB ---- ", data);
+                    return ontology.collections[collection].create(items.data);
+                })
                 .then(function () {
                     length--;
                     console.log("After create ---- ");
@@ -151,27 +159,24 @@ module.exports = function(options) {
         console.log("Bootstrap called ------ ");
         // read the bootstrap data from file
         data = JSON.parse(fs.readFileSync(__dirname + '/../allDataWaterline.json'));
-        // var db = mongoose.connections[0].db;    //
-            var User = ontology.collections.users;
+        convertObjectIds()
+            .then(function () {
+                return insertDocuments(ontology);
 
-            insertDocuments(ontology)
-                .then(function () {
-                    return User.find({});
-                })
-                .then(function (users){
-                    console.log("Users ---- ", users);
-                    done(null, {
-                        statusCode: 200,
-                        content: utils.success(200, "Bootstrap data inserted successfully.", microtime.now())
-                    });
-                })
-                .catch(function (err) {
-                    console.log("Error in bootstrap ---- ", err);
-                    done(null, {
-                        statusCode: 200,
-                        content: utils.fetchSuccess(400, "Bootstrap data unsuccessful.", err, microtime.now())
-                    });
+            })
+            .then(function (){
+                done(null, {
+                    statusCode: 200,
+                    content: utils.success(200, "Bootstrap data inserted successfully.", microtime.now())
                 });
+            })
+            .catch(function (err) {
+                console.log("Error in bootstrap ---- ", err);
+                done(null, {
+                    statusCode: 200,
+                    content: utils.fetchSuccess(400, "Bootstrap data unsuccessful.", err, microtime.now())
+                });
+            });
             /*convertObjectIds()
                 .then(function() {
                     return clearDatabase(db);

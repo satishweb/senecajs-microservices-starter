@@ -82,12 +82,13 @@ module.exports.loginUser = function(User, input, header, seneca) {
             var field = input.type + "Id";
             query[field] = input.socialId;
         }
-
+        
+        console.log("Query ---- ", query);
         /************* Fetch user with matching email or socialID **************/
-        User.findOne(query, function(err, result) {
-            if (err) {
-                reject({ id: 400, msg: err });
-            } else if (result === null) {
+        User.findOne(query)
+            .then(function(result) {
+                console.log("Result of find user ---- ", result);
+            if (result === null) {
                 /***************** If sign in type is social and socialId not found, register user *****************/
                 if (input.type !== 'email') {
                     if (input.type === "facebook") {
@@ -125,9 +126,11 @@ module.exports.loginUser = function(User, input, header, seneca) {
                     // reject({id: 400, msg: "To sign in using email, reset your password."});
                 } else {
                     // if user is found and password is set, compare saved password input password
+                    console.log("Passwords ---- ", input.password, result.password);
                     bcrypt.compare(input.password,
                         result.password,
                         function(err, isMatch) {
+                            console.log("Bcrypt compare ---- ", err, isMatch);
                             if (err) {
                                 reject(outputFormatter.format(false, 2290, null));
                                 // reject({id: 400, msg: "Error comparing passwords"});
@@ -143,7 +146,10 @@ module.exports.loginUser = function(User, input, header, seneca) {
                         });
                 }
             }
-        });
+        })
+            .catch(function(err) {
+                reject({id: 400, msg: err});
+            })
     });
 };
 
@@ -159,19 +165,16 @@ module.exports.loginUser = function(User, input, header, seneca) {
 module.exports.updateLoginTime = function(User, userDetails) {
     return new Promise(function(resolve) {
         // Update lastLoggedInTime in user document and return updated document.
-        User.findOneAndUpdate({ _id: userDetails.userId }, { lastLoggedInTime: microtime.now() }, { new: true },
-            function(err, updateResult) {
-                if (err || !updateResult) {
-                    // if error or updated result not received,
-                    // return user details before updating
-                    resolve(userDetails);
-                } else {
-                    // if user details updated and returned,
-                    // remove password and return remaining details
-                    updateResult = JSON.parse(JSON.stringify(updateResult));
-                    delete updateResult.password;
-                    resolve(updateResult);
-                }
+        User.update({ userId: userDetails.userId }, { lastLoggedInTime: microtime.now()})
+            .then(function (updatedUser) {
+                // if user details updated and returned,
+                // remove password and return remaining details
+                delete updatedUser.password;
+                resolve(updatedUser[0]);
+            })
+            .catch(function (err) {
+                console.log("Error updating user's login time ---- ", err);
+                resolve(userDetails);
             });
     });
 };
