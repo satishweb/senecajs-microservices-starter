@@ -1,6 +1,7 @@
 'use strict';
 
 var Waterline = require('waterline');
+var lodash = require('lodash');
 
 module.exports = function(waterline) {
     // schemas and modules compilation
@@ -13,7 +14,7 @@ module.exports = function(waterline) {
         connection: 'default',
         autoPK: false,
         attributes: {
-            userId: {type:'integer', primaryKey: true},
+            userId: {type:'integer', primaryKey: true, autoIncrement: true},
             email: {type: 'string'},
             firstName: 'string',
             lastName: 'string',
@@ -31,6 +32,16 @@ module.exports = function(waterline) {
             profileComplete: 'boolean',
             passwordStatus: 'string',
             orgId: 'integer'
+        },
+        updateOrCreate: function (find, update) {
+            return users.update(find, update)
+                .then(function(updatedResult){
+                    if(updatedResult.length === 0){
+                        // No records updated, User does not exist. Create.
+                        update = lodash.assign(find, update);
+                        return users.create(update);
+                    }
+                });
         }
     });
     waterline.loadCollection(userCollection);

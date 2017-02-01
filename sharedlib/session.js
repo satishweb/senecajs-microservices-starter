@@ -50,34 +50,6 @@ module.exports.deleteSessions = function deleteSessions(Session, userId, orgId, 
         .catch(function (err){console.log("Error in delete sessions ---- ",err);});
 };
 
-
-/**
- * Get the session document from mongo corresponding to the token
- * @method getSession
- * @param {Object} Session Session waterline model
- * @param {String} token Token whose session is being fetched
- * @returns {Promise} The resolved Promise containing the session if found and rejected Promise with error if error
- * or session not found
- */
-
-module.exports.getSession = function(Session, token) {
-    return new Promise(function(resolve, reject) {
-        Session.findOne({ JWT: token })
-            .then(function(result) {
-                // if find returns error or no session found, reject with error message
-                if (lodash.isEmpty(result)) {
-                    reject({id: '501', msg: "Session does not exist. Please log in."})
-                } else {
-                    resolve(result);
-                }
-            })
-            .catch(function (err){
-                console.log("Error in getSession ----- ", err);
-                reject({id: '501', msg: "Session does not exist. Please log in."});
-            });
-    });
-};
-
 /**
  * Check if the request header fields match those in the token to verify token belongs to requester
  * @method validateSession

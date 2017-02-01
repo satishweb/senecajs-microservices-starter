@@ -8,7 +8,7 @@ global.__base = __dirname + '/';
 
 // add comments later
 
-function dbInit(seneca) {
+function dbInit(options) {
     seneca.log.info('[ ' + process.env.SRV_NAME + ' ]', 'Plugins Loaded ');
     seneca.log.info('[ ' + process.env.SRV_NAME + ' ]', 'DB TYPE: ', process.env.DB_TYPE);
     seneca.log.info('[ ' + process.env.SRV_NAME + ' ]', 'DB HOST: ', process.env.DB_HOST);
@@ -59,11 +59,12 @@ function dbInit(seneca) {
             return console.error("Error initializing ------ ", err);
         } else {
             console.log("Connected to " + process.env.DB_TYPE + " --------");
-            var options = {
-                seneca: seneca,
-                wInstance: ontology
-            };
-            loadActions(options);
+            options.wInstance = ontology;
+            if (process.env.SRV_NAME === 'api') {
+                loadApi(options);
+            } else {
+                loadActions(options);
+            }
         }
     });
 }
@@ -81,7 +82,7 @@ function workerPlugin() {
     // Plugin init, for database connection setup
     seneca.add({
         init: process.env.SRV_NAME
-    }, dbInit(seneca));
+    }, dbInit({seneca: seneca}));
 
     return process.env.SRV_NAME;
 };
@@ -139,6 +140,37 @@ function loadActions(options) {
     }
 }
 
+;
+
+function loadApi(options) {
+    // authentication/authorization modules
+    // register the auth strategies
+    require('./auth/index.js')(options);
+
+    // API groups
+    // register the API routes
+    require('./api/index.js')(options, function (err) {
+
+        if (err) {
+            seneca.log.error('[ ' + process.env.SRV_NAME + ' ]', 'Could not load APIs', err);
+            throw err;
+            return;
+        }
+
+        // Start the Server
+        seneca.ready(function () {
+            server.start(function (exc) {
+                if (exc) {
+                    seneca.log.error('[ ' + process.env.SRV_NAME + ' ]', 'Server Start ERROR:', exc);
+                    throw exc;
+                    return;
+                }
+                seneca.log.info('[ ' + process.env.SRV_NAME + ' ]', 'Server Listen:', server.info.uri);
+            });
+        });
+    });
+}
+
 // Main function for microservice
 if (process.env.SRV_NAME === 'api') {
 
@@ -151,11 +183,11 @@ if (process.env.SRV_NAME === 'api') {
 
     // specify host and port for server connection
     server.connection({
-        host: '0.0.0.0',
-        port: 3000,
+        host  : '0.0.0.0',
+        port  : 3000,
         routes: {
-            cors: {
-                origin: ['*'],
+            cors   : {
+                origin           : ['*'],
                 //TODO: Allow only listed hosts to access.
                 additionalHeaders: ['Access-Control-Request-Headers', 'Accept', 'Access-Control-Request-Method']
             },
@@ -165,44 +197,17 @@ if (process.env.SRV_NAME === 'api') {
         }
     });
 
-    // Initilize the DB connection
-    // dbInit();
-
     // setting up seneca
     // TODO: Add ability to use choice of transport from list
     seneca.use('seneca-amqp-transport');
     seneca.client({
         type: 'amqp',
-        pin: ['role:*,cmd:*'].join(','),
+        pin : ['role:*,cmd:*'].join(','),
         host: process.env.QUEUE_HOST || '127.0.0.1'
     });
 
-    // authentication/authorization modules
-    // register the auth strategies
-    require('./auth/index.js')(options);
-
-    // API groups
-    // register the API routes
-    require('./api/index.js')(options, function(err) {
-
-        if (err) {
-            seneca.log.error('[ ' + process.env.SRV_NAME + ' ]', 'Could not load APIs', err);
-            throw err;
-            return;
-        }
-
-        // Start the Server
-        seneca.ready(function() {
-            server.start(function(exc) {
-                if (exc) {
-                    seneca.log.error('[ ' + process.env.SRV_NAME + ' ]', 'Server Start ERROR:', exc);
-                    throw exc;
-                    return;
-                }
-                seneca.log.info('[ ' + process.env.SRV_NAME + ' ]', 'Server Listen:', server.info.uri);
-            });
-        });
-    });
+    // Initilize the DB connection
+    dbInit(options);
 } else {
     // For all other worker microservices
     seneca.use('seneca-amqp-transport')

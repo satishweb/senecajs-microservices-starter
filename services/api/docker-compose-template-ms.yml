@@ -12,6 +12,7 @@ services:
       - ./index.js:/src/${MICROSERVICE}/index.js
       - ./package.json:/src/package.json
       - ./sharedlib:/src/${MICROSERVICE}/sharedlib
+      - ./sharedmodels/waterline/sessions.js:/src/${MICROSERVICE}/sharedmodels/waterline/sessions.js
       - ./translations.json:/src/${MICROSERVICE}/translations.json
       - ./services/bootstrap/api:/src/${MICROSERVICE}/api/bootstrap
       - ./services/email/api:/src/${MICROSERVICE}/api/email
