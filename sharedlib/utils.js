@@ -40,17 +40,17 @@ module.exports.checkInputParameters = function(input, schema) {
 
 module.exports.createJWT = function(userDetails, requestHeaders) {
     return new Promise(function(resolve) {
-        var key = process.env.JWT_SECRET_KEY;   // set the JWT key being used to sign the token
+        var key = process.env.JWT_SECRET_KEY; // set the JWT key being used to sign the token
         var options = { expiresIn: process.env.JWT_EXPIRY_TIME }; // set the token expiry time
         var sessionData = { // Extract user details that need to be stored in the JWT token
-            firstName       : userDetails.firstName,
-            lastName        : userDetails.lastName,
-            orgId           : userDetails.orgId,
-            avatar          : userDetails.avatar,
-            userId          : userDetails.userId,
-            emailId         : userDetails.email,
-            isOwner         : userDetails.isOwner || false,
-            accountType     : userDetails.accountType,
+            firstName: userDetails.firstName,
+            lastName: userDetails.lastName,
+            orgId: userDetails.orgId,
+            avatar: userDetails.avatar,
+            userId: userDetails.userId,
+            emailId: userDetails.email,
+            isOwner: userDetails.isOwner || false,
+            accountType: userDetails.accountType,
             lastLoggedInTime: userDetails.lastLoggedInTime
         };
         var tokenData = { // Extract the request header details to be added to the token
@@ -79,27 +79,18 @@ module.exports.createJWT = function(userDetails, requestHeaders) {
  */
 module.exports.fetchOrganisationId = function(orgId, header, seneca) {
     var that = this;
-    return new Promise(function (resolve, reject) {
+    return new Promise(function(resolve, reject) {
 
         // if orgId is absent and origin is present
-        if (!orgId && header && (header.origin || header['user-agent'])) {
-            // check if the request has come from Postman
-            /*if ((process.env.SYSENV !== 'prod' && ((header.origin && header.origin.match('chrome-extension')) ||
-             (header['user-agent'] && header['user-agent'].match('PostmanRuntime'))))) {
-
-             // if request is from Postman, resolve with sample organization details
-             resolve({name: 'Example', orgId: 1, ownerId: 1});
-             } else {*/
-
-            // if the request is not from Postman, separate the fqdn and fetch the matching organization
+        if (!orgId && header && header.origin) {
             header = url.parse(header.origin);
             header = header.host;
-            var urlComp = header.split(':');    // remove the trailing port for localhost
+            var urlComp = header.split(':'); // remove the trailing port for localhost
 
             // find the organization corresponding to the sub-domain by calling getOrganization of organizations
             // microservice
-            that.microServiceCall(seneca, 'organizations', 'getOrganization', {action: 'fqdn', fqdn: urlComp[0]}, null,
-                function (err, orgResult) {
+            that.microServiceCall(seneca, 'organizations', 'getOrganization', { action: 'fqdn', fqdn: urlComp[0] }, null,
+                function(err, orgResult) {
                     if (err) {
                         resolve(err);
                     } else if (orgResult.content && lodash.isEmpty(orgResult.content.data)) { // if data
@@ -112,9 +103,9 @@ module.exports.fetchOrganisationId = function(orgId, header, seneca) {
                         // if organization details are returned, check if the organization has not been deleted and
                         // return the details
                         resolve(orgResult.content.data);
-                    } else {    // if organization has been deleted, return error message
+                    } else { // if organization has been deleted, return error message
                         reject({
-                            id : 400,
+                            id: 400,
                             msg: 'This Organization is currently disabled. Please contact Organization Admin.'
                         });
                     }
@@ -225,7 +216,7 @@ module.exports.microServiceCallPromise = function(seneca, role, cmd, body, heade
  * @param {String} file The name of the file
  * @param {String} msg The message to be printed
  */
-module.exports.senecaLog = function (seneca, type, file, msg) {
+module.exports.senecaLog = function(seneca, type, file, msg) {
     seneca.log[type]('[ ' + process.env.SRV_NAME + ' : ' + file + ' ]', msg);
 };
 

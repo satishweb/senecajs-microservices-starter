@@ -20,7 +20,7 @@ var microtime = require('microtime');
  */
 module.exports.checkIfAlreadyPresent = function(User, input, flag, done) {
     return new Promise(function(resolve, reject) {
-        var find = {orgId: null}; // object for search query parameters
+        var find = { orgId: null }; // object for search query parameters
         var temp = []; // array for or queries in find
         switch (input.signUpType) {
             case 'email': // checking if signUpType is email then setting email as find query parameter
@@ -60,8 +60,8 @@ module.exports.checkIfAlreadyPresent = function(User, input, flag, done) {
                         }
                     }
                 })
-                .catch(function (err) {
-                    reject({id: 400, msg: err});
+                .catch(function(err) {
+                    reject({ id: 400, msg: err });
                 });
         }
     });
@@ -102,7 +102,6 @@ module.exports.createSaveData = function(input, findResult) {
             var key = input.signUpType + 'Id';
             temp.passwordStatus = "passwordNotNeeded";
             temp[key] = input.socialId; // set the social type's Id
-            temp.accountType = input.accountType; // set the accountType
             if (input.socialName && (lodash.isEmpty(findResult || findResult.firstName === null))) {
                 temp.firstName = input.socialName; // setting name of user if not already present in database
             }
@@ -115,7 +114,7 @@ module.exports.createSaveData = function(input, findResult) {
             temp.lastLoggedInTime = microtime.now(); // set last logged in time to current time
 
             // merge the fetched user data with the object created from inputs
-            findResult = lodash.merge(findResult, temp); 
+            findResult = lodash.merge(findResult, temp);
             data = lodash.merge(data, findResult); // merge the defaults with the above merged object
             resolve(data);
         }
@@ -141,13 +140,13 @@ module.exports.saveUserDetails = function(User, userDetails, flag) {
         }
         if (flag === false) { // creating new user if flag is false
             // save new user document
-            User.create(userDetails).then(function(saveResponse) {
-                    delete saveResponse.password; // delete the user's hashed password before returning the user details
+            User.create(userDetails)
+                .then(function(saveResponse) {
                     resolve([saveResponse, flag]);
                 })
-                .catch(function (err) {
+                .catch(function(err) {
                     console.log("Error in save user details create ----- ", err);
-                    reject({id: 400, msg: err});
+                    reject({ id: 400, msg: err });
                 });
         } else if (flag) { // updating existing user if flag is true
             // update existing user
@@ -156,7 +155,7 @@ module.exports.saveUserDetails = function(User, userDetails, flag) {
                     delete updateResponse.password; // delete the user's hashed password before returning the user details
                     resolve([updateResponse[0], flag]);
                 })
-                .catch(function (err) {
+                .catch(function(err) {
                     console.log("Error in save user details update ----- ", err);
                     reject({ id: 400, msg: err });
                 });
@@ -175,15 +174,15 @@ module.exports.saveUserDetails = function(User, userDetails, flag) {
 module.exports.callForgotPassword = function callForgotPassword(userDetails, header, options) {
     return new Promise(function(resolve) {
         // create JWT token to send in header
-        var token = utils.createMsJWT({isMicroservice: true});
-        
+        var token = utils.createMsJWT({ isMicroservice: true });
+
         // input to forgotPassword
         var body = {
             email: userDetails.email,
             fromSignUp: true
         };
-        lodash.assign(header, token);   // add the token to the headers
-        
+        lodash.assign(header, token); // add the token to the headers
+
         // require forgotPassword and call it
         var forgotPassword = require(__base + 'actions/forgotPassword.js')(options);
         forgotPassword({ body: body, header: header }, function(err, result) {

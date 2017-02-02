@@ -102,9 +102,6 @@ paths:
               signUpType:
                 type: string
                 description: "Specify which type of signUp"
-              accountType:
-                type: string
-                description: "Specify which type of account"
               email:
                 type: string
                 description: "EmailId of the user"

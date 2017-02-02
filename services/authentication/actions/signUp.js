@@ -20,8 +20,6 @@ var flag = false; // contains whether it is a new user or existing user and whet
 //Joi validation Schema
 var signUpSchema = Joi.object().keys({
     signUpType: Joi.string().trim().valid('email', 'google', 'linkedIn', 'facebook').required(), // specify the
-    // allowed type values
-    accountType: Joi.string().trim().valid('employee', 'company').required(), // specify the allowed account values
     email: Joi.string()
         .when('signUpType', {
             is: 'email',
@@ -74,8 +72,8 @@ module.exports = function(options) {
         User = User || ontology.collections.users;
         Session = Session || ontology.collections.sessions;
 
-        flag = false;   // used to determine if user is a new user or already registered user with other login type
-        var finalResponse = null;   // stores the user details to be sent in response
+        flag = false; // used to determine if user is a new user or already registered user with other login type
+        var finalResponse = null; // stores the user details to be sent in response
 
         utils.checkInputParameters(args.body, signUpSchema)
             .then(function() {
@@ -86,8 +84,8 @@ module.exports = function(options) {
                 return signUp.checkIfAlreadyPresent(User, args.body, flag, done);
             })
             .spread(function(response, Flag) {
-                flag = Flag;    // update the value of flag from the response
-                return signUp.createSaveData(args.body, response);  // select required user values from input and DB
+                flag = Flag; // update the value of flag from the response
+                return signUp.createSaveData(args.body, response); // select required user values from input and DB
                 // to create/update user details
             })
             .then(function(response) {
@@ -96,17 +94,17 @@ module.exports = function(options) {
             })
             .spread(function(response, Flag) {
                 flag = Flag;
-                response.isOwner = true;    // only organization owner's can sign up, so set isOwner to true in response
+                response.isOwner = true; // only organization owner's can sign up, so set isOwner to true in response
                 response.orgId = null;
                 // create a session token for the signed up user
                 return utils.createJWT(response, args.header);
             })
             .then(function(response) {
-                finalResponse = response;   // store the final response for further use
+                finalResponse = response; // store the final response for further use
                 // if user signed up using email, send confirmation mail with set password link
                 if (args.body.email) {
                     return signUp.callForgotPassword(response.output, args.header, options);
-                } else {    // else continue
+                } else { // else continue
                     return new Promise(function(resolve) {
                         resolve();
                     });
@@ -122,7 +120,7 @@ module.exports = function(options) {
             .catch(function(err) {
                 console.log("Error in Sign Up ---- ", err);
                 seneca.log.error('[ ' + process.env.SRV_NAME + ': ' + __filename.split('/').slice(-1) + ' ]', "ERROR" +
-                  " : ", err);
+                    " : ", err);
                 done(null, {
                     statusCode: 200,
                     content: utils.error(err.id || 400, err ? err.msg : 'Unexpected error', microtime.now())
