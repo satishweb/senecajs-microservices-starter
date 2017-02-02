@@ -14,6 +14,7 @@ var bcrypt = require('bcrypt');
 var microtime = require('microtime');
 var SALT_WORK_FACTOR = 10;
 var data = null;
+var token = null;
 
 /**
  * @module post
@@ -27,6 +28,105 @@ var data = null;
  * @returns {Promise} Returns Promise with decoded information from token when token is valid.
  */
 
+function dbInit(ontology, waterline, seneca) {
+    return new Promise(function(resolve, reject) {
+        if (ontology) {
+            resolve(ontology);
+        } else {
+            seneca.log.info('[ ' + process.env.SRV_NAME + ' ]', 'Plugins Loaded ');
+            seneca.log.info('[ ' + process.env.SRV_NAME + ' ]', 'DB TYPE: ', process.env.DB_TYPE);
+            seneca.log.info('[ ' + process.env.SRV_NAME + ' ]', 'DB HOST: ', process.env.DB_HOST);
+            seneca.log.info('[ ' + process.env.SRV_NAME + ' ]', 'DB NAME: ', process.env.DB_NAME);
+
+            loadModels(waterline, seneca);
+            if (process.env.DB_TYPE === 'mongodb') {
+                var sailsMongoAdapter = require('sails-mongo');
+
+                var config = {
+                    adapters: {
+                        'mongo': sailsMongoAdapter
+                    },
+
+                    connections: {
+                        default: {
+                            adapter: 'mongo',
+                            host: process.env.DB_HOST || 'localhost',
+                            port: 27017,
+                            database: process.env.DB_NAME
+                        }
+                    }
+                };
+            } else if (process.env.DB_TYPE === 'postgresdb') {
+                var sailsPostgresAdapter = require('sails-postgresql');
+
+                var config = {
+                    adapters: {
+                        'postgres': sailsPostgresAdapter
+                    },
+
+                    connections: {
+                        default: {
+                            adapter: 'postgres',
+                            database: process.env.DB_NAME,
+                            host: process.env.DB_HOST || 'localhost',
+                            user: process.env.DB_USER,
+                            password: process.env.DB_PASS,
+                            port: 5432,
+                            pool: true,
+                            ssl: false
+                        }
+                    }
+                };
+            }
+            waterline.initialize(config, function(err, ontology) {
+                if (err) {
+                    return console.error("Error initializing ------ ", err);
+                    reject({ id: 400, msg: err });
+                } else {
+                    console.log("Connected to " + process.env.DB_TYPE + " --------");
+                    resolve(ontology);
+                }
+            });
+        }
+    });
+}
+
+function loadModels(waterline, seneca) {
+
+    var fs = require('fs');
+    var path = require('path');
+
+    // Shared models path
+    var SHARED_MODELS_PATH = path.join(__base, '/sharedmodels/' + 'waterline');
+    // models path
+    var MODELS_PATH = path.join(__base, '/models/' + 'waterline');
+
+    // TODO: search and load all files from multiple directories in single function
+    // TODO: Make it recursive
+    // Shared Models loading, form the models path
+    if (fs.existsSync(SHARED_MODELS_PATH)) {
+        fs.readdirSync(SHARED_MODELS_PATH).forEach(function(file) {
+            var f = path.basename(file, '.js');
+            seneca.log.info('[ ' + process.env.SRV_NAME + ' ]', 'Loading Shared Model: ', f);
+            var model = require(path.join(SHARED_MODELS_PATH, file));
+            model.migrate = 'alter';
+            waterline.loadCollection(Waterline.Collection.extend(model));
+        });
+    }
+
+    // Models loading, form the models path
+    if (fs.existsSync(MODELS_PATH)) {
+        fs.readdirSync(MODELS_PATH).forEach(function(file) {
+            var f = path.basename(file, '.js');
+            seneca.log.info('[ ' + process.env.SRV_NAME + ' ]', 'Loading Model: ', f);
+            var model = require(path.join(MODELS_PATH, file));
+            model.migrate = 'alter';
+            waterline.loadCollection(Waterline.Collection.extend(model));
+        });
+    }
+
+}
+
 var convertObjectIds = function() {
     return new Promise(function(resolve) {
         var d = new Date(); // timestamp to set the updatedAt and createdAt fields
@@ -34,16 +134,6 @@ var convertObjectIds = function() {
         data.forEach(function(items) { // items gives the collection object, consisting of collection name and
             // collection data
             items.data.forEach(function(item) { // item gives a single document from the collection
-
-                // if document contains an _id field, convert it to ObjectId
-                /*if (item._id) {
-                    var Id = new mongodb.ObjectID(item._id);
-                    item._id = Id;
-                }*/
-
-                // set the createdAt and updatedAt timestamps to present time
-                item.createdAt = d;
-                item.updatedAt = d;
 
                 if (items.collection === 'users') { // check if collection is user collection
                     // if user password is set, hash it
@@ -91,7 +181,7 @@ var convertObjectIds = function() {
  */
 var clearDatabase = function(db) {
     return new Promise(function(resolve) {
-        db.dropDatabase();  // clear the database
+        db.dropDatabase(); // clear the database
         resolve(true);
     });
 };
@@ -106,43 +196,28 @@ var insertDocuments = function(ontology) {
     return new Promise(function(resolve, reject) {
         var length = data.length;
         var errors = [];
-        data.forEach(function(items, i) {   // iterate over the different collections
-            var collection = (items.collection);    // get the collection name
+        data.forEach(function(items, i) { // iterate over the different collections
+            var collection = (items.collection); // get the collection name
             ontology.collections[collection].destroy({})
-                .then(function () {
-                    console.log("Cleared the DB ----- ");
-                    return ontology.collections[collection].find({});
-                })
-                .then(function (data) {
-                    console.log("Current values in DB ---- ", data);
+                .then(function(data) {
                     return ontology.collections[collection].create(items.data);
                 })
-                .then(function () {
+                .then(function() {
                     length--;
-                    console.log("After create ---- ");
-                    if(length === 0 && errors.length === 0) {
+                    if (length === 0 && errors.length === 0) {
                         resolve();
-                    } else if(length === 0 && errors.length > 0) {
+                    } else if (length === 0 && errors.length > 0) {
                         reject(errors);
                     }
                 })
-                .catch(function (err) {
+                .catch(function(err) {
                     length--;
                     console.log("Error in insert ----- ", err);
                     errors.push(err.message);
-                    if(length === 0) {
+                    if (length === 0) {
                         reject(errors);
                     }
                 });
-            /*db.collection(collection, function(err, coll) {
-                coll.remove({}, function() { // delete the present data from the database before inserting the dummy data
-                    coll.insertMany(items.data, function() { // insert the bootstrap data into the collection
-                        if (i === data.length - 1) {    // if all collections have been added, resolve
-                            resolve();
-                        }
-                    });
-                });
-            });*/
         });
     });
 };
@@ -154,49 +229,43 @@ var insertDocuments = function(ontology) {
 
 module.exports = function(options) {
     var seneca = options.seneca;
-    var ontology = options.wInstance;
+    var ontology = null;
     return function(args, done) {
-        console.log("Bootstrap called ------ ");
-        // read the bootstrap data from file
-        data = JSON.parse(fs.readFileSync(__dirname + '/../allDataWaterline.json'));
-        convertObjectIds()
-            .then(function () {
-                return insertDocuments(ontology);
 
-            })
-            .then(function (){
-                done(null, {
-                    statusCode: 200,
-                    content: utils.success(200, "Bootstrap data inserted successfully.", microtime.now())
-                });
-            })
-            .catch(function (err) {
-                console.log("Error in bootstrap ---- ", err);
-                done(null, {
-                    statusCode: 200,
-                    content: utils.fetchSuccess(400, "Bootstrap data unsuccessful.", err, microtime.now())
-                });
-            });
-            /*convertObjectIds()
-                .then(function() {
-                    return clearDatabase(db);
+        // check if token is present in input headers
+        if (args.header && args.header.bootstraptoken && token != null && args.header.bootstraptoken === token) {
+            var waterline = new Waterline();
+            dbInit(ontology, waterline, seneca)
+                .then(function(response) {
+                    ontology = response;
+                    // read the bootstrap data from file                    
+                    data = JSON.parse(fs.readFileSync(__dirname + '/../allDataWaterline.json'));
+                    return convertObjectIds();
                 })
                 .then(function() {
-                    return insertDocuments(db);
+                    return insertDocuments(ontology);
                 })
                 .then(function() {
+                    token = null;
                     done(null, {
                         statusCode: 200,
                         content: utils.success(200, "Bootstrap data inserted successfully.", microtime.now())
                     });
                 })
                 .catch(function(err) {
-                    seneca.log.error('[ ' + process.env.SRV_NAME + ': ' + __filename.split('/').slice(-1) + ' ]', "ERROR" +
-                        " : ", err);
+                    console.log("Error in bootstrap ---- ", err);
+                    token = null;
                     done(null, {
                         statusCode: 200,
-                        content: utils.error(400, err || "Unexpected error", microtime.now())
+                        content: utils.fetchSuccess(400, "Bootstrap data unsuccessful.", err.message || err, microtime.now())
                     });
-                });*/
+                });
+        } else {
+            token = utils.createMsJWT({ timestamp: microtime.now() }).authorization;
+            done(null, {
+                statusCode: 200,
+                content: utils.fetchSuccess(200, "Use this token and request bootstrap again.", token, microtime.now())
+            });
+        }
     };
 };

@@ -15,6 +15,11 @@ paths:
   "/v1/setup":
     post:
       summary: "Save bootstrap data."
+      paramters:
+        - name: BootstrapToken
+          in: headers
+          required: true
+          type: string
       responses:
         "200":
           description: "Successful"

@@ -1,13 +1,6 @@
 'use strict';
 
-var Waterline = require('waterline');
-
-module.exports = function(waterline) {
-    // schemas and modules compilation
-
-    /********************************************* Sessions Waterline Model **************************************/
-
-    var sessionCollection = Waterline.Collection.extend({
+module.exports = {
         identity: 'sessions',
         tableName: 'sessions',
         connection: 'default',
@@ -23,7 +16,4 @@ module.exports = function(waterline) {
             emailId         : {type: 'string'},
             lastLoggedInTime: {type: 'string'}
         }
-    });
-
-    waterline.loadCollection(sessionCollection);
-};
+    };

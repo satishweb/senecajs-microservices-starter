@@ -16,7 +16,7 @@
         "contact": "1234567890",
         "isDeleted": false,
         "orgId": null
-    },{
+    }, {
         "userId": 2,
         "passwordStatus": "passwordSet",
         "profileComplete": true,
@@ -26,13 +26,13 @@
         "linkedInId": null,
         "googleId": null,
         "password": "password",
-        "lastName": null,
-        "firstName": "Admin1",
-        "email": "admin1@example.io",
+        "lastName": "User",
+        "firstName": "Postman",
+        "email": "postman@user.io",
         "contact": "1234567890",
         "isDeleted": false,
         "orgId": null
-    },{
+    }, {
         "userId": 3,
         "passwordStatus": "passwordSet",
         "profileComplete": true,
@@ -48,7 +48,7 @@
         "contact": "1234567890",
         "isDeleted": false,
         "orgId": 1
-    },{
+    }, {
         "userId": 4,
         "passwordStatus": "passwordSet",
         "profileComplete": true,
@@ -65,17 +65,31 @@
         "isDeleted": false,
         "orgId": 1
     }]
-},{
+}, {
     "collection": "organizations",
     "data": [{
-        "orgId" : 1,
-        "ownerId" : 1,
-        "isDeleted" : false,
-        "website" : "www.example.com",
-        "description" : "Example",
-        "fqdn" : "key-app-example-dev.example.com",
-        "domain" : "example.com",
-        "subDomain" : "key-app-example-dev",
-        "name" : "Example"
+        "orgId": 1,
+        "ownerId": 1,
+        "isDeleted": false,
+        "website": "www.example.com",
+        "description": "Example",
+        "fqdn": "key-app-example-dev.example.com",
+        "domain": "example.com",
+        "subDomain": "key-app-example-dev",
+        "name": "Example"
+    }]
+}, {
+    "collection": "tokens",
+    "data": []
+}, {
+    "collection": "sessions",
+    "data": [{
+        "sessionId": 1,
+        "JWT": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyQWdlbnQiOiJQb3N0bWFuUnVudGltZS8zLjAuOSIsImhvc3RJcCI6IjE3Mi4xNy4wLjEiLCJob3N0Ijoia2V5LWxvY2FsLWFwaS5leGFtcGxlLmNvbSIsImZpcnN0TmFtZSI6IlBvc3RtYW4iLCJsYXN0TmFtZSI6IlVzZXIiLCJvcmdJZCI6bnVsbCwiYXZhdGFyIjpudWxsLCJ1c2VySWQiOjIsImVtYWlsSWQiOiJwb3N0bWFuQHVzZXIuaW8iLCJpc093bmVyIjpmYWxzZSwibGFzdExvZ2dlZEluVGltZSI6IjE0ODYwNDk0NjczMzUxNzciLCJpYXQiOjE0ODYwNDk0Njd9.1y3qsVP71OwmnDaDodI9VF1XWJniMzPx8rHkWcI5nlE",
+        "firstName": "Postman",
+        "lastName": "User",
+        "userId": 2,
+        "emailId": "postman@user.io",
+        "lastLoggedInTime": 1486049467335177
     }]
 }]

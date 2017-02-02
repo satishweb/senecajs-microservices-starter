@@ -15,7 +15,7 @@ function dbInit(options) {
     seneca.log.info('[ ' + process.env.SRV_NAME + ' ]', 'DB NAME: ', process.env.DB_NAME);
 
     loadModels(waterline);
-    if(process.env.DB_TYPE === 'mongodb') {
+    if (process.env.DB_TYPE === 'mongodb') {
         var sailsMongoAdapter = require('sails-mongo');
 
         var config = {
@@ -32,7 +32,7 @@ function dbInit(options) {
                 }
             }
         };
-    } else if(process.env.DB_TYPE === 'postgresdb') {
+    } else if (process.env.DB_TYPE === 'postgresdb') {
         var sailsPostgresAdapter = require('sails-postgresql');
 
         var config = {
@@ -54,7 +54,7 @@ function dbInit(options) {
             }
         };
     }
-    waterline.initialize(config, function (err, ontology) {
+    waterline.initialize(config, function(err, ontology) {
         if (err) {
             return console.error("Error initializing ------ ", err);
         } else {
@@ -79,10 +79,18 @@ function dbInit(options) {
 
 function workerPlugin() {
 
-    // Plugin init, for database connection setup
-    seneca.add({
-        init: process.env.SRV_NAME
-    }, dbInit({seneca: seneca}));
+    if (process.env.SRV_NAME === 'bootstrap') {
+        // Plugin init, for database connection setup
+        seneca.add({
+            init: process.env.SRV_NAME
+        }, loadActions({ seneca: seneca }));
+    } else {
+        // Plugin init, for database connection setup
+        seneca.add({
+            init: process.env.SRV_NAME
+        }, dbInit({ seneca: seneca }));
+    }
+
 
     return process.env.SRV_NAME;
 };
@@ -100,21 +108,20 @@ function loadModels(waterline) {
     // TODO: search and load all files from multiple directories in single function
     // TODO: Make it recursive
     // Shared Models loading, form the models path
-    if(fs.existsSync(SHARED_MODELS_PATH))
-    {
+    if (fs.existsSync(SHARED_MODELS_PATH)) {
         fs.readdirSync(SHARED_MODELS_PATH).forEach(function(file) {
             var f = path.basename(file, '.js');
             seneca.log.info('[ ' + process.env.SRV_NAME + ' ]', 'Loading Shared Model: ', f);
-            require(path.join(SHARED_MODELS_PATH, file))(waterline);
+            waterline.loadCollection(Waterline.Collection.extend(require(path.join(SHARED_MODELS_PATH, file))));
         });
     }
 
     // Models loading, form the models path
-    if(fs.existsSync(MODELS_PATH)) {
-        fs.readdirSync(MODELS_PATH).forEach(function (file) {
+    if (fs.existsSync(MODELS_PATH)) {
+        fs.readdirSync(MODELS_PATH).forEach(function(file) {
             var f = path.basename(file, '.js');
             seneca.log.info('[ ' + process.env.SRV_NAME + ' ]', 'Loading Model: ', f);
-            require(path.join(MODELS_PATH, file))(waterline);
+            waterline.loadCollection(Waterline.Collection.extend(require(path.join(MODELS_PATH, file))));
         });
     }
 
@@ -128,8 +135,8 @@ function loadActions(options) {
     var ACTS_PATH = path.join(__dirname, '/actions');
 
     // Microservices actions
-    if(fs.existsSync(ACTS_PATH)) {
-        fs.readdirSync(ACTS_PATH).forEach(function (file) {
+    if (fs.existsSync(ACTS_PATH)) {
+        fs.readdirSync(ACTS_PATH).forEach(function(file) {
             var f = path.basename(file, '.js');
             seneca.log.info('[ ' + process.env.SRV_NAME + ' ]', 'Loading Action: ', f);
             // add a seneca action, it will respond on every message tath will match role and cmd.
@@ -149,7 +156,7 @@ function loadApi(options) {
 
     // API groups
     // register the API routes
-    require('./api/index.js')(options, function (err) {
+    require('./api/index.js')(options, function(err) {
 
         if (err) {
             seneca.log.error('[ ' + process.env.SRV_NAME + ' ]', 'Could not load APIs', err);
@@ -158,8 +165,8 @@ function loadApi(options) {
         }
 
         // Start the Server
-        seneca.ready(function () {
-            server.start(function (exc) {
+        seneca.ready(function() {
+            server.start(function(exc) {
                 if (exc) {
                     seneca.log.error('[ ' + process.env.SRV_NAME + ' ]', 'Server Start ERROR:', exc);
                     throw exc;
@@ -183,11 +190,11 @@ if (process.env.SRV_NAME === 'api') {
 
     // specify host and port for server connection
     server.connection({
-        host  : '0.0.0.0',
-        port  : 3000,
+        host: '0.0.0.0',
+        port: 3000,
         routes: {
-            cors   : {
-                origin           : ['*'],
+            cors: {
+                origin: ['*'],
                 //TODO: Allow only listed hosts to access.
                 additionalHeaders: ['Access-Control-Request-Headers', 'Accept', 'Access-Control-Request-Method']
             },
@@ -202,7 +209,7 @@ if (process.env.SRV_NAME === 'api') {
     seneca.use('seneca-amqp-transport');
     seneca.client({
         type: 'amqp',
-        pin : ['role:*,cmd:*'].join(','),
+        pin: ['role:*,cmd:*'].join(','),
         host: process.env.QUEUE_HOST || '127.0.0.1'
     });
 
