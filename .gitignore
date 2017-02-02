@@ -6,6 +6,6 @@ containers/*
 node_modules*
 *.DS_Store
 services/*/index.js
-services/*/run
+services/*/shared*
 services/*/translations.json
 services/*/package.json
