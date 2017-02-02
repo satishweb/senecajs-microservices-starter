@@ -5,8 +5,6 @@ var Locale = require(__base + '/sharedlib/formatter');
 var outputFormatter = new Locale(__dirname + '/../');
 var lodash = require('lodash');
 var Joi = require('joi');
-var mongodb = require('mongodb');
-var mongoose = require('mongoose');
 var Promise = require('bluebird');
 var jwt = require('jsonwebtoken');
 var microtime = require('microtime');
@@ -28,64 +26,6 @@ var forgotPasswordSchema = Joi.object().keys({
 });
 
 /**
- * Get the organization details from the origin URL
- * @method getOrgID
- * @param {String} orgId The value of organization Id or fromSignUp flag
- * @param {String} header The request headers
- * @param {Seneca} seneca The seneca instance
- * @returns {Promise} Promise with the organization Id if successful, else resolved with null
- */
-function getOrgId(orgId, header, seneca) {
-    return new Promise(function(resolve, reject) {
-
-        // if orgId is absent and origin is present
-        if (!orgId && header && (header.origin || header['user-agent'])) {
-            // check if the request has come from Postman
-            if ((process.env.SYSENV !== 'prod' && ((header.origin && header.origin.match('chrome-extension')) ||
-                (header['user-agent'] && header['user-agent'].match('PostmanRuntime'))))) {
-
-                // if request is from Postman, resolve with sample organization details
-                resolve({name: 'Example', orgId: '582090689210640000000006', ownerId: "582090689210640000000001"});
-            } else {
-
-                // if the request is not from Postman, separate the fqdn and fetch the matching organization
-
-                header = url.parse(header.origin);
-                header = header.host;
-                var urlComp = header.split(':');    // remove the trailing port for localhost
-
-                // find the organization corresponding to the sub-domain by calling getOrganization of organizations
-                // microservice
-                utils.microServiceCall(seneca, 'organizations', 'getOrganization', {action: 'fqdn', fqdn: urlComp[0]}, null,
-                    function (err, orgResult) {
-
-                        if (err) {
-                            resolve(err);
-                        } else if (orgResult.content && lodash.isEmpty(orgResult.content.data)) { // if data
-                            // returned is empty, organization was not found
-                            resolve(null);
-                        } else if (orgResult.content &&
-                            orgResult.content.data &&
-                            orgResult.content.data.isDeleted ==
-                            false) {
-                            // if organization details are returned, check if the organization has not been deleted and
-                            // return the details
-                            resolve(orgResult.content.data);
-                        } else {    // if organization has been deleted, return error message
-                            reject({
-                                id: 400,
-                                msg: 'This Organization is currently disabled. Please contact Organization Admin.'
-                            });
-                        }
-                    });
-            }
-        } else {
-            resolve(null);
-        }
-    });
-}
-
-/**
  * Check if email id is present in database if called from login or signUp, skip check if called from send invitations
  * @method checkEmailPresent
  * @param {Object} input Used to get the input parameter (email)
@@ -97,18 +37,17 @@ function checkEmailPresent(input) {
         // skip email check if called by send invitations
         if (!input.fromInvitation) {
             // find if email exists in database
-            User.findOne({ email: input.email }, function(err, findResult) {
-                if (err) {
-                    reject({ id: 400, msg: err.message });
-                } else {
+            User.findOne({ email: input.email , orgId: input.orgId})
+                .then(function(findResult) {
                     // return error message if email id not found
                     if (lodash.isEmpty(findResult)) {
                         reject(outputFormatter.format(false, 1100, null, 'User with email address ' + input.email));
                     } else {
                         resolve(findResult);
                     }
-                }
-            });
+                }).catch(function(err) {
+                    reject({ id: 400, msg: err });
+                });
         } else {
             // if called by send invitations continue
             resolve(true);
@@ -161,14 +100,25 @@ function createTokenAndSaveDetails(args, orgId, invitedUserDetails) {
         var option = { expiresIn: expireTime }; // set expiry time of JWT token
         var token = jwt.sign(data, key, option); // create JWT token
 
+        // TODO: Replace with model instance static method
         // add the expiry timestamp and token to user document and return the updated document
-        Token.findOneAndUpdate({ email: args.body.email }, { tokenValidTillTimestamp: timestamp, token: token }, { upsert: true, new: true },
-            function(err, updateResult) {
-                if (err) {
-                    reject({ id: 400, msg: err.message });
+        Token.update({ email: args.body.email }, { tokenValidTillTimestamp: timestamp, token: token })
+            .then(function(updateResult) {
+                if (updateResult.length === 0) {
+                    // No records updated, Token does not exist. Create.
+                    Token.create({ email: args.body.email, tokenValidTillTimestamp: timestamp, token: token })
+                        .then(function (createResult) {
+                            resolve({token: token, userDetails: createResult});
+                        })
+                        .catch(function (err) {
+                            reject({ id: 400, msg: err});
+                        })
                 } else {
-                    resolve({ token: token, userDetails: updateResult });
+                    resolve({token: token, userDetails: updateResult});
                 }
+            })
+            .catch(function(err) {
+                reject({ id: 400, msg: err});
             });
     });
 }
@@ -231,13 +181,13 @@ function sendResponse(result, done) {
  */
 
 module.exports = function(options) {
-    // options = options || {};
     var seneca = options.seneca;
+    var ontology = options.wInstance;
     return function(args, done) {
         
         // load mongoose models
-        User = mongoose.model('Users');
-        Token = Token || mongoose.model('Tokens');
+        User = User || ontology.collections.users;
+        Token = Token || ontology.collections.tokens;
         
         var resetURL = null;    // stores the reset URL depending on the incoming request URL
         var token = null;   // stores the reset token created
@@ -249,14 +199,15 @@ module.exports = function(options) {
                 // set the reset password URL
                 resetURL = args.header ? args.header.origin || 'https://' + process.env.APP_URL : 'https://' + process.env.APP_URL;
                 resetURL = resetURL + '/#/reset-password?token=';
-                return getOrgId(args.body.orgId || args.body.fromSignUp, args.header, seneca); // fetch user organization
+                return utils.fetchOrganisationId(args.body.orgId || args.body.fromSignUp, args.header, seneca); // fetch user
+                // organization
             })
             .then(function(response) {
                 orgId = response ? (args.body.orgId || response.orgId) : args.body.orgId;
-                // if organization id is returned, 
-                if (!lodash.isEmpty(orgId)) {
-                    User = mongoose.model('DynamicUser', User.schema, orgId + '_users');
+                if (orgId) {
+                    args.body.orgId = orgId;
                 }
+                // if organization id is returned,
                 return checkEmailPresent(args.body);
             })
             .then(function(response) {
@@ -273,13 +224,12 @@ module.exports = function(options) {
             })
             .then(function() {
 
-                delete mongoose.connection.models['DynamicUser'];
                 return sendResponse({ URL: resetURL, token: token }, done);
             })
             .catch(function(err) {
+                console.log("Error in forgotPassword ----- ", err);
                 seneca.log.error('[ ' + process.env.SRV_NAME + ': ' + __filename.split('/').slice(-1) + ' ]', "ERROR" +
                   " : ", err);
-                delete mongoose.connection.models['DynamicUser'];
                 done(null, {
                     statusCode: 200,
                     content: err.success === true || err.success === false ? err : utils.error(err.id || 400, err ? err.msg : 'Unexpected error', microtime.now())

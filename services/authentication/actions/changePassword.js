@@ -1,6 +1,5 @@
 'use strict';
 
-var mongoose = require('mongoose');
 var bcrypt = require('bcrypt');
 var utils = require(__base + 'sharedlib/utils');
 var Locale = require(__base + 'sharedlib/formatter');
@@ -30,12 +29,19 @@ var changePasswordSchema = Joi.object().keys({
  */
 var changePassword = function(decodedToken, input) {
     return new Promise(function(resolve, reject) {
+        //create find object for user
+        var find = { email: decodedToken.emailId};
+
+        if (input.orgId) {
+            find.orgId = input.orgId;
+        } else {
+            find.orgId = null;
+        }
         // create update object for user
         var update = {
             password: bcrypt.hashSync(input.password, 10), // hash the input password
             passwordStatus: 'passwordSet',
-            invitationPending: false,
-            updatedAt: Date.now()
+            invitationPending: false
         };
         if (decodedToken.firstName) {   // if token contains user's first name, set it in the update data object
             update.firstName = decodedToken.firstName;
@@ -46,17 +52,30 @@ var changePassword = function(decodedToken, input) {
         if (decodedToken.orgId) {   // if token contains the organization id, set it in the update data object
             update.orgId = decodedToken.orgId;
         }
+
+        // console.log("Find ---- ", find, update);
+
+        //TODO: Replace with model instance static method
         // update user document by email
-        User.update({ 'email': decodedToken.emailId }, { $set: update }, { upsert: true, setDefaultsOnInsert: true },
-            function(err, updateResult) {
-                updateResult = JSON.parse(JSON.stringify(updateResult)); // force mongoose transform
-                if (err) {
-                    reject({ id: 400, msg: err || 'Password not changed.' });
-                } else if (lodash.isEmpty(updateResult)) {
-                    reject({ id: 400, msg: 'User email not found.' });
+        User.update(find, update)
+            .then(function(updateResult) {
+                // console.log("UpdateResult ---- ", updateResult);
+                if (lodash.isEmpty(updateResult)) {
+                    update = lodash.assign(find, update);
+                    User.create(update)
+                        .then(function (createResult) {
+                            resolve(createResult);
+                        })
+                        .catch(function (err) {
+                            reject({ id: 400, msg: err});
+                        });
                 } else {
                     resolve(updateResult);
                 }
+            })
+            .catch(function (err) {
+                // console.log("Error in change password ---- ", err);
+                reject({ id: 400, msg: err || 'Password not changed.' });
             });
     });
 };
@@ -68,19 +87,22 @@ var changePassword = function(decodedToken, input) {
  * @param {String} token The token to be deleted
  * @returns {Promise} Promise containing the update response if successful, else the appropriate error message
  */
-var removeTokenFromDB = function(action, token) {
+
+function removeTokenFromDB(action, token) {
     return new Promise(function(resolve, reject) {
         if (action === 'resetPassword') { // if action is resetPassword, delete token, else skip this
-            Token.remove({ 'token': token }, function(err, result) {
-                result = JSON.parse(JSON.stringify(result)); // force mongoose transform
-                if (err) {
+            Token.destroy({ 'token': token })
+                .then(function(result) {
+                    if (lodash.isEmpty(result)) { // if no document was removed, return error
+                        reject({ id: 400, msg: "Invalid reset token. Please generate new reset token from Forgot Password or Invitation." });
+                    } else {
+                        resolve(true);
+                    }
+                })
+                .catch(function (err){
+                    // console.log("Error in delete token ---- ", err);
                     reject({ id: 400, msg: err });
-                } else if (result.n !== 1) { // if no document was removed, return error
-                    reject({ id: 400, msg: "Invalid reset token. Please generate new reset token from Forgot Password or Invitation." });
-                } else {
-                    resolve(true);
-                }
-            });
+                });
         } else {    // if any other action, continue
             resolve(true);
         }
@@ -117,7 +139,7 @@ var addInvitedToGeneral = function(userId, header, seneca) {
  */
 var sendResponse = function(result, done) {
     // if any document was modified or created, send success response
-    if (result && result.n == 1) {
+    if (!lodash.isEmpty(result)) {
         done(null, { statusCode: 200, content: outputFormatter.format(true, 2050, null, 'Password') });
     } else {
         done(null, { statusCode: 200, content: outputFormatter.format(true, 1000, null, 'Something went wrong.' +
@@ -132,9 +154,14 @@ var sendResponse = function(result, done) {
  */
 module.exports = function(options) {
     var seneca = options.seneca;
+    var ontology = options.wInstance;
     return function(args, done) {
-        User = mongoose.model('Users');
-        Token = Token || mongoose.model('Tokens');
+
+        // load waterline models
+        User = User || ontology.collections.users;
+        Token = Token || ontology.collections.tokens;
+
+
         var action = 'resetPassword'; // stores if password is being reset or changed, default - reset
         var decodedToken = null;
 
@@ -153,8 +180,7 @@ module.exports = function(options) {
 
                 // if orgId is present and user is not owner, switch to organization's user collection
                 if (response.orgId && !response.isOwner) {
-                    // change mongoose model to point to main user collection
-                    User = mongoose.model('DynamicUser', User.schema, response.orgId + '_users');
+                    args.body.orgId = response.orgId;
                 }
                 return removeTokenFromDB(action, args.header.authorization);
             })
@@ -162,8 +188,7 @@ module.exports = function(options) {
                 return changePassword(decodedToken, args.body);
             })
             .then(function(updateResponse) {
-                delete mongoose.connection.models['DynamicUser']; // delete model created for organization user
-
+                // console.log("Updated response ---- ", updateResponse);
                 // if new user is created, remove invitation and add invited user to general
                 if (updateResponse && updateResponse.upserted && updateResponse.upserted[0] && updateResponse.upserted[0]) {
                     // create a token to send to API in microservice calls containing organization Id
@@ -174,7 +199,7 @@ module.exports = function(options) {
                 sendResponse(updateResponse, done);
             })
             .catch(function(err) {
-                delete mongoose.connection.models['DynamicUser']; // delete model created for organization user
+                console.log("Error in changePassword ---- ", err);
                 seneca.log.error('[ ' + process.env.SRV_NAME + ': ' + __filename.split('/').slice(-1) + ' ]', "ERROR" +
                   " : ", err);
                 var error = err || { id: 400, msg: 'Unexpected error' };
