@@ -66,11 +66,13 @@ function sendResponse(result, done) {
  */
 module.exports = function(options) {
     var seneca = options.seneca;
+    var ontology = options.wInstance;
+
     return function(args, done) {
 
-        // Mongoose models for user and session
-        User = User || mongoose.model('Users');
-        Session = Session || mongoose.model('Sessions');
+        // Waterline models for user and session
+        User = User || ontology.collections.users;
+        Session = Session || ontology.collections.sessions;
 
         flag = false;   // used to determine if user is a new user or already registered user with other login type
         var finalResponse = null;   // stores the user details to be sent in response
@@ -103,10 +105,10 @@ module.exports = function(options) {
                 finalResponse = response;   // store the final response for further use
                 // if user signed up using email, send confirmation mail with set password link
                 if (args.body.email) {
-                    return signUp.callForgotPassword(response.output, args.header, seneca);
+                    return signUp.callForgotPassword(response.output, args.header, options);
                 } else {    // else continue
                     return new Promise(function(resolve) {
-                        resolve(response.output);
+                        resolve();
                     });
                 }
             })
@@ -118,6 +120,7 @@ module.exports = function(options) {
                 return sendResponse(finalResponse.output, done);
             })
             .catch(function(err) {
+                console.log("Error in Sign Up ---- ", err);
                 seneca.log.error('[ ' + process.env.SRV_NAME + ': ' + __filename.split('/').slice(-1) + ' ]', "ERROR" +
                   " : ", err);
                 done(null, {

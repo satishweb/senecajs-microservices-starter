@@ -4,8 +4,6 @@ var utils = require(__base + 'sharedlib/utils');
 var Locale = require(__base + 'sharedlib/formatter');
 var session = require(__base + 'sharedlib/session');
 var outputFormatter = new Locale(__dirname + '/../');
-var Promise = require('bluebird');
-var mongoose = require('mongoose');
 var microtime = require('microtime');
 var Session = null;
 
@@ -21,9 +19,10 @@ var Session = null;
  */
 module.exports = function(options) {
     var seneca = options.seneca;
+    var ontology = options.wInstance;
     return function(args, done) {
 
-        Session = Session || mongoose.model('Sessions');
+        Session = Session || ontology.collections.sessions;
         try {
             // delete the users sessions from DB
             session.deleteSessions(Session, args.credentials.userId, args.credentials.orgId, null);

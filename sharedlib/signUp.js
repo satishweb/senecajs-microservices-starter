@@ -4,11 +4,8 @@ var Locale = require('./formatter');
 var utils = require('./utils');
 var outputFormatter = new Locale(__dirname + '/../');
 var lodash = require('lodash');
-var Joi = require('joi');
-var mongoose = require('mongoose');
 var Promise = require('bluebird');
 var bcrypt = require('bcrypt');
-var jwt = require('jsonwebtoken');
 var microtime = require('microtime');
 
 
@@ -23,58 +20,49 @@ var microtime = require('microtime');
  */
 module.exports.checkIfAlreadyPresent = function(User, input, flag, done) {
     return new Promise(function(resolve, reject) {
-        var find = {}; // object for search query parameters
+        var find = {orgId: null}; // object for search query parameters
         var temp = []; // array for or queries in find
         switch (input.signUpType) {
             case 'email': // checking if signUpType is email then setting email as find query parameter
                 find.email = input.email;
                 break;
-            case 'google': // checking if signUpType is google then setting email returned
-                // by google and googleId as find query parameter
-                temp.push({ 'googleId': input.socialId });
-                input.socialEmail ? temp.push({ 'email': input.socialEmail }) : null;
-                find = { $or: temp };
-                break;
-            case 'linkedIn': // checking if signUpType is linkedIn then setting email returned
-                // by linkedIn and linkedInId as find query parameter
-                temp.push({ 'linkedInId': input.socialId });
-                input.socialEmail ? temp.push({ 'email': input.socialEmail }) : null;
-                find = { $or: temp };
-                break;
+            case 'google':
+            case 'linkedIn':
             case 'facebook':
-                temp.push({ 'facebookId': input.socialId });
+                var socialId = {};
+                socialId[input.signUpType + 'Id'] = input.socialId;
+                temp.push(socialId);
                 input.socialEmail ? temp.push({ 'email': input.socialEmail }) : null;
-                find = { $or: temp };
+                find.or = temp;
                 break;
         }
         // fetch user if present in database
         if (lodash.isEmpty(find)) {
             reject(outputFormatter.format(false, 1020, 'input'));
         } else {
-            User.find(find, function(err, findResult) {
-                if (err) {
-                    reject({ id: 400, msg: err });
-                } else {
+            User.findOne(find)
+                .then(function(findResult) {
                     // if no user is found, can continue with sign up
                     if (lodash.isEmpty(findResult)) {
                         resolve([{}, flag]);
                     } else {
                         // if user is found, checking if the social email matches the email in database.
                         // if yes, will update the user's profile by adding the social info to it and linking with his social account
-                        if (input.socialEmail !== undefined && findResult[0].email === input.socialEmail) { // checking if
+                        if (input.socialEmail && findResult.email === input.socialEmail) { // checking if
                             // emailId from social account is same as found in find result
                             flag = true; // setting flag to true to merge account later
-                            findResult[0] = JSON.parse(JSON.stringify(findResult[0]));
-                            resolve([findResult[0], flag]);
+                            resolve([findResult, flag]);
                         } else {
                             done(null, {
                                 statusCode: 200,
-                                content: outputFormatter.format(false, 2300, null, findResult[0].email || 'User')
+                                content: outputFormatter.format(false, 2300, null, findResult.email || 'User')
                             });
                         }
                     }
-                }
-            });
+                })
+                .catch(function (err) {
+                    reject({id: 400, msg: err});
+                });
         }
     });
 };
@@ -94,27 +82,22 @@ module.exports.createSaveData = function(input, findResult) {
             lastName: null,
             avatar: null,
             email: null,
-            accountType: null,
             password: null,
             googleId: null,
             linkedInId: null,
             facebookId: null,
             lastLoggedInTime: null,
-            passwordStatus: "passwordNotSet",
-            facebookChannelSet: false
+            passwordStatus: "passwordNotSet"
         };
         if (input.signUpType === 'email') { // if type is email, set email related fields
             temp = {
                 email: input.email,
-                accountType: input.accountType,
                 firstName: input.name,
                 lastLoggedInTime: microtime.now()
             };
             data = lodash.merge(data, temp); // merge the defaults with the object created from inputs
             resolve(data);
         } else if (input.signUpType === 'google' || input.signUpType === 'linkedIn' || input.signUpType === 'facebook') { // if type is social sign up
-            if (input.signUpType === 'facebook')
-                temp.facebookChannelSet = true;
 
             var key = input.signUpType + 'Id';
             temp.passwordStatus = "passwordNotNeeded";
@@ -153,33 +136,30 @@ module.exports.saveUserDetails = function(User, userDetails, flag) {
     return new Promise(function(resolve, reject) {
         var find = {};
         if (userDetails.userId) { // if userDetails contains the objectId, copy it into find query and delete it from userDetails
-            find._id = userDetails.userId;
+            find.userId = userDetails.userId;
             delete userDetails.userId;
         }
-        // TODO: Replace save and findOneAndUpdate with upsert
         if (flag === false) { // creating new user if flag is false
-            var saveUser = new User(userDetails);
             // save new user document
-            saveUser.save(function(err, saveResponse) {
-                if (err) {
-                    reject({ id: 400, msg: err });
-                } else {
-                    saveResponse = JSON.parse(JSON.stringify(saveResponse));
+            User.create(userDetails).then(function(saveResponse) {
                     delete saveResponse.password; // delete the user's hashed password before returning the user details
                     resolve([saveResponse, flag]);
-                }
-            });
+                })
+                .catch(function (err) {
+                    console.log("Error in save user details create ----- ", err);
+                    reject({id: 400, msg: err});
+                });
         } else if (flag) { // updating existing user if flag is true
             // update existing user
-            User.findOneAndUpdate(find, { $set: userDetails }, { new: true }, function(err, updateResponse) {
-                if (err) {
-                    reject({ id: 400, msg: err });
-                } else {
-                    updateResponse = JSON.parse(JSON.stringify(updateResponse));
+            User.update(find, userDetails)
+                .then(function(updateResponse) {
                     delete updateResponse.password; // delete the user's hashed password before returning the user details
-                    resolve([updateResponse, flag]);
-                }
-            });
+                    resolve([updateResponse[0], flag]);
+                })
+                .catch(function (err) {
+                    console.log("Error in save user details update ----- ", err);
+                    reject({ id: 400, msg: err });
+                });
         }
     });
 };
@@ -189,13 +169,13 @@ module.exports.saveUserDetails = function(User, userDetails, flag) {
  * @method callForgotPassword
  * @param {Object} userDetails The details of the user
  * @param {Object} header Forwarding the header to get origin
- * @param {Seneca} seneca Seneca instance to be passed to forgotPassword
+ * @param {Object} options Seneca and Waterline instance to be passed to forgotPassword
  * @returns {*}
  */
-module.exports.callForgotPassword = function callForgotPassword(userDetails, header, seneca) {
+module.exports.callForgotPassword = function callForgotPassword(userDetails, header, options) {
     return new Promise(function(resolve) {
         // create JWT token to send in header
-        var token = utils.createMsJwt({isMicroservice: true});
+        var token = utils.createMsJWT({isMicroservice: true});
         
         // input to forgotPassword
         var body = {
@@ -205,7 +185,7 @@ module.exports.callForgotPassword = function callForgotPassword(userDetails, hea
         lodash.assign(header, token);   // add the token to the headers
         
         // require forgotPassword and call it
-        var forgotPassword = require(__base + 'actions/forgotPassword.js')({seneca: seneca});
+        var forgotPassword = require(__base + 'actions/forgotPassword.js')(options);
         forgotPassword({ body: body, header: header }, function(err, result) {
             resolve(result);
         })
