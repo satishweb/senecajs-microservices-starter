@@ -11,15 +11,15 @@ services:
     # Had to switch to bridge due to docker on mac issues.
     network_mode: "bridge"
 
-  mongodb: 
-    image: mongo:${MONGOVERSION}
-    container_name: ${PROJECTKEY}-${SYSENV}-mongodb
-    ports:
-      - 27017:27017
-#    volumes:
-#      - ./containers/${PROJECTKEY}-${SYSENV}-mongodb/data-db:/data/db
-    restart: 'on-failure:10'
-    network_mode: "bridge"
+#   mongodb: 
+#     image: mongo:${MONGOVERSION}
+#     container_name: ${PROJECTKEY}-${SYSENV}-mongodb
+#     ports:
+#       - 27017:27017
+# #    volumes:
+# #      - ./containers/${PROJECTKEY}-${SYSENV}-mongodb/data-db:/data/db
+#     restart: 'on-failure:10'
+#     network_mode: "bridge"
 
   postgresdb:
     image: postgres:${POSTGRESVERSION}

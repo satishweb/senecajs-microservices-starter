@@ -19,11 +19,11 @@ services:
       - DEBUG=${DEBUG}
     links:
       - queue:queue
-      - mongodb:mongodb
+#      - mongodb:mongodb
       - postgresdb:postgresdb
     depends_on:
       - queue
-      - mongodb
+#      - mongodb
       - postgresdb
     command: /bin/bash -c '[[ "$DEBUG" == "0" ]] && node /src/${MICROSERVICE} || sleep 360000'
     restart: 'on-failure:50'
