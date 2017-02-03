@@ -14,7 +14,7 @@ module.exports = function(server, options, done) {
     var requestHandlerFactory = tools.requestHandlerFactoryBuilder(seneca, API_NAME);
     var swaggering = tools.Swaggering(API_NAME);
 
-    seneca.log.info('[ ' + process.env.SRV_NAME + ' ]', 'API INIT: ' + API_NAME);
+    seneca.log.info('[ ' + process.env.SRV_NAME + ' ]', '[ ' + API_NAME + ' ]', 'API INIT SUCCESS');
 
     parser.dereference(SWAGGER_FILE)
         .then(function(schema) {

@@ -36,6 +36,8 @@
         "moment": "^2.17.1",
         "mmmagic": "--| File Info - Common |--",
         "mmmagic": "^0.4.5",
+        "mailgun.js": "--| Mailgun Lib - Email |--",
+        "mailgun.js": "^2.0.1",
         "mongodb": "--| MongoDB Driver - All |--",
         "mongodb": "^2.2.21",
         "mongoose": "--| MongoDB Library - All |--",
