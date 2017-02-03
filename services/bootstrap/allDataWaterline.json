@@ -85,7 +85,7 @@
     "collection": "sessions",
     "data": [{
         "sessionId": 1,
-        "JWT": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyQWdlbnQiOiJQb3N0bWFuUnVudGltZS8zLjAuOSIsImhvc3RJcCI6IjE3Mi4xNy4wLjEiLCJob3N0Ijoia2V5LWxvY2FsLWFwaS5leGFtcGxlLmNvbSIsImZpcnN0TmFtZSI6IlBvc3RtYW4iLCJsYXN0TmFtZSI6IlVzZXIiLCJvcmdJZCI6bnVsbCwiYXZhdGFyIjpudWxsLCJ1c2VySWQiOjIsImVtYWlsSWQiOiJwb3N0bWFuQHVzZXIuaW8iLCJpc093bmVyIjpmYWxzZSwibGFzdExvZ2dlZEluVGltZSI6IjE0ODYwNDk0NjczMzUxNzciLCJpYXQiOjE0ODYwNDk0Njd9.1y3qsVP71OwmnDaDodI9VF1XWJniMzPx8rHkWcI5nlE",
+        "JWT": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyQWdlbnQiOiJQb3N0bWFuIiwib3JpZ2luIjoiaHR0cHM6Ly9rZXktbG9jYWwtYXBwLmV4YW1wbGUuY29tIiwiaG9zdElwIjoiMTkyLjE2OC45OS4xIiwiaG9zdCI6IjEuMS4xLjEiLCJmaXJzdE5hbWUiOiJQb3N0bWFuIiwibGFzdE5hbWUiOiJVc2VyIiwib3JnSWQiOm51bGwsImF2YXRhciI6bnVsbCwidXNlcklkIjoyLCJlbWFpbElkIjoicG9zdG1hbkB1c2VyLmlvIiwiaXNPd25lciI6ZmFsc2UsImxhc3RMb2dnZWRJblRpbWUiOiIxNDg2MTE5Mzk4MzE1MTgyIiwiaWF0IjoxNDg2MTE5Mzk4LCJleHAiOjE0ODY3MjQxOTh9.EQWsJIXHR9NVoPhctzxZL9ztVYwvssiVyS5L_fTG5QM",
         "firstName": "Postman",
         "lastName": "User",
         "userId": 2,
