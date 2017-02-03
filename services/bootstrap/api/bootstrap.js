@@ -28,7 +28,7 @@ module.exports = function(server, options, done) {
                         handlers: {
                             'v1': {
                                 'setup': {
-                                    $post: requestHandlerFactory('post')
+                                    $post: requestHandlerFactory('post', 'setup')
                                 }
                             }
                         }

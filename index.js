@@ -5,6 +5,9 @@ var seneca = require('seneca');
 seneca = new seneca({
     strict: {
         result: false
+    },
+    debug: {
+        undead: true
     }
 });
 // Lets define base dir for use in require file paths
