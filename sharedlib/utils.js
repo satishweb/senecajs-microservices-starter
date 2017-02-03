@@ -168,7 +168,8 @@ module.exports.microServiceCall = function(seneca, role, cmd, body, header, call
         role: role,
         cmd: cmd,
         body: body,
-        header: header
+        header: header,
+        fatal$: false // treat errors as non-fatal
     }, callback);
 };
 
@@ -193,7 +194,8 @@ module.exports.microServiceCallPromise = function(seneca, role, cmd, body, heade
             role: role,
             cmd: cmd,
             body: body,
-            header: header
+            header: header,
+            fatal$: false // treat errors as non-fatal
         }, function(err, response) {
             if (err) {
                 if (isRejected) {

@@ -2,7 +2,11 @@
 var Waterline = require('waterline');
 var waterline = new Waterline();
 var seneca = require('seneca');
-seneca = new seneca();
+seneca = new seneca({
+    strict: {
+        result: false
+    }
+});
 // Lets define base dir for use in require file paths
 global.__base = __dirname + '/';
 
