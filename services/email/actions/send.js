@@ -5,17 +5,16 @@
  * It is used to send emails using nodemailer module
  */
 var utils = require(__base + '/sharedlib/utils');
-var Locale = require(__base + '/sharedlib/formatter.js');
-var outputFormatter = new Locale(__dirname + '/../');
 var lodash = require('lodash');
 var Joi = require('joi');
 var Promise = require('bluebird');
 var microtime = require('microtime');
 var nodemailer = require('nodemailer');
-var mailgun = require('mailgun.js');
-var mg = mailgun.client({ username: 'api', key: process.env.MAILGUN_APIKEY });
+var emailLib = require(__base + '/lib/email');
+
+
 /**
- * @module sendEmail
+ * @module send
  */
 
 //Joi validation Schema
@@ -28,83 +27,8 @@ var validationSchema = Joi.object().keys({
     subject: Joi.string().trim().required()
 });
 
-// Create a SMTP transporter object
-var smtpTransport = nodemailer.createTransport({
-    host: process.env.SMTP_HOST,
-    port: process.env.SMTP_PORT,
-    secure: process.env.SMTP_SECURE, //for SSL set to true and for TLS set to false
-    auth: {
-        user: process.env.SMTP_USERNAME,
-        pass: process.env.SMTP_PASSWORD
-    }
-});
-
-function sendMailgunEmail(body) {
-    return new Promise(function(resolve, reject) {
-        mg.messages.create(process.env.MAILGUN_HOST, {
-                from: process.env.MAILGUN_FROM_EMAIL,
-                to: body.emailId,
-                subject: body.subject,
-                html: body.content
-            })
-            .then(function(msg) {
-                resolve({ message: msg.message });
-            }) // logs response data 
-            .catch(function(err) {
-                reject({ error: err });
-            }); // logs any error 
-    });
-};
-
 /**
- * Send emails with the same subject and content to multiple recipients.
- * @method sendEmail
- * @param {Object} body: contains the array of email Ids of the recipients, and the subject and content of the mail
- * @returns {Promise} Returns Promise with proper error messages if any.
- */
-function sendSmtpEmail(body) {
-    return new Promise(function(resolve, reject) {
-        // construct email message
-        var message = {
-            from: process.env.SMTP_FROM_EMAIL,
-            subject: body.subject,
-            html: body.content
-        };
-
-        body.emailId.forEach(function(email) { // iterate over the array of emailIds to send mail to each
-            // Add the recipient to the email object
-            message.to = email;
-
-            // send the email
-            smtpTransport.sendMail(message, function(error, info) {
-                //console.log("Info about Sending mail ---- ", error, info);
-            });
-        });
-        resolve();
-    });
-}
-
-/**
- * Formats the output response and returns the response.
- * @method sendResponse
- * @param done - the done method that returns the response.
- */
-
-var sendResponse = function(success, result, done) {
-    if (success) {
-        done(null, {
-            statusCode: 200,
-            content: outputFormatter.format(true, 2000, result, 'Email sent successfully')
-        });
-    } else {
-        done(null, {
-            statusCode: 200,
-            content: outputFormatter.format(false, 1000, null, result)
-        });
-    }
-};
-/**
- * This is a sendEmail action for the Email microservice
+ * This is a send action for the Email microservice
  */
 module.exports = function(options) {
     var seneca = options.seneca;
@@ -118,14 +42,14 @@ module.exports = function(options) {
                     // construct email message
                     switch (process.env.MAIL_DEFAULT_SERVICE) {
                         case 'MAILGUN':
-                            return sendMailgunEmail(args.body);
+                            return emailLib.sendMailgunEmail(args.body, true);
                             break;
                         default:
-                            return sendSmtpEmail(args.body);
+                            return emailLib.sendSmtpEmails(args.body);
                     }
                 })
                 .then(function(response) {
-                    return sendResponse(true, response, done);
+                    return emailLib.sendResponse(true, response, done);
                 })
                 .catch(function(error) {
                     console.log(error);
