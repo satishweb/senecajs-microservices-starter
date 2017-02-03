@@ -28,7 +28,10 @@ module.exports = function(server, options, done) {
                         handlers: {
                             'v1': {
                                 'send': {
-                                    $post: requestHandlerFactory('post', 'sendEmail')
+                                    $post: requestHandlerFactory('post', 'send')
+                                },
+                                'sendContactForm': {
+                                    $post: requestHandlerFactory('post', 'sendContactForm')
                                 }
                             }
                         }

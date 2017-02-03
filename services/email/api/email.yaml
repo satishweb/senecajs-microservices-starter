@@ -22,18 +22,34 @@ paths:
         - "Send email"
       summary: "Send email with the same subject and content to multiple users."
       parameters:
-        - name: mailInput
+        - name: inputSend
           in: body
           required: true
           schema:
-            $ref: "#/definitions/mailInput"
+            $ref: "#/definitions/inputSend"
+      responses:
+        "200":
+          description: "Successful"
+          schema:
+            $ref: "#/definitions/Response"
+  "/v1/sendContactForm":
+    post:
+      tags:
+        - "Send email"
+      summary: "Send email with the same subject and content to multiple users."
+      parameters:
+        - name: inputSendContactForm
+          in: body
+          required: true
+          schema:
+            $ref: "#/definitions/inputSendContactForm"
       responses:
         "200":
           description: "Successful"
           schema:
             $ref: "#/definitions/Response"
 definitions:
-  mailInput:
+  inputSend:
     type: object
     required:
       - emailId
@@ -49,8 +65,22 @@ definitions:
         type: string
       subject:
         type: string
+  inputSendContactForm:
+    type: object
+    required:
+      - fromEmailId
+      - content
+      - subject
+    description: "Send email from given email ID to default email address field"
+    properties:
+      fromEmailId:
+        type: string
+      content:
+        type: string
+      subject:
+        type: string
   Response:
-    description: "The output for successful upload."
+    description: "The output for successful queuing the email."
     type: object
     properties:
       success:
