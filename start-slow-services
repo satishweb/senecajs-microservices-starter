@@ -3,11 +3,11 @@
 
 projectKey=$1
 sysEnv=$2
-delay=10
+delay=5
 usage() {
-		echo "ERR: Incorrect parameters"
-		echo "Usage: $0 <ProkectKey> <SystemENV>"
-		echo "Example: $0 agi dev"
+		echo "| ERR: Incorrect parameters"
+		echo "| Usage: $0 <ProkectKey> <SystemENV>"
+		echo "| Example: $0 agi dev"
 		exit 1
 }
 case $sysEnv in
@@ -30,19 +30,22 @@ esac
 srcFolder=$(dirname "${BASH_SOURCE[0]}")
 cd $srcFolder
 srcFolder=`pwd`
-echo $(docker ps -a|grep "$projectKey-$sysEnv-"|awk {'print $1'}) > .containersList
+echo $(docker ps -a|grep "$projectKey-$sysEnv-"| sed -n "s/^.*$projectKey-$sysEnv/$projectKey-$sysEnv/p" | grep -v "$projectKey-$sysEnv-queue" | grep -v "$projectKey-$sysEnv-postgresdb" | grep -v "$projectKey-$sysEnv-web" | grep -v "$projectKey-$sysEnv-mongodb" |awk {'print $1'})> .containersList
 
-echo "INFO: Stopping all existing Microservices..."
+echo "| INFO: Stopping all existing Microservices..."
 for i in $(grep -v '^#' .containersList)
 do
 	docker stop $i >/dev/null 2>&1 &
 done
 sleep $delay
-echo "INFO: Starting all Microservices one at a time... with $delay seconds delay"
+echo "| INFO: Starting all Microservices one at a time... with $delay seconds delay"
+docker start $projectKey-$sysEnv-queue $projectKey-$sysEnv-postgresdb | sed 's/^/| DOCKER: Started - /'
+sleep $delay
 for i in $(grep -v '^#' .containersList)
 do
-	docker start $i | sed 's/^/| DOCKER: /'
+	docker start $i | sed 's/^/| DOCKER: Started - /'
 	sleep $delay
 done
-docker restart $projectKey-$sysEnv-web
+sleep $delay
+docker start $projectKey-$sysEnv-web | sed 's/^/| DOCKER: Started - /'
 rm .containersList
