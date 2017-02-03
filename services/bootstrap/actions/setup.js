@@ -264,7 +264,7 @@ module.exports = function(options) {
             token = utils.createMsJWT({ timestamp: microtime.now() }).authorization;
             done(null, {
                 statusCode: 200,
-                content: utils.fetchSuccess(200, "Use this token and request bootstrap again.", token, microtime.now())
+                content: utils.fetchSuccess(200, "Use below provided token in key 'data' as 'BootstrapToken' in headers and send setup request again.", token, microtime.now())
             });
         }
     };
