@@ -1,9 +1,17 @@
 swagger: "2.0"
 info:
-  title: "User API"
+  title: "UGRP API"
+  description: |
+    Provides functionality for updating, deleting and fetching Users and creating, updating, deleting and fetching Groups. 
+    All the APIs require a valid session token for authentication.
+    ### Users:
+      #### Get:
+      Fetches Users by user Id or token or lists users by search criteria. In case of get user by user Id or token, the details of the corresponding user are returned.
+      In case of list, a paginated list of users satisfying the search/filter critera is returned. The output fields returned are according to theose specified in the
+      configuration.
+
   version: "1.0.0"
 host: 'key-local-api.example.com'
-basePath: /user
 schemes:
   - https
 produces:
@@ -11,7 +19,7 @@ produces:
 consumes:
   - application/json
 paths:
-  "/v1/get":
+  "/user/v1/get":
     post:
       parameters:
         - name: Authorization
@@ -33,7 +41,7 @@ paths:
             $ref: "#/definitions/Error"
       security:
         - jwt.secured: []
-  "/v1/update":
+  "/user/v1/update":
     put:
       parameters:
         - name: Authorization
@@ -56,7 +64,7 @@ paths:
             $ref: "#/definitions/Error"
       security:
         - jwt.secured: []
-  "/v1/delete":
+  "/user/v1/delete":
     delete:
       parameters:
         - name: Authorization
@@ -84,6 +92,88 @@ paths:
             $ref: "#/definitions/Error"
       security:
         - jwt.secured: []
+  "/group/v1/create":
+    post:
+      parameters:
+        - name: Authorization
+          in: headers
+          required: true
+          type: string
+        - name: createGroup
+          in: body
+          required: true
+          schema:
+            $ref: "#/definitions/createGroup"
+      responses:
+        "200":
+          description: "Ok"
+          schema:
+            $ref: "#/definitions/Output"
+        default:
+          description: Unexpected error
+          schema:
+            $ref: "#/definitions/Error"
+      security:
+        - jwt.secured: []
+  "/group/v1/get":
+    post:
+      parameters:
+        - name: Authorization
+          in: headers
+          required: true
+          type: string
+      responses:
+        "200":
+          description: "Ok"
+          schema:
+            $ref: "#/definitions/Output"
+        default:
+          description: Unexpected error
+          schema:
+            $ref: "#/definitions/Error"
+      security:
+        - jwt.secured: []
+  "/group/v1/update":
+    put:
+      parameters:
+        - name: Authorization
+          in: headers
+          required: true
+          type: string
+      responses:
+        "200":
+          description: "Ok"
+          schema:
+            $ref: "#/definitions/Output"
+        default:
+          description: Unexpected error
+          schema:
+            $ref: "#/definitions/Error"
+      security:
+        - jwt.secured: []
+  "/group/v1/delete":
+    delete:
+      parameters:
+        - name: Authorization
+          in: headers
+          required: true
+          type: string
+        - name: deleteGroup
+          in: body
+          required: true
+          schema:
+            $ref: "#/definitions/deleteGroup"
+      responses:
+        "200":
+          description: "Ok"
+          schema:
+            $ref: "#/definitions/Output"
+        default:
+          description: Unexpected error
+          schema:
+            $ref: "#/definitions/Error"
+      security:
+        - jwt.secured: [] 
 securityDefinitions:
   jwt.secured:
     type: apiKey
@@ -133,8 +223,6 @@ definitions:
         type: string
       contactNumber:
         type: string
-      companyName:
-        type: string
       address:
         type: string
       gender:
@@ -142,4 +230,24 @@ definitions:
       birthDate:
         type: string
       facebookId:
+        type: string
+      linkedInId:
+        type: string
+      googleId:
+        type: string
+  createGroup:
+    type: object
+    properties:
+      agentIds:
+        type: array
+        items:
+          type: string
+      description:
+        type: string
+      name:
+        type: string
+  deleteGroup:
+    type: object
+    properties:
+      deptId:
         type: string

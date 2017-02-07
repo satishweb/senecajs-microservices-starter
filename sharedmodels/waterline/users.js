@@ -13,7 +13,7 @@ module.exports = {
         lastName: 'string',
         isDeleted: 'boolean',
         gender: 'string',
-        birthDate: 'string',
+        birthDate: 'date',
         contactNumber: 'string',
         address: 'string',
         password: 'string',

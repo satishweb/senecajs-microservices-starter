@@ -18,7 +18,7 @@ module.exports.verifyTokenAndDecode = function(args) {
             } else if (decoded && decoded.orgId && (decoded.isOwner || decoded.isMicroservice)) {
                 resolve(decoded);
             } else {
-                reject({ id: 400, msg: "You are not authorized to create a Group." });
+                reject({ id: 400, msg: "You are not authorized for this action." });
             }
         });
     });
@@ -36,13 +36,13 @@ module.exports.verifyTokenAndDecode = function(args) {
 module.exports.addUsers = function(Model, groupId, userIds) {
     return new Promise(function(resolve, reject) {
         if (userIds) {
-            Model.findOneAndUpdate({_id: groupId}, {$addToSet: {userIds: {$each: userIds}}}, {new: true},
-                function (err, updateResponse) {
+            Model.findOneAndUpdate({ _id: groupId }, { $addToSet: { userIds: { $each: userIds } } }, { new: true },
+                function(err, updateResponse) {
                     if (err) {
-                        reject({id: 400, msg: err});
+                        reject({ id: 400, msg: err });
                     } else {
                         if (lodash.isEmpty(updateResponse)) {
-                            reject({id: 400, msg: 'Invalid Group Id'});
+                            reject({ id: 400, msg: 'Invalid Group Id' });
                         } else {
                             updateResponse = JSON.parse(JSON.stringify(updateResponse));
                             resolve(updateResponse);

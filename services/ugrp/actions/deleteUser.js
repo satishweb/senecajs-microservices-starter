@@ -6,7 +6,7 @@ var Locale = require(__base + '/sharedlib/formatter');
 var outputFormatter = new Locale(__base);
 var Joi = require('joi');
 var lodash = require('lodash');
-var mongoose = require('mongoose');
+var waterline = require('waterline');
 var Promise = require('bluebird');
 var microtime = require('microtime');
 var User = null;
@@ -27,15 +27,20 @@ var userSchema = Joi.object().keys({
 function deleteUser(input) {
     return new Promise(function(resolve, reject) {
         // update the user document to set isDeleted true
-        User.findOneAndUpdate({ _id: input.userId }, { $set: { isDeleted: true } }, { new: true }, function(err, updateResponse) {
-            if (err) {  // if error in updating, return with error message
-                reject({ id: 400, msg: err.message});
-            } else {    // if no error in updating, remove user from all groups and return with updated user document
-                updateResponse = JSON.parse(JSON.stringify(updateResponse));
-                removeFromGroups(input.userId); // remove Id of user from all groups, does not wait for response
-                resolve(updateResponse);
-            }
-        });
+        User.update({ userId: input.userId, orgId: input.orgId }, { isDeleted: true })
+            .then(function(updateResponse) {
+                // if no user is deleted, user id was not found or user does not belong to requester's organization
+                if (lodash.isEmpty(updateResponse)) {
+                    reject({ id: 400, msg: 'User id not found in the organization.' });
+                } else {
+                    // TODO: create Group before calling this.
+                    // removeFromGroups(input.userId, input.orgId); // remove Id of user from all groups, does not wait for response
+                    resolve(updateResponse);
+                }
+            })
+            .catch(function(err) { // if error in updating, return with error message
+                reject({ id: 400, msg: err.message });
+            })
     });
 }
 
@@ -44,15 +49,16 @@ function deleteUser(input) {
  * fails, the rest of the action continues.
  * @method removeFromGroups
  * @param {String} userId The Id of the deleted user
+ * @param {String} orgId The Id of the organization to which the user belongs
  */
-function removeFromGroups(userId) {
+function removeFromGroups(userId, orgId) {
     // Update group documents by removing deleted user Id from all groups
-    Group.update({ userIds: { $in: [userId] } }, { $pull: { userIds: { $in: [userId] } } }, { multi: true },
+    Group.update({ userIds: [userId], orgId: orgId }, { $pull: { userIds: { $in: [userId] } } }, { multi: true },
         function(err, updateResponse) {
-        if (err) {  // if error in update query, print it
-            console.log("Error in deleting user Id from organization groups: ", err);
-        }
-    })
+            if (err) { // if error in update query, print it
+                console.log("Error in deleting user Id from organization groups: ", err);
+            }
+        })
 }
 
 /**
@@ -86,10 +92,10 @@ function sendResponse(result, done) {
 module.exports = function(options) {
     var seneca = options.seneca;
     return function(args, done) {
-        
+
         // load the mongoose model for Users and Groups
         User = User || mongoose.model('Users');
-        Group = Group || mongoose.model('Groups');
+        // Group = Group || mongoose.model('Groups');
 
         // validate the input according to Joi schema
         utils.checkInputParameters(args.body, userSchema)
@@ -98,27 +104,19 @@ module.exports = function(options) {
                 return groupsLib.verifyTokenAndDecode(args);
             })
             .then(function(decoded) {
-                
-                // create temporary models to point to organization related collections
-                User = mongoose.model('DynamicUser', User.schema, decoded.orgId + '_users');
-                Group = mongoose.model('DynamicGroup', Group.schema, decoded.orgId + '_groups');
+
+                args.body.orgId = decoded.orgId;                
                 // soft delete the user by updating user document
                 return deleteUser(args.body);
             })
             .then(function(response) {
-                
+
                 // delete the temporary models
-                delete mongoose.connection.models['DynamicUser'];
-                delete mongoose.connection.models['DynamicGroup'];
                 sendResponse(response, done);
             })
             .catch(function(err) {
                 console.log('err in add organization------- ', err);
-                
-                // delete the temporary models
-                delete mongoose.connection.models['DynamicUser'];
-                delete mongoose.connection.models['DynamicGroup'];
-                
+
                 // in case of error, print the error and send as response
                 utils.senecaLog(seneca, 'error', __filename.split('/').pop(), err);
 

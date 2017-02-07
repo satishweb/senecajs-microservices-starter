@@ -25,15 +25,33 @@ module.exports = function(server, options, done) {
 
                         // endpoints handlers hashmap. it shall match the Swagger endpoints
                         handlers: {
-                            'v1': {
-                                'get': {
-                                    $post: requestHandlerFactory('post', 'getUsers')
-                                },
-                                'update': {
-                                    $put: requestHandlerFactory('put', 'updateUser')
-                                },
-                                'delete': {
-                                    $delete: requestHandlerFactory('delete', 'deleteUser')
+                            'user': {
+                                'v1': {
+                                    'get': {
+                                        $post: requestHandlerFactory('post', 'getUsers')
+                                    },
+                                    'update': {
+                                        $put: requestHandlerFactory('put', 'updateUser')
+                                    },
+                                    'delete': {
+                                        $delete: requestHandlerFactory('delete', 'deleteUser')
+                                    }
+                                }
+                            },
+                            'group': {
+                                'v1': {
+                                    'create': {
+                                        $post: requestHandlerFactory('post', 'createGroup')
+                                    },
+                                    'get': {
+                                        $post: requestHandlerFactory('post', 'getGroup')
+                                    },
+                                    'update': {
+                                        $post: requestHandlerFactory('post', 'updateGroup')
+                                    },
+                                    'delete': {
+                                        $delete: requestHandlerFactory('delete', 'deleteGroup')
+                                    }
                                 }
                             }
                         }
