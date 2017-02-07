@@ -9,3 +9,8 @@ services/*/index.js
 services/*/shared*
 services/*/translations.json
 services/*/package.json
+local.env
+dev.env
+prod.env
+pp.env
+stg.env
