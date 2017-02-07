@@ -82,6 +82,9 @@
     "collection": "tokens",
     "data": []
 }, {
+    "collection": "groups",
+    "data": []
+}, {
     "collection": "sessions",
     "data": [{
         "sessionId": 1,
