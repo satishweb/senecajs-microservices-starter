@@ -27,11 +27,11 @@ var userSchema = Joi.object().keys({
 function deleteUser(input) {
     return new Promise(function(resolve, reject) {
         // update the user document to set isDeleted true
-        User.update({ userId: input.userId, orgId: input.orgId }, { isDeleted: true })
+        User.update({ userId: input.userId, orgId: input.orgId, isDeleted: false }, { isDeleted: true })
             .then(function(updateResponse) {
                 // if no user is deleted, user id was not found or user does not belong to requester's organization
                 if (lodash.isEmpty(updateResponse)) {
-                    reject({ id: 400, msg: 'User id not found in the organization.' });
+                    reject({ id: 400, msg: 'User Id not found in the organization.' });
                 } else {
                     // TODO: create Group before calling this.
                     // removeFromGroups(input.userId, input.orgId); // remove Id of user from all groups, does not wait for response
@@ -71,7 +71,7 @@ function sendResponse(result, done) {
     if (result !== null) {
         done(null, {
             statusCode: 200,
-            content: outputFormatter.format(true, 2050, result, 'User')
+            content: outputFormatter.format(true, 2060, null, 'User')
         });
     } else {
         //else return error
@@ -91,10 +91,11 @@ function sendResponse(result, done) {
 
 module.exports = function(options) {
     var seneca = options.seneca;
+    var ontology = options.wInstance;
     return function(args, done) {
 
-        // load the mongoose model for Users and Groups
-        User = User || mongoose.model('Users');
+        // load the waterline model for Users
+        User = User || ontology.collections.users;
         // Group = Group || mongoose.model('Groups');
 
         // validate the input according to Joi schema
@@ -110,8 +111,6 @@ module.exports = function(options) {
                 return deleteUser(args.body);
             })
             .then(function(response) {
-
-                // delete the temporary models
                 sendResponse(response, done);
             })
             .catch(function(err) {

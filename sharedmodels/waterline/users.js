@@ -24,7 +24,11 @@ module.exports = {
         lastLoggedInTime: 'string',
         profileComplete: 'boolean',
         passwordStatus: 'string',
-        orgId: 'integer'
+        orgId: 'integer',
+        groupIds: {
+            collection: 'groups',
+            via: 'userIds'
+        }
     }
     /*,
             updateOrCreate: function(find, update) {

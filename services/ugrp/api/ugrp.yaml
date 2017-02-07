@@ -238,10 +238,10 @@ definitions:
   createGroup:
     type: object
     properties:
-      agentIds:
+      userIds:
         type: array
         items:
-          type: string
+          type: integer
       description:
         type: string
       name:

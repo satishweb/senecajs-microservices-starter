@@ -175,7 +175,7 @@ function createSchema (input) {
                 //TODO: MOVE
                 joiSchema = Joi.object().keys({
                     fqdn : Joi.string(),
-                    orgId: Joi.string()
+                    orgId: Joi.number()
                 }).without('fqdn', 'orgId').without('orgId', 'fqdn'); // input should have either fqdn or orgId
                 resolve(joiSchema);
                 break;

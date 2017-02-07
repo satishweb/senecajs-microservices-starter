@@ -13,7 +13,7 @@ var microtime = require('microtime');
 var User = null;
 
 /**
- * @module post
+ * @module getUsers
  */
 
 // create Joi schema
@@ -27,55 +27,39 @@ var userGetSchema = Joi.object().keys({
     limit: Joi.any().when('action', { is: 'list', then: Joi.number(), otherwise: Joi.any().forbidden() })
 }).without('userId', ['searchKeyword', 'filter', 'sort', 'limit']);
 
-var getUser = function(userId) {
+/**
+ * Get the user details corresponding to the user Id
+ * @param {Number} userId The id of the user whose details are to be fetched
+ * @returns {Promise} Promise containing the user details if successful or the error message if unsuccessful
+ */
+function getUser(userId, orgId) {
     return new Promise(function(resolve, reject) {
-        User.findOne({ _id: userId }, function(err, result) {
-            // console.log("fetch result --- ", err, result);
-            if (err) {
-                reject({ id: 400, msg: err.message });
-            } else if (lodash.isEmpty(result)) {
-                reject({ id: 400, msg: "User not found." });
-            } else {
-                result = JSON.parse(JSON.stringify(result));
-                delete result.password;
-                resolve(result);
-            }
-        });
-    });
-};
-
-var getOwners = function(input, result) {
-    return new Promise(function(resolve) {
-        // console.log(input.action === 'list', input.filter.userId, result.data.pagination.total < input.filter.userId.length);
-        if (input.filter && input.filter.userId && result.data.pagination && result.data.pagination.total < input.filter.userId.length) {
-            console.log("Inside if ------ ");
-            listUsers(input, null)
-                .then(function(response) {
-                    // console.log("Response of getOwner ---- ", JSON.stringify(response));
-                    if (!lodash.isEmpty(response.data.content)) {
-                        response.data.content.forEach(function(owner) {
-                            result.data.content.push(owner);
-                        });
-                        result.data.pagination.total = response.data.pagination.total;
-                    }
+        User.findOne({ userId: userId, isDeleted: false })
+            .then( function(result) {
+                if (lodash.isEmpty(result)) {
+                    reject({ id: 400, msg: "User not found." });
+                } else {
+                    delete result.password;
                     resolve(result);
-                })
-                .catch(function(err) {
-                    console.log("Error in getOwner ---- ", err);
-                    resolve(result)
-                });
-        } else {
-            console.log("Inside else ----- ");
-            resolve(result);
-        }
+                }
+            })
+            .catch(function (err) {
+                reject({ id: 400, msg: err.message }); 
+            })
     });
 };
 
-var listUsers = function(input, orgId) {
+/**
+ * Fetches the paginated list of users who match the search/filter criteria.
+ * @param {Object} input The input containing the search, filter, sort, page and limit fields
+ * @param {Object} orgId The Id of the organization for which the users are to be fetched
+ * @returns {Promise} Promise containing the result returned by Grid library
+ */
+function listUsers(input, orgId) {
     var compositeGrid;
     var collection = {
         "userId": {
-            "databaseName": "_id",
+            "databaseName": "userId",
             "displayName": "User Id",
             "filter": true
         },
@@ -97,39 +81,18 @@ var listUsers = function(input, orgId) {
             "search": true,
             "sort": true
         },
-        "groupIds": {
-            "displayName": "Group Ids",
+        "orgId": {
+            "displayName": "Organization Id",
             "filter": true
-        },
-        "status": {
-            "displayName": "Status"
         }
     };
-    var config = { 'listUsers': { 'collections': {} } };
+    var config = { 'listUsers': { 'collections': {} }};
+    config.listUsers.collections['users'] = collection;
     delete input.action;
-    if (input && input.filter) {
-        if (input.filter.userId && lodash.isArray(input.filter.userId)) {
-            var convertedUserIds = [];
-            input.filter.userId.forEach(function(id) {
-                convertedUserIds.push(mongoose.Types.ObjectId(id));
-            });
-            input.filter.userId = convertedUserIds;
-        }
-        // console.log("groupId type ----- ", typeof input.filter.groupIds);
-        if (input.filter.groupIds && lodash.isArray(input.filter.groupIds)) {
-            var convertedGroupIds = [];
-            input.filter.groupIds.forEach(function(id) {
-                convertedGroupIds.push(mongoose.Types.ObjectId(id));
-            });
-            input.filter.groupIds = convertedGroupIds;
-        }
-    }
     if (orgId) {
-        config.listUsers.collections[orgId + '_users'] = collection;
-    } else {
-        config.listUsers.collections['users'] = collection;
+        input.orgId = orgId;
     }
-    compositeGrid = InitCompositeGrid.initFromConfigObject(input, 'listUsers', mongoose.connection.db, null, config);
+    compositeGrid = InitCompositeGrid.initFromConfigObject(input, 'listUsers', User, null, config);
     return compositeGrid.fetch()
 };
 
@@ -168,12 +131,14 @@ var sendResponse = function(result, done) {
 
 /**
  * This is a POST action for the User microservice
+ * It fetches a single user corresponding to the user Id or a list of users based on the search criteria
  */
 module.exports = function(options) {
     var seneca = options.seneca;
+    var ontology = options.wInstance;
     return function(args, done) {
         console.log("----------- Get users called -----------");
-        User = mongoose.model('Users');
+        User = User || ontology.collections.users;
         utils.checkInputParameters(args.body, userGetSchema)
             .then(function() {
                 return utils.verifyTokenAndDecode(args.header.authorization)
@@ -186,10 +151,7 @@ module.exports = function(options) {
                         break;
                     case 'id':
                         // console.log("Get called ----- ");
-                        if (decoded.orgId) {
-                            User = mongoose.model('DynamicUser', User.schema, decoded.orgId + '_users');
-                        }
-                        return getUser(args.body.userId);
+                        return getUser(args.body.userId, decoded.orgId);
                         break;
                     default:
                         return new Promise(function(resolve, reject) {
@@ -198,16 +160,11 @@ module.exports = function(options) {
                 }
             })
             .then(function(result) {
-                return getOwners(args.body, result);
-            })
-            .then(function(result) {
-                delete mongoose.connection.models['DynamicUser'];
                 sendResponse(result, done);
             })
             .catch(function(err) {
                 console.log("Error in getUsers ---- ", err);
                 var error;
-                delete mongoose.connection.models['DynamicUser'];
                 if (err && 'success' in err) {
                     error = err;
                 } else {

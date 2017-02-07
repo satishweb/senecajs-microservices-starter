@@ -71,10 +71,6 @@ function updateUser(input) {
             find.orgId = input.orgId;
         }
 
-        // removing the Amazon S3 Data URL from the uploaded file path and saving only the key in database.
-        if (input.avatar) {
-            input.avatar = response.getUploadedFileKey(input.avatar);
-        }
         User.update(find, input)
             .then(function(findResult) {
                 if (lodash.isEmpty(findResult)) {
@@ -99,9 +95,6 @@ function updateUser(input) {
  */
 function sendResponse(result, done) {
     if (result !== null) {
-        if (result.avatar) {
-            result.avatar = response.createUploadedFileURL(result.avatar);
-        }
         done(null, {
             statusCode: 200,
             content: outputFormatter.format(true, 2000, result, 'User details have been updated successfully.')
