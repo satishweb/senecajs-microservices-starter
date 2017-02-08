@@ -16,8 +16,8 @@ var User = null;
 
 //Joi validation Schema
 var userSchema = Joi.object().keys({
-    userId: Joi.string().required(),
-    orgId: Joi.string().required()
+    userId: Joi.number().required(),
+    orgId: Joi.number().required()
 });
 
 /**
@@ -28,17 +28,26 @@ var userSchema = Joi.object().keys({
  * error message
  */
 function updateUser(input) {
-    return new Promise(function(resolve, reject) {
+    return new Promise(function (resolve, reject) {
+        var orgIds;
         // Update the user document by adding the organization Id to array of organizations
-        // addToSet makes sure there are no duplicates by not adding an existing organization Id
-        User.update({ _id: input.userId }, { $addToSet: { orgIds: input.orgId } }, function(err, updateResponse) {
-            if (err) {  // if there is an error in updating, return error
-                reject({ id: 400, msg: err });
-            } else {    // return the response of update query in case of no errors
-                updateResponse = JSON.parse(JSON.stringify(updateResponse));
+        User.findOne({ userId: input.userId }, { select: [ownedOrgIds] })
+            .then(function (user) {
+                orgIds = user.ownedOrgIds;
+                if (lodash.isEmpty(orgIds)) {
+                    orgIds = [input.orgId];
+                } else {
+                    orgIds = lodash.concat(orgIds, input.orgId);
+                    orgIds = lodash.uniq(orgIds);   
+                }
+                return User.update({ userId: input.userId }, { ownerOrgIds: orgIds })
+            })
+            .then(function (updateResponse) {
                 resolve(updateResponse);
-            }
-        });
+            })
+            .catch(function (err) {
+                reject({ id: 400, msg: err });
+            });
     });
 }
 
@@ -71,12 +80,13 @@ function sendResponse(result, done) {
 
 module.exports = function(options) {
     var seneca = options.seneca;
+    var ontology = options.wInstance;
     return function(args, done) {
 
         console.log("Add Organization called ------- ", args.body);
 
-        // load the mongoose model for Users
-        User = User || mongoose.model('Users');
+        // load the ontology model for Users
+        User = User || ontology.collections.users;
         
         // validate input parameters as per Joi schema
         utils.checkInputParameters(args.body, userSchema)

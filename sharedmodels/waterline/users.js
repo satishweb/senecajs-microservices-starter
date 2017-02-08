@@ -24,7 +24,8 @@ module.exports = {
         lastLoggedInTime: 'string',
         profileComplete: 'boolean',
         passwordStatus: 'string',
-        orgId: 'integer',
+        ownedOrgIds: 'json',
+        orgIds: 'json',
         groupIds: {
             collection: 'groups',
             via: 'userIds'

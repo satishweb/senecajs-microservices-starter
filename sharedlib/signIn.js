@@ -85,10 +85,10 @@ module.exports.loginUser = function(User, input, ownerId, header, seneca) {
             query[field] = input.socialId;
         }
 
-        if (input.orgId) {
-            query.or = [{orgId: input.orgId}, {orgId: null}];
+        if (input.orgIds) {
+            query.or = [{orgIds: [input.orgId, null]}, {ownedOrgIds: [input.orgId]}];
         } else {
-            query.orgId = null;
+            query.orgIds = null;
         }
 
         // console.log("Find query --- ", query);
@@ -118,7 +118,7 @@ module.exports.loginUser = function(User, input, ownerId, header, seneca) {
                         // reject({id: 400, msg: "User with email not found."});
                     }
                 } else if (input.type !== 'email') {
-                    var user = lodash.filter(result, {orgId: input.orgId});
+                    var user = lodash.filter(result, {orgIds: input.orgId});
                     user = user[0];
                     // console.log("User result after filtering ---- ", user);
                     // if sign in type was social and user is found,
@@ -127,13 +127,13 @@ module.exports.loginUser = function(User, input, ownerId, header, seneca) {
                     resolve(user);
                 } else {
                     var userFound = true;
-                    var user = lodash.filter(result, {orgId: input.orgId || null});
+                    var user = lodash.filter(result, {orgIds: input.orgId || null});
                     // console.log("User result after filtering ---- ", user, input.orgId);
                     if (lodash.isEmpty(user)) {
                         // console.log("Org user not found ---- ");
                         if (input.orgId && ownerId) {
                             // console.log("Checking for org owner ---- ");
-                            user = lodash.filter(result, {orgId: null, userId: ownerId});
+                            user = lodash.filter(result, {userId: ownerId});
                             // console.log("User result after filtering again ---- ", user);
                             if (lodash.isEmpty(user)) {
                                 // console.log("Org owner also not found ---- ");

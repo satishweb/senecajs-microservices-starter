@@ -5,9 +5,7 @@ var Locale = require(__base + '/sharedlib/formatter');
 var outputFormatter = new Locale(__base);
 var lodash = require('lodash');
 var Joi = require('joi');
-var mongoose = require('mongoose');
 var Promise = require('bluebird');
-var jwt = require('jsonwebtoken');
 var microtime = require('microtime');
 var Organization = null;
 
@@ -25,25 +23,19 @@ var schema = Joi.object().keys({
 });
 
 /**
- * Verify token and check if it belongs to an owner. If it does, return the decoded token else return error message
- * @method verifyTokenAndDecode
- * @param {String} token The JWT token from the header
- * @returns {Promise} Promise containing decoded token if successful, else containing the error message
+ * Check if user is authorized to create an organization
+ * @method checkIfAuthorized
+ * @param {String} decodedToken The decoded JWT token from the header
+ * @returns {Promise} Resolved Promise if successful, else containing the error message
  */
-function verifyTokenAndDecode(token) {
+function checkIfAuthorized(decodedToken) {
     return new Promise(function(resolve, reject) {
-
-        // verify and decode the JWT token
-        jwt.verify(token, process.env.JWT_SECRET_KEY, function(err, decoded) {
-            if (err) {  // if there is an error, reject with error message
-                reject({ id: 404, msg: err });
-            } else if (decoded && decoded.isOwner) {    // if the decoded token belongs to an owner, resolve the
-                // decoded token
-                resolve(decoded);
-            } else {    // else return unauthorized message
-                reject({ id: 400, msg: "You are not authorized to create an organization." });
-            }
-        });
+        if (decodedToken && decodedToken.isOwner) {    // if the decoded token belongs to an owner, resolve the
+            // decoded token
+            resolve();
+        } else {    // else return unauthorized message
+            reject({ id: 400, msg: "You are not authorized to create an organization." });
+        }
     });
 }
 
@@ -66,22 +58,18 @@ function createOrganization(ownerId, input) {
         // add the input data to the organization data to be saved
         data = lodash.assign(data, input);
 
-        // create an instance of the mongoose model using the data to be saved
-        var newOrganization = new Organization(data);
         // save the new organization
-        newOrganization.save(function(err, saveResponse) {
-            if (err) {  // if error, check if error code represents duplicate index on unique field (fqdn)
-                if (err.code === 11000) { // if error code is 11000, it means the fqdn already exists
-                    // reject with custom error message
-                    reject({ id: 400, msg: "Sub Domain already exists." });
-                } else { // reject with mongoose error message
-                    reject({ id: 400, msg: err.message || err });
+        Organization.create(data)
+            .then(function (saveResponse) {
+                if (lodash.isEmpty(saveResponse)) {  // if error or empty, reject with the error message
+                    reject({ id: 400, msg: "Failed. Organization not created." });
                 }
-            } else {    // if no error, then resolve the saved document
-                saveResponse = JSON.parse(JSON.stringify(saveResponse));
                 resolve(saveResponse);
-            }
-        })
+            })
+            .catch(function (err) {  // if error, check if error code represents duplicate index on unique field (fqdn)
+                // reject with waterline error message
+                reject({ id: 400, msg: err.message || err });
+            });
     });
 }
 
@@ -141,10 +129,11 @@ function sendResponse(result, done) {
 
 module.exports = function(options) {
     var seneca = options.seneca;
+    var ontology = options.wInstance;
     return function(args, done) {
         
         // load the mongoose model for Organization
-        Organization = Organization || mongoose.model('Organizations');
+        Organization = Organization || ontology.collections.organizations;
         
         // if organization name is present in the input, convert it to lowercase (string fields to be sorted stored in 
         // lowercase)
@@ -156,11 +145,11 @@ module.exports = function(options) {
         utils.checkInputParameters(args.body, schema)
             .then(function() {
                 // verify and decode input token and check if owner
-                return verifyTokenAndDecode(args.header.authorization);
+                return checkIfAuthorized(args.credentials);
             })
-            .then(function(response) {
+            .then(function() {
                 // create new organization from input values
-                return createOrganization(response.userId, args.body);
+                return createOrganization(args.credentials.userId, args.body);
             })
             .then(function(response) {
                 
@@ -172,7 +161,10 @@ module.exports = function(options) {
                 };
                 var header = utils.createMsJWT(data); // create JWT token using above data
                 // create default group in the organization
-                createDefaultGroup(header, seneca);
+
+                // TODO: Uncomment after using groups
+                // createDefaultGroup(header, seneca);
+                
                 // add created organization to user's list of organizations
                 addToUserOrg(response.orgId, response.ownerId, header, seneca);
                 return sendResponse(response, done);

@@ -12,9 +12,11 @@ function FieldConfig(collectionName, collectionConfig, type) {
   if (!collectionConfig) {
     throw new Error("Invalid collection name. '" + collectionName + "' collection does not exist in config.");
   }
+  // console.log("Collection config ---- ", collectionConfig);
   var response = this.validateConfig(collectionConfig);
   if (!response || response.status !== true) {
-    throw new Error("Invalid config object. " + response.msg);
+    // console.log("Response of validate config ---- ", response);
+    throw new Error("Invalid config object. " + response.message);
   }
   this.configurations = collectionConfig;
   this.projections = {};
@@ -42,9 +44,11 @@ FieldConfig.prototype.validateConfig = function (config) {
   if (config === null || !(config instanceof Object)) {
     throw new Error("Invalid type of config object.");
   }
+  // console.log("Config ---- ", config);
   // iterate over the config
   for (var field in config) {
     if(config.hasOwnProperty(field)) {
+      // console.log("Field ---- ", field);
       config[field] = lodash.defaultsDeep(config[field], defaults);
       if(!config[field].hasOwnProperty('databaseName')) {
         config[field].databaseName = field;
@@ -206,7 +210,7 @@ FieldConfig.prototype.validateRange = function (inputValue, fieldName) {
       returnObj.status = true;
     } else {  // add error message for validation errors
       returnObj.message[fieldName] = [];
-      returnObj.message[fieldName] = "Minimum value cannot be greater than the maximum value for " + fieldName;
+      returnObj.message[fieldName].push("Minimum value cannot be greater than the maximum value for " + fieldName);
     }
   } else {  // add error message for validation errors
     returnObj.message[fieldName] = [];
@@ -233,10 +237,12 @@ FieldConfig.prototype.validateSort = function (inputValue, fieldName) {
     if(inputValue === 'ascending' || inputValue === 'descending'){
       returnObj.status = true;
     } else {  // add error message for validation errors
-      returnObj.message[fieldName] = "Input for sort can only be 'ascending' or 'descending' for " + fieldName + " field.";
+      returnObj.message[fieldName] = [];
+      returnObj.message[fieldName].push("Input for sort can only be 'ascending' or 'descending' for " + fieldName + " field.");
     }
   } else {  // add error message for validation errors
-    returnObj.message[fieldName] = fieldName + " field is not sortable.";
+    returnObj.message[fieldName] = [];
+    returnObj.message[fieldName].push(fieldName + " field is not sortable.");
   }
   return returnObj;
 };
@@ -460,7 +466,7 @@ FieldConfig.prototype.prepareRange = function (inputObject) {
  */
 FieldConfig.prototype.prepareSort = function (inputObject) {
   // return SortObject
-  var sort = {status: true, messages: [], value: []};
+  var sort = { status: true, messages: {}, value: []};
   for (var field in inputObject) {
     if (inputObject.hasOwnProperty(field)) {
       var validateResponse = this.validateSort(inputObject[field], field);
@@ -470,7 +476,7 @@ FieldConfig.prototype.prepareSort = function (inputObject) {
         sort.value.push(temp);
       } else {
         sort.status = false;
-        sort.messages.push(validateResponse.message);
+        sort.messages[field] = (validateResponse.message[field]);
       }
     }
   }

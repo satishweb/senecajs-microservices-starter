@@ -15,6 +15,7 @@ module.exports = {
         description: 'string',
         website: 'string',
         isDeleted: { type: 'boolean', defaultsTo: false },
-        ownerId: 'integer'
+        ownerId: 'integer',
+        userIds: 'json'
     }
 };

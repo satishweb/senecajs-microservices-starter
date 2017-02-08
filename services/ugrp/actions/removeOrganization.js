@@ -5,9 +5,7 @@ var Locale = require(__base + '/sharedlib/formatter');
 var outputFormatter = new Locale(__base);
 var Joi = require('joi');
 var lodash = require('lodash');
-var mongoose = require('mongoose');
 var Promise = require('bluebird');
-var jwt = require('jsonwebtoken');
 var microtime = require('microtime');
 var User = null;
 
@@ -23,58 +21,26 @@ var userSchema = Joi.object().keys({
 });
 
 /**
- * Check input parameter using Joi
- * @method checkInputParameters
- * @param {Object} args Used to get the input parameters to validate
- * @returns {Promise} Promise containing true if input validated successfully, else containing the error message
- */
-function checkInputParameters(args) {
-    return new Promise(function(resolve, reject) {
-        Joi.validate(args.body, userSchema, function(err) {
-            if (err) {
-                reject({ id: 400, msg: err.details[0].message });
-            } else {
-                resolve(true);
-            }
-        });
-    });
-}
-
-/**
- * Verify token and return the decoded token
- * @method verifyTokenAndDecode
- * @param {Object} args Used to access the JWT in the header
- * @returns {Promise} Promise containing decoded token if successful, else containing the error message
- */
-function verifyTokenAndDecode(args) {
-    return new Promise(function(resolve, reject) {
-        jwt.verify(args.header.authorization, process.env.JWT_SECRET_KEY, function(err, decoded) {
-            if (err) {
-                reject({ id: 404, msg: err });
-            } else {
-                resolve(decoded);
-            }
-        });
-    });
-}
-
-/**
  * Update user details
  * @method updateUser
- * @param {Object} args Used to get the input user details
+ * @param {Object} input Used to get the input user details
  * @returns {Promise} Promise containing the updated user details if successful, else containing the appropriate
  * error message
  */
-function updateUser(args) {
-    return new Promise(function(resolve, reject) {
-        User.update({ _id: args.userId }, { $pull: { orgIds: args.orgId } }, { new: true }, function(err, updateResponse) {
-            if (err) {
-                reject({ id: 400, msg: err });
-            } else {
-                updateResponse = JSON.parse(JSON.stringify(updateResponse));
+function updateUser(input) {
+    return new Promise(function (resolve, reject) {
+       User.findOne({ userId: input.userId }, { select: [ownedOrgIds] })
+            .then(function (user) {
+                var orgIds = user.ownedOrgIds;
+                orgIds = lodash.pull(orgIds, input.orgId);   
+                return User.update({ userId: input.userId }, { ownerOrgIds: orgIds })
+            })
+            .then(function (updateResponse) {
                 resolve(updateResponse);
-            }
-        });
+            })
+            .catch(function (err) {
+                reject({ id: 400, msg: err });
+            });
     });
 }
 
@@ -101,12 +67,14 @@ function sendResponse(result, done) {
 }
 
 
-module.exports = function() {
+module.exports = function (options) {
+    var seneca = options.seneca;
+    var ontology = options.wInstance;
     return function(args, done) {
-        User = User || mongoose.model('Users');
-        checkInputParameters(args)
+        User = User || ontology.collections.users;
+        utils.checkInputParameters(args)
             .then(function() {
-                return verifyTokenAndDecode(args);
+                return utils.verifyTokenAndDecode(args);
             })
             .then(function(response) {
                 return updateUser(args.body);

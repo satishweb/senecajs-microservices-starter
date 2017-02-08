@@ -37,7 +37,7 @@ function fetchOrganization(args) {
 
         // Find the organization using find query created
         Organization.findOne(find)
-            .then(function(findResponse) {
+            .then(function (findResponse) {
                 // if error or organization is not found, reject with error message
                 if (lodash.isEmpty(findResponse)) {
                     reject({ id: 400, msg: 'Invalid organization.'});
@@ -66,7 +66,6 @@ function getOrganizationList(seneca, input) {
     // create the configuration object for grid
     var collection = {
         "orgId": {
-            "databaseName": "_id",
             "displayName": "Organization Id",
             "filter": true
         },
@@ -101,15 +100,6 @@ function getOrganizationList(seneca, input) {
     config = { 'listOrganization': { 'collections': {} } };
     config.listOrganization.collections['organizations'] = collection;
 
-    // if the input contains ownerIds in filter, convert them to mongoose ObjectIds
-    if (input && input.filter && input.filter.ownerId) {
-        var idArray = [];
-        input.filter.ownerId.forEach(function(items) {  // iterate over the owner Ids
-            idArray.push(mongoose.Types.ObjectId(items));   // convert the owner Id to Object Id and add to new array
-        });
-        input.filter.ownerId = idArray; // replace input array with converted array of owner Ids
-    }
-
     // add filter to always return only non deleted organizations
     // if filter is present in input, add it to filter
     if (input.filter) {
@@ -121,7 +111,7 @@ function getOrganizationList(seneca, input) {
     }
 
     // create instance of composite grid from config object created
-    var compositeGrid = InitCompositeGrid.initFromConfigObject(input, 'listOrganization', mongoose.connection.db, seneca, config);
+    var compositeGrid = InitCompositeGrid.initFromConfigObject(input, 'listOrganization', Organization, seneca, config);
 
     // fetch the result using instance
     return compositeGrid.fetch();
@@ -185,7 +175,8 @@ function createSchema (input) {
                     filter       : Joi.object(),
                     searchKeyword: Joi.object(),
                     sort         : Joi.object(),
-                    limit        : Joi.number()
+                    limit        : Joi.number(),
+                    page         : Joi.number()
                 });
                 resolve(joiSchema);
                 break;

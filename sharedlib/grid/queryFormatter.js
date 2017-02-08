@@ -52,7 +52,7 @@ function Query(fieldConfig, inputObj) {
       }
       // If any error messages push the error messages in Grid.errorMessages
       else if (fieldObj.status === false) {
-        // console.log("Error in preparation --- ");
+        // console.log("Error in preparation --- ", fieldObj);
         for (var field in fieldObj.messages) {
           if (fieldObj.messages.hasOwnProperty(field)) {
             if (!this.errorMessages[field]) {
@@ -85,22 +85,21 @@ function Query(fieldConfig, inputObj) {
  * @param {Array} inputQuery
  */
 Query.prototype.renderSearch = function (inputSearch, inputQuery) {
-  var searchArray = [];//Array of query object for search keywords
+  var searchObject = {};//Array of query object for search keywords
   if (!lodash.isEmpty(inputSearch)) {
     inputSearch.forEach(function (item, i) {
-      var searchQuery = {};
       var key = Object.keys(item)[0];
-      searchQuery[key] = new RegExp(inputSearch[i][key], "i");
-      searchArray.push(searchQuery);
+      searchObject[key] = {contains: inputSearch[i][key]};
     });
   }
-  this.conditions.search = searchArray;
-  searchArray = [];
+  this.conditions.search = searchObject;
+  var searchArray = [];
   if (!lodash.isEmpty(inputQuery)) {
     inputQuery.forEach(function (item, i) {
       var searchQuery = {};
       var key = Object.keys(item)[0];
-      searchQuery[key] = new RegExp(inputQuery[i][key], "i");
+      // searchQuery[key] = new RegExp(inputQuery[i][key], "i");
+      searchQuery[key] = {contains: inputQuery[i][key]};
       searchArray.push(searchQuery);
     });
   }
@@ -116,7 +115,7 @@ Query.prototype.renderFilter = function (input) {
   if (!lodash.isEmpty(input)) {
     input.forEach(function (item, i) {
       var key = Object.keys(item)[0];
-      filterQuery[key] = {$in: input[i][key]};
+      filterQuery[key] = input[i][key];
     });
   }
   this.conditions.filters = filterQuery;
@@ -132,7 +131,7 @@ Query.prototype.renderRange = function (input) {
   if (!lodash.isEmpty(input)) {
     input.forEach(function (item, i) {
       var key = Object.keys(item)[0];
-      rangeQuery[key] = {$gt: input[i][key][0], $lt: input[i][key][1]};//assign minimum value to $gt and maximum
+      rangeQuery[key] = {'>': input[i][key][0], '<': input[i][key][1]};//assign minimum value to $gt and maximum
       // value to $lt
     });
   }
@@ -165,11 +164,11 @@ Query.prototype.renderSort = function (input) {
  * @param {Array} input used to get fields to be displayed
  */
 Query.prototype.renderProjection = function (input) {
-  var projectionQuery = {};//query object for projection
+  var projectionQuery = [];//query array for projection
   if (!lodash.isEmpty(input)) {
     lodash.keys(input).forEach(function (item) {
       // console.log("Item in projection ---- ", item, input[item]);
-      projectionQuery[input[item]] = 1;
+      projectionQuery.push(input[item]);
     });
   }
   // console.log("ProjectionQuery in queryFormatter ----- ", projectionQuery);

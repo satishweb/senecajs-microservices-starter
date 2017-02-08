@@ -5,9 +5,7 @@ var Locale = require(__base + '/sharedlib/formatter');
 var outputFormatter = new Locale(__base);
 var Joi = require('joi');
 var lodash = require('lodash');
-var mongoose = require('mongoose');
 var Promise = require('bluebird');
-var jwt = require('jsonwebtoken');
 var microtime = require('microtime');
 var Organization = null;
 
@@ -21,25 +19,19 @@ var OrganizationSchema = Joi.object().keys({
 });
 
 /**
- * Verify token and check if it belongs to an owner. If it does, return the decoded token else return error message
- * @method verifyTokenAndDecode
- * @param {String} token The JWT token from the header
- * @returns {Promise} Promise containing decoded token if successful, else containing the error message
+ * Check if user is authorized to delete the organization
+ * @method checkIfAuthorized
+ * @param {String} decodedToken The decoded JWT token from the header
+ * @returns {Promise} Resolved Promise if successful, else containing the error message
  */
-function verifyTokenAndDecode(token) {
+function checkIfAuthorized(decodedToken) {
     return new Promise(function(resolve, reject) {
-
-        // verify and decode the JWT token
-        jwt.verify(token, process.env.JWT_SECRET_KEY, function(err, decoded) {
-            if (err) {  // if there is an error, reject with error message
-                reject({ id: 404, msg: err });
-            } else if (decoded && decoded.isOwner) {    // if the decoded token belongs to an owner, resolve the
-                // decoded token
-                resolve(decoded);
-            } else {    // else return unauthorized message
-                reject({ id: 400, msg: "You are not authorized to create an organization." });
-            }
-        });
+        if (decodedToken && decodedToken.isOwner) {    // if the decoded token belongs to an owner, resolve the
+            // decoded token
+            resolve();
+        } else {    // else return unauthorized message
+            reject({ id: 400, msg: "You are not authorized to delete the organization." });
+        }
     });
 }
 
@@ -48,21 +40,24 @@ function verifyTokenAndDecode(token) {
  * Soft delete the organization by updating isDeleted to true
  * @method deleteOrganization
  * @param {String} orgId Organization Id of the organization to delete
+ ** @param {String} ownerId User Id of the user
  * @returns {Promise} Promise containing the response Organization details if successful, else containing the
  * appropriate error message
  */
-function deleteOrganization(orgId) {
+function deleteOrganization(ownerId, orgId) {
     return new Promise(function(resolve, reject) {
 
         // update the organization to isDeleted true by the orgId and return the updated document
-        Organization.findOneAndUpdate({ _id: orgId }, { 'isDeleted': true }, { new: true }, function(err, updateResponse) {
-            if (err || lodash.isEmpty(updateResponse)) {  // if error or empty, reject with the error message
-                reject({ id: 400, msg: err.message || "Invalid Organization Id"});
-            } else {    // resolve the returned updated organization document
-                updateResponse = JSON.parse(JSON.stringify(updateResponse));
+        Organization.update({ orgId: orgId, ownerId: ownerId, isDeleted: false }, { 'isDeleted': true })
+            .then(function (updateResponse) {
+                if (lodash.isEmpty(updateResponse)) {  // if error or empty, reject with the error message
+                    reject({ id: 400, msg: "Invalid organization Id or not authorized to delete organization." });
+                }
                 resolve(updateResponse);
-            }
-        })
+            })
+            .catch(function (err) {
+                reject({ id: 400, msg: err.message || "Invalid Organization Id"});
+            })
     });
 }
 
@@ -96,25 +91,27 @@ function sendResponse(result, done) {
 
 module.exports = function(options) {
     var seneca = options.seneca;
+    var ontology = options.wInstance;
     return function(args, done) {
         
         // load the mongoose model for organization
-        Organization = Organization || mongoose.model('Organizations');
+        Organization = Organization || ontology.collections.organizations;
 
         // validate input against Joi schema
         utils.checkInputParameters(args.body, OrganizationSchema)
             .then(function() {
-                // verify and decode input token and check if owner
-                return verifyTokenAndDecode(args.header.authorization);
+                // check if owner
+                return checkIfAuthorized(args.credentials);
             })
             .then(function() {
                 // soft delete the organization
-                return deleteOrganization(args.body.orgId);
+                return deleteOrganization(args.credentials.userId, args.body.orgId);
             })
             .then(function(response) {
                 sendResponse(response, done);
             })
-            .catch(function(err) {
+            .catch(function (err) {
+                console.log("error in delete org ----- ", err);
                 // in case of error, print the error and send as response
                 utils.senecaLog(seneca, 'error', __filename.split('/').pop(), err);
 

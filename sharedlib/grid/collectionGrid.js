@@ -19,7 +19,8 @@ function CollectionGrid(inputObj, collectionName, collectionConfig, database) {
   this.validateInputs(inputObj);
   this.fieldConfig = new FieldConfig(collectionName, collectionConfig);
   this.input = inputObj;
-  this.database = database.collection(collectionName);
+  // this.database = database.collection(collectionName);
+  this.database = database;
   this.Query = new Query(this.fieldConfig, inputObj);
   this.resultArr = [];
 }
@@ -71,56 +72,52 @@ CollectionGrid.prototype.formQueryString = function () {
 CollectionGrid.prototype.executeQuery = function () {
   this.resultArr = [];//result array to store output from query
   var gridObject = this;
+  var totalCount = 0;
   return new Promise(function (resolve, reject) {
-    var findArray = [];//find Query array
     var findObject = {};
-    lodash.isEmpty(gridObject.Query.conditions.query) !==
-    true ? findArray.push({$or: gridObject.Query.conditions.query}) : null;//checking if query property is empty
-    // or not
-    lodash.isEmpty(gridObject.Query.conditions.search) !==
-    true ? findArray = lodash.concat(findArray, gridObject.Query.conditions.search) : null;//checking if search
-    // property is empty or not
-    lodash.isEmpty(gridObject.Query.conditions.filters) !==
-    true ? findArray.push(gridObject.Query.conditions.filters) : null;//checking if filter property is empty or not
-    lodash.isEmpty(gridObject.Query.conditions.range) !==
-    true ? findArray.push(gridObject.Query.conditions.range) : null;//checking if range property is empty or not
-    if (!lodash.isEmpty(findArray)){
-      findObject['$and'] = findArray;
+    if(lodash.isEmpty(gridObject.Query.conditions.query) !== true) {
+      findObject.or ? null : findObject.or = [];
+      // console.log("Inside query ---- findObject ---- ", findObject);
+      findObject.or = lodash.concat(findObject.or, gridObject.Query.conditions.query); //checking if query property is empty or not
+      // console.log("After adding query ---- findObject ---- ", findObject);
     }
+    lodash.isEmpty(gridObject.Query.conditions.search) !==
+    true ? lodash.assignIn(findObject, gridObject.Query.conditions.search) : null;//checking if search property is empty or not
+    lodash.isEmpty(gridObject.Query.conditions.filters) !==
+    true ? lodash.assignIn(findObject, gridObject.Query.conditions.filters) : null;//checking if filter property is empty or not
+    lodash.isEmpty(gridObject.Query.conditions.range) !==
+    true ? lodash.assignIn(findObject, gridObject.Query.conditions.range) : null;//checking if range property is empty or not
     // console.log("Query after joining ----- ", JSON.stringify(findObject));
     //first find count of document matched and then fetch result set using pagination
-    gridObject.findCount(gridObject, findObject).then(function (data) {
-      if (lodash.isEmpty(gridObject.Query.sort)) {//checking if sort property is empty or not
-        gridObject.database.find(findObject, gridObject.Query.projection)
-          .skip(gridObject.Query.pagination.skip)
-          .limit(gridObject.Query.pagination.limit)
-          .toArray(function (err, response) {
-            if (err) {
-              reject({id : 400, msg : err});
-            } else {
-              gridObject.Query.pagination.total = data;
-              gridObject.resultArr = response;//assigning result fetched from database to to resultArr
-              // console.log('result after executing query--- ',response);
-              resolve(gridObject.resultArr);
-            }
-          });
-      } else {
-        gridObject.database.find(findObject, gridObject.Query.projection)
-          .skip(gridObject.Query.pagination.skip)
-          .limit(gridObject.Query.pagination.limit)
-          .sort(gridObject.Query.sort)
-          .toArray(function (err, response) {
-            if (err) {
-              reject({id : 400, msg : err});
-            } else {
-              gridObject.Query.pagination.total = data;
-              gridObject.resultArr = response;//assigning result fetched from database to to resultArr
-              // console.log('result after executing query--- ', response);
-              resolve(gridObject.resultArr);
-            }
-          });
-      }
-    });
+    gridObject.database.count(findObject)
+      .then(function (count) {
+        totalCount = count;
+        if (lodash.isEmpty(gridObject.Query.sort)) {//checking if sort property is empty or not
+          return gridObject.database.find({
+            select: gridObject.Query.projection,
+            where: findObject,
+            skip: gridObject.Query.pagination.skip,
+            limit: gridObject.Query.pagination.limit
+          })
+        } else {
+          return gridObject.database.find({
+            select: gridObject.Query.projection,
+            where: findObject,
+            skip: gridObject.Query.pagination.skip,
+            limit: gridObject.Query.pagination.limit,
+            sort: gridObject.Query.sort
+          })
+        }
+      })  
+      .then(function (response) {
+        // console.log('result after executing query --- ', response);
+        gridObject.Query.pagination.total = totalCount;
+        gridObject.resultArr = response;//assigning result fetched from database to to resultArr
+        resolve(gridObject.resultArr);
+      })
+      .catch(function (err) {
+        reject({ id: 400, msg: err });
+      });
   });
 };
 
@@ -138,8 +135,12 @@ CollectionGrid.prototype.fetch = function () {
       grid.formQueryString()
         .then(function (){
           return grid.executeQuery();
-        }).then(function (queryResult) {
+        })
+        .then(function (queryResult) {
           resolve({data: queryResult, pagination: grid.Query.pagination});
+        })
+        .catch(function (err) {
+          reject({id: 400, msg: err});
         });
     }
   });
@@ -156,25 +157,6 @@ CollectionGrid.prototype.updateQuery = function (filter, query) {
   if (!lodash.isEmpty(query)) {
     this.Query.conditions.mergeQuery = lodash.concat(this.Query.conditions.mergeQuery || [], query);
   }
-};
-
-
-/**
- * Find number of object that matched find query condition
- * @param {Object} findObject find query
- * @param {Object} grid Object of Grid use to get database connection
- * @returns {Integer} Returns count of document matched
- */
-CollectionGrid.prototype.findCount = function (grid, findObject) {
-  return new Promise(function (resolve, reject) {
-    grid.database.count(findObject, grid.Query.projection, function (err, response) {
-      if (err) {
-        reject({id : 400, msg : err});
-      } else {
-        resolve(response);
-      }
-    });
-  });
 };
 
 module.exports = CollectionGrid;
