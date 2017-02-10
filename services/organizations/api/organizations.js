@@ -2,7 +2,7 @@
 
 var path = require('path');
 var $RefParser = require('json-schema-ref-parser');
-var tools = require(__base + '/sharedlib/apiTools');
+var tools = require(__base + 'sharedlib/apiTools');
 
 var API_NAME = path.basename(__filename, '.js');
 var SWAGGER_FILE = __dirname + '/' + API_NAME + '.yaml';
@@ -37,6 +37,15 @@ module.exports = function(server, options, done) {
                                 },
                                 'delete': {
                                     $delete: requestHandlerFactory('delete', 'deleteOrganization')
+                                },
+                                'validate': {
+                                    $post: requestHandlerFactory('post', 'checkSubDomain')
+                                },
+                                'checkStatus': {
+                                    $post: requestHandlerFactory('post', 'checkStatus')
+                                },
+                                'createToken': {
+                                    $post: requestHandlerFactory('post', 'createSubDomainToken')
                                 }
                             }
                         }
