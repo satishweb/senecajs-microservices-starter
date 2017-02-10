@@ -1,12 +1,10 @@
 'use strict';
 
-var utils = require(__base + '/sharedlib/utils');
-var Locale = require(__base + '/sharedlib/formatter');
+var utils = require(__base + 'sharedlib/utils');
+var Locale = require(__base + 'sharedlib/formatter');
 var outputFormatter = new Locale(__base);
 var lodash = require('lodash');
-var mongoose = require('mongoose');
 var Promise = require('bluebird');
-var jwt = require('jsonwebtoken');
 var microtime = require('microtime');
 var Invitation = null;
 
@@ -25,15 +23,21 @@ function checkInDB(token, decodedToken) {
     return new Promise(function (resolve, reject) {
         
         // fetch invitation matching the email Id, organization Id and token
-        Invitation.findOne({email : decodedToken.email, orgId: decodedToken.orgId, token: token},function (err, findResponse) {
-            // if there is an error return error or if no document is found return message for invitation used
-            if(err || lodash.isEmpty(findResponse)) {
-                reject({id: 400, msg: err || 'Invalid invitation or already used. Please ask admin to send invitation' +
-                ' again if not registered yet.'});
-            } else {
-                resolve(findResponse)
-            }
-        })
+        Invitation.findOne({ email: decodedToken.email, orgId: decodedToken.orgId, token: token })
+            .then(function (findResponse) {
+                // if no document is found return message for invitation used
+                if (lodash.isEmpty(findResponse)) {
+                    reject({
+                        id: 400, msg: err || 'Invalid invitation or already used. Please ask admin to send invitation' +
+                        ' again if not registered yet.'
+                    });
+                } else {
+                    resolve(findResponse)
+                }
+            })
+            .catch(function (err) {
+                reject({ id: 400, msg: err });
+            });
     });
 }
 

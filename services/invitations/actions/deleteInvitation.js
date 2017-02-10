@@ -1,11 +1,10 @@
 'use strict';
 
-var utils = require(__base + '/sharedlib/utils');
-var Locale = require(__base + '/sharedlib/formatter');
-var outputFormatter = new Locale(__dirname + '/../');
+var utils = require(__base + 'sharedlib/utils');
+var Locale = require(__base + 'sharedlib/formatter');
+var outputFormatter = new Locale(__base);
 var lodash = require('lodash');
 var Joi = require('joi');
-var mongoose = require('mongoose');
 var Promise = require('bluebird');
 var microtime = require('microtime');
 var Invitation = null;
@@ -28,16 +27,20 @@ var schema = Joi.object().keys({
  * the error message
  */
 function deleteInvitation(email) {
-    return new Promise(function(resolve, reject) {
+    return new Promise(function (resolve, reject) {
         
         // remove the invitation corresponding to the email address
-        Invitation.remove({ email: email }, function(err, removeResponse) {
-            if (err || removeResponse.n < 1) {
-                reject({ id: 400, msg: err || 'Invitation not found' });
-            } else {
-                resolve(removeResponse)
-            }
-        })
+        Invitation.destroy({ email: email })
+            .then(function (removeResponse) {
+                if (lodash.isEmpty(removeResponse)) {
+                    reject({ id: 400, msg: 'Invitation not found' });
+                } else {
+                    resolve(removeResponse);
+                }
+            })
+            .catch(function (err) {
+                reject({ id: 400, msg: err });
+            });
     });
 }
 
@@ -70,10 +73,11 @@ function sendResponse(result, done) {
  */
 module.exports = function(options) {
     var seneca = options.seneca;
+    var ontology = options.wInstance;
     return function(args, done) {
         
-        // load mongoose model for invitations
-        Invitation = Invitation || mongoose.model('Invitations');
+        // load waterline model for invitations
+        Invitation = Invitation || ontology.collections.invitations;
         
         // check if input parameters are according to schema
         utils.checkInputParameters(args.body, schema)
@@ -85,7 +89,9 @@ module.exports = function(options) {
                 // send the response if no error occurred
                 return sendResponse(response, done);
             })
-            .catch(function(err) {
+            .catch(function (err) {
+                console.log("Error in deleteInvitation ---- ", err);
+
                 // in case of error, print the error and send as response
                 utils.senecaLog(seneca, 'error', __filename.split('/').pop(), err);
                 

@@ -30,7 +30,8 @@
         "firstName": "Postman",
         "email": "postman@user.io",
         "contact": "1234567890",
-        "isDeleted": false
+        "isDeleted": false,
+        "ownedOrgIds": [2]
     }, {
         "userId": 3,
         "passwordStatus": "passwordSet",
@@ -62,7 +63,7 @@
         "email": "employee2@example.io",
         "contact": "1234567890",
         "isDeleted": false,
-        "orgIds": [1]
+        "orgIds": [1, 2]
     }]
 }, {
     "collection": "organizations",
@@ -75,14 +76,23 @@
         "fqdn": "key-app-example-dev.example.com",
         "domain": "example.com",
         "subDomain": "key-app-example-dev",
-        "name": "Example",
-        "userIds": [3, 4]
+        "name": "Example"
+    }, {
+        "orgId": 2,
+        "ownerId": 2,
+        "isDeleted": false,
+        "website": "www.example1.com",
+        "description": "Example1",
+        "fqdn": "key-app-example1-dev.example.com",
+        "domain": "example1.com",
+        "subDomain": "key-app-example1-dev",
+        "name": "Example1"
     }]
 }, {
     "collection": "tokens",
     "data": []
 }, {
-    "collection": "groups",
+    "collection": "invitations",
     "data": []
 }, {
     "collection": "sessions",

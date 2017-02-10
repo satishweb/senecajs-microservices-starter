@@ -1,11 +1,10 @@
 'use strict';
 
-var utils = require(__base + '/sharedlib/utils');
-var Locale = require(__base + '/sharedlib/formatter');
+var utils = require(__base + 'sharedlib/utils');
+var Locale = require(__base + 'sharedlib/formatter');
 var outputFormatter = new Locale(__base);
 var Joi = require('joi');
 var lodash = require('lodash');
-var mongoose = require('mongoose');
 var Promise = require('bluebird');
 var jwt = require('jsonwebtoken');
 var microtime = require('microtime');
@@ -36,14 +35,16 @@ var fetchMatchingPendingInvitations = function fetchMatchingPendingInvitations(e
     return new Promise(function(resolve, reject) {
 
         // fetch all invitations matching any of the email Id and sent for the same organization
-        Invitation.find({ email: { $in: emailIds }, orgId: orgId }, function(err, invitationPending) {
-            if (err) {  // in case of error, reject with the error message
-                reject({ id: 400, msg: err.msg });
-            } else {    // if pending invitations are successfully fetched, return them along with all the
+        Invitation.find({ email: emailIds, orgId: orgId })
+            .then(function (invitationPending) {
+                // if pending invitations are successfully fetched, return them along with all the
                 // input email Ids
                 resolve({ all: emailIds, pending: invitationPending });
-            }
-        });
+            })
+            .catch(function (err) {
+                // in case of error, reject with the error message
+                reject({ id: 400, msg: err.msg });
+            })
     });
 };
 
@@ -59,8 +60,8 @@ var fetchMatchingPendingInvitations = function fetchMatchingPendingInvitations(e
 var fetchUsers = function fetchUsers(seneca, emailIds, orgId) {
     return new Promise(function(resolve, reject) {
 
-        // microservice call to getUsers to fetch existing users matching the email Ids
-        // the input body tells the output should be a list of users whose email Ids match the given ones
+        // microservice call to getUsers to fetch existing users matching the email Ids and organization
+        // the input body tells the output should be a list of users whose email Ids match the given ones and they are a part of the same organization
         // creating a JWT token containing the organization Id and isMicroservice flag
         utils.microServiceCall(seneca, 'ugrp', 'getUsers', { action: "list", filter: { email: emailIds } },
             utils.createMsJWT({ orgId: orgId, isMicroservice: true }),
@@ -100,14 +101,14 @@ var sendInvitations = function sendInvitations(seneca, orgId, input, newUsers, p
             var data = { email: email, firstName: input[email].firstName, lastName: input[email].lastName, orgId: orgId };
             var jwt = createJwt(data);  // create invitation JWT token with created data
             data.token = jwt;   // add token to data to save in database
-            var invitation = new Invitation(data);  // create model instance from data to save in database
-
+            
             // save invitation to DB
-            invitation.save(function(err, result) {
-                if (!err && !lodash.isEmpty(result)) { // if invitation is saved successfully, send invitation
-                    sendEmail(seneca, data, url);
-                }
-            });
+            Invitation.create(data)
+                .then(function (result) {
+                    if (!lodash.isEmpty(result)) { // if invitation is saved successfully, send invitation
+                        sendEmail(seneca, data, url);
+                    }
+                })
         });
     }
 
@@ -174,10 +175,11 @@ var sendResponse = function(done) {
  */
 module.exports = function(options) {
     var seneca = options.seneca;
+    var ontology = options.wInstance;
     return function(args, done) {
 
         // load the mongoose model for invitations collection
-        Invitation = mongoose.model('Invitations');
+        Invitation = ontology.collections.invitations;
         var orgId = null;   // the organization Id to be set from the input token
         var input = null;   // stores the input details formatted by email Ids
         var pendingInvitations = null;  // to store the array of pending invitations
