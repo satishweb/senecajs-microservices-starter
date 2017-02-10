@@ -150,6 +150,23 @@ module.exports.verifyTokenAndDecode = function(token, errorMsg) {
 };
 
 /**
+ * Check if user is authorized
+ * @method checkIfAuthorized
+ * @param {String} decodedToken The decoded JWT token from the header
+ * @returns {Promise} Resolved Promise if successful, else containing the error message
+ */
+module.exports.checkIfAuthorized = function(decodedToken) {
+    return new Promise(function(resolve, reject) {
+        if (decodedToken && decodedToken.isOwner) {    // if the decoded token belongs to an owner, resolve the
+            // decoded token
+            resolve();
+        } else {    // else return unauthorized message
+            reject({ id: 400, msg: "You are not authorized to perform this action." });
+        }
+    });
+}
+
+/**
  * Generic MicroService call which accepts callback as input
  * @method microServiceCall
  * @param {Seneca} seneca Seneca instance used to call microservice

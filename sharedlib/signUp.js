@@ -29,6 +29,7 @@ module.exports.checkIfAlreadyPresent = function(User, input, flag, done) {
             case 'google':
             case 'linkedIn':
             case 'facebook':
+            case 'microsoft':
                 var socialId = {};
                 socialId[input.signUpType + 'Id'] = input.socialId;
                 temp.push(socialId);
@@ -97,7 +98,7 @@ module.exports.createSaveData = function(input, findResult) {
             };
             data = lodash.merge(data, temp); // merge the defaults with the object created from inputs
             resolve(data);
-        } else if (input.signUpType === 'google' || input.signUpType === 'linkedIn' || input.signUpType === 'facebook') { // if type is social sign up
+        } else if (input.signUpType === 'google' || input.signUpType === 'linkedIn' || input.signUpType === 'facebook' || input.signUpType === 'microsoft' ) { // if type is social sign up
 
             var key = input.signUpType + 'Id';
             temp.passwordStatus = "passwordNotNeeded";

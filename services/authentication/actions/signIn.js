@@ -19,7 +19,7 @@ var isOwner = false;
 
     // create Joi schema
 var signInSchema = Joi.object().keys({
-    type            : Joi.string().trim().valid('email', 'google', 'linkedIn', 'facebook').required(),
+    type            : Joi.string().trim().valid('email', 'google', 'linkedIn', 'facebook', 'microsoft').required(),
     email           : Joi.string().trim().when('type', {
         is  : 'email',
         then: Joi.string().regex(/^\s*[\w\-\+​_]+(\.[\w\-\+_​]+)*\@[\w\-\+​_]+\.[\w\-\+_​]+(\.[\w\-\+_]+)*\s*$/)
@@ -30,9 +30,9 @@ var signInSchema = Joi.object().keys({
         then: Joi.string().required()
     }), // required only if type is email
     socialId        : Joi.string().trim().when('type', {
-        is  : ['google', 'linkedIn', 'facebook'],
+        is  : ['google', 'linkedIn', 'facebook', 'microsoft'],
         then: Joi.string().required()
-    }), // required only if type is facebook or google
+    }), // required only if type is facebook, google, microsoft, linkedIn
     socialName      : Joi.string().trim(),
     socialProfilePic: Joi.string().trim(),
     socialEmail     : Joi.string().regex(/^\s*[\w\-\+_]+(\.[\w\-\+_]+)*\@[\w\-\+_]+\.[\w\-\+_]+(\.[\w\-\+_]+)*\s*$/),
@@ -75,6 +75,7 @@ module.exports = function (options) {
         var finalResponse = null;   // stores the final response to be returned
         var orgId = null;           // stores the organization Id fetched by sub-domain
         var orgName = null;         // stores the organization name
+        var ownerId = null;
         isOwner = false;            // flag for whether the user is owner of the organization
 
         // load waterline models
@@ -100,7 +101,7 @@ module.exports = function (options) {
                         args.body.orgId = orgId;
                     }
                 }
-                var ownerId = response ? response.ownerId : null;   // if organization is fetched, set the
+                ownerId = response ? response.ownerId : null;   // if organization is fetched, set the
 
                 // organization owner Id
                 return signIn.loginUser(User, args.body, ownerId, args.header, seneca);
@@ -110,9 +111,9 @@ module.exports = function (options) {
                 return signIn.updateLoginTime(User, userDetails);
             })
             .then(function (userDetails) {
-
+          
                 // if organization Id is not set, user is main user, so set isOwner to true
-                if (!lodash.isNull(orgId)) {
+                if (ownerId == userDetails.userId || lodash.isNull(orgId)) {
                     isOwner = true;
                 }
                 // set the organization related fields in the response

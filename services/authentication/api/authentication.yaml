@@ -58,6 +58,7 @@ paths:
                   - 'facebook'
                   - 'google'
                   - 'linkedIn'
+                  - 'microsoft'
               email:
                 type: string
                 description: "User's registered email address."

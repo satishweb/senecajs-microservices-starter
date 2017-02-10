@@ -19,7 +19,7 @@ var flag = false; // contains whether it is a new user or existing user and whet
 
 //Joi validation Schema
 var signUpSchema = Joi.object().keys({
-    signUpType: Joi.string().trim().valid('email', 'google', 'linkedIn', 'facebook').required(), // specify the
+    signUpType: Joi.string().trim().valid('email', 'google', 'linkedIn', 'facebook', 'microsoft').required(), // specify the
     email: Joi.string()
         .when('signUpType', {
             is: 'email',
@@ -30,8 +30,8 @@ var signUpSchema = Joi.object().keys({
     name: Joi.string().when('signUpType', { is: 'email', then: Joi.string().trim().required() }), // password
     // is required only when type is email
     socialId: Joi.string()
-        .when('signUpType', { is: ['google', 'linkedIn', 'facebook'], then: Joi.string().trim().required() }),
-    // socialId is required when type is either facebook or google 
+        .when('signUpType', { is: ['google', 'linkedIn', 'facebook', 'microsoft'], then: Joi.string().trim().required() }),
+    // socialId is required when type is either facebook, google, linkedIn, microsoft 
     socialName: Joi.string().trim(),
     socialEmail: Joi.string().regex(/^\s*[\w\-\+​_]+(\.[\w\-\+_​]+)*\@[\w\-\+​_]+\.[\w\-\+_​]+(\.[\w\-\+_]+)*\s*$/),
     socialProfilePic: Joi.string().trim()

@@ -3,7 +3,7 @@
 var bcrypt = require('bcrypt');
 var utils = require(__base + 'sharedlib/utils');
 var Locale = require(__base + 'sharedlib/formatter');
-var outputFormatter = new Locale(__dirname + '/../');
+var outputFormatter = new Locale(__base);
 var Joi = require('joi');
 var Promise = require('bluebird');
 var lodash = require('lodash');
@@ -21,36 +21,31 @@ var changePasswordSchema = Joi.object().keys({
 });
 
 /**
- * Update user's password to new password and corrects the value of flags like passwordStatus and invitationPending
+ * Update user's password to new password. If user is not found in DB, create user with input password (for reset password links sent in invitation emails)
  * @method changePassword
  * @param {Object} decodedToken Contains the user's email, firstName and lastName decoded from the token
  * @param {Object} input The input parameters containing the new password
  * @returns {Promise} Promise containing the update response if successful, else the appropriate error message
  */
-var changePassword = function(decodedToken, input) {
+var changePassword = function(decodedToken, input, action) {
     return new Promise(function(resolve, reject) {
         //create find object for user
-        var find = { email: decodedToken.emailId};
+        var find = { email: decodedToken.emailId };
 
-        if (input.orgId) {
-            find.orgId = input.orgId;
-        } else {
-            find.orgId = null;
-        }
         // create update object for user
         var update = {
             password: bcrypt.hashSync(input.password, 10), // hash the input password
             passwordStatus: 'passwordSet',
             invitationPending: false
         };
-        if (decodedToken.firstName) {   // if token contains user's first name, set it in the update data object
+        if (decodedToken.firstName) { // if token contains user's first name, set it in the update data object
             update.firstName = decodedToken.firstName;
         }
-        if (decodedToken.lastName) {   // if token contains user's last name, set it in the update data object
+        if (decodedToken.lastName) { // if token contains user's last name, set it in the update data object
             update.lastName = decodedToken.lastName;
         }
-        if (decodedToken.orgId) {   // if token contains the organization id, set it in the update data object
-            update.orgId = decodedToken.orgId;
+        if (decodedToken.orgId) { // if token contains the organization id, set it in the update data object
+            update.orgIds = decodedToken.orgIds;
         }
 
         // console.log("Find ---- ", find, update);
@@ -59,21 +54,32 @@ var changePassword = function(decodedToken, input) {
         // update user document by email
         User.update(find, update)
             .then(function(updateResult) {
-                // console.log("UpdateResult ---- ", updateResult);
+                // if no user was updated, user does not exist, create user after checking if action is reset password
                 if (lodash.isEmpty(updateResult)) {
-                    update = lodash.assign(find, update);
-                    User.create(update)
-                        .then(function (createResult) {
-                            resolve(createResult);
-                        })
-                        .catch(function (err) {
-                            reject({ id: 400, msg: err});
-                        });
+                    // check if action is reset password to check if new user should be created
+                    if (action === 'resetPassword') {
+                        // add find object to update object
+                        update = lodash.assign(find, update);
+                        // create new user with update object
+                        User.create(update)
+                            .then(function (createResult) {
+                                if (lodash.isEmpty(createResult)) {
+                                    reject({ id: 400, msg: "Updating password failed." });
+                                } else {
+                                    resolve(createResult);
+                                }    
+                            })
+                            .catch(function (err) {
+                                reject({ id: 400, msg: err });
+                            });
+                    } else {
+                        reject({id: 400, msg: "Updating password failed."});
+                    }
                 } else {
                     resolve(updateResult);
                 }
             })
-            .catch(function (err) {
+            .catch(function(err) {
                 // console.log("Error in change password ---- ", err);
                 reject({ id: 400, msg: err || 'Password not changed.' });
             });
@@ -99,11 +105,11 @@ function removeTokenFromDB(action, token) {
                         resolve(true);
                     }
                 })
-                .catch(function (err){
+                .catch(function(err) {
                     // console.log("Error in delete token ---- ", err);
                     reject({ id: 400, msg: err });
                 });
-        } else {    // if any other action, continue
+        } else { // if any other action, continue
             resolve(true);
         }
     });
@@ -142,8 +148,11 @@ var sendResponse = function(result, done) {
     if (!lodash.isEmpty(result)) {
         done(null, { statusCode: 200, content: outputFormatter.format(true, 2050, null, 'Password') });
     } else {
-        done(null, { statusCode: 200, content: outputFormatter.format(true, 1000, null, 'Something went wrong.' +
-            ' Please Try again.') });
+        done(null, {
+            statusCode: 200,
+            content: outputFormatter.format(true, 1000, null, 'Something went wrong.' +
+                ' Please Try again.')
+        });
     }
 };
 
@@ -177,15 +186,12 @@ module.exports = function(options) {
             })
             .then(function(response) {
                 decodedToken = response;
-
-                // if orgId is present and user is not owner, switch to organization's user collection
-                if (response.orgId && !response.isOwner) {
-                    args.body.orgId = response.orgId;
-                }
+                // remove the reset password token from DB if action is resetPassword
                 return removeTokenFromDB(action, args.header.authorization);
             })
-            .then(function() {
-                return changePassword(decodedToken, args.body);
+            .then(function () {
+                // change or reset the user password
+                return changePassword(decodedToken, args.body, action);
             })
             .then(function(updateResponse) {
                 // console.log("Updated response ---- ", updateResponse);
@@ -200,8 +206,8 @@ module.exports = function(options) {
             })
             .catch(function(err) {
                 console.log("Error in changePassword ---- ", err);
-                seneca.log.error('[ ' + process.env.SRV_NAME + ': ' + __filename.split('/').slice(-1) + ' ]', "ERROR" +
-                  " : ", err);
+                seneca.log.error('[ ' + process.env.SRV_NAME + ': ' + __filename.split('/').pop() + ' ]', "ERROR" +
+                    " : ", err);
                 var error = err || { id: 400, msg: 'Unexpected error' };
                 done(null, { statusCode: 200, content: utils.error(error.id, error.msg, microtime.now()) });
             });
