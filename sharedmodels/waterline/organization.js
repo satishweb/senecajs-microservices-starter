@@ -14,6 +14,8 @@ module.exports = {
         fqdn: 'string',
         description: 'string',
         website: 'string',
+        route53Response: 'json',
+        cloudfrontResponse: 'json',
         isDeleted: { type: 'boolean', defaultsTo: false },
         ownerId: 'integer',
         userIds: 'json'

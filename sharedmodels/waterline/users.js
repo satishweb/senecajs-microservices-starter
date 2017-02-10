@@ -26,12 +26,13 @@ module.exports = {
         passwordStatus: 'string',
         ownedOrgIds: 'json',
         orgIds: 'json',
-        groupIds: {
-            collection: 'groups',
-            via: 'userIds'
-        }
+        registrationStep: 'number'
     }
     /*,
+     groupIds: {
+     collection: 'groups',
+     via: 'userIds'
+     },
             updateOrCreate: function(find, update) {
                 return users.update(find, update)
                     .then(function(updatedResult) {
