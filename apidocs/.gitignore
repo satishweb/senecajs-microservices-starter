@@ -1,0 +1,10 @@
+.idea
+src/.tmp
+src/node_modules
+src/bower_components
+*.log
+src/npm*
+src/yaml/
+src/config/defaults.json
+src/http.log
+src/npm.log

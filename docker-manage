@@ -165,7 +165,7 @@ if [[ "$action" == "up" ]]
 		echo "| INFO: Preparing node packages ..."
 		[[ "$projectEnv" != "local" ]] && npmCmd="npm install --production --no-optional" || npmCmd="npm install --no-optional"
 		docker run -v "$srcFolder:/src" -w "/src" --rm -it $nodeImage bash -c "$npmCmd 2>&1" 2>&1|sed 's/^/| NPM: /'
-		[[ -f ../apidocs/src/build.sh ]] && echo "| INFO: Clean apidocs yaml collection..." && ../apidocs/src/build.sh clean|sed 's/^/| APIDocs: /'
+		[[ -f apidocs/src/build.sh ]] && echo "| INFO: Clean apidocs yaml collection..." && apidocs/src/build.sh clean|sed 's/^/| APIDocs: /'
 fi
 echo "| INFO: Docker Command: $dcCmd"
 echo "| INFO: Running Docker-compose/Docker command (Press Ctrl + C to stop) ... "

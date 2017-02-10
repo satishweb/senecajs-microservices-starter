@@ -1,0 +1,9 @@
+#!/bin/bash
+cd /src
+if [[ ! -f config/defaults.json ]]
+	then
+		echo "Please run the build.sh command and then restart container"
+		exit 1
+fi
+npm install -g http-server > npm.log 2>&1
+http-server --cors -p80 /src >http.log 2>&1

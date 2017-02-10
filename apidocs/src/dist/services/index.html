@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.1.1/jquery.min.js"></script>
+    <script>
+function startMs(ms) {
+
+    $(document).ready(function () {
+            $.ajax({
+                url: 'https://vma-api-local.agitix.com/v1/restartMs?ms='+ms,
+                type: 'GET',
+                dataType: 'json',
+                success: function (response) {
+                    console.log("success",response, ms);
+                    alert("Microservice " + ms + " started");
+                },
+                error: function (xhr, textStatus, errorThrown) {
+                    console.log('error in Operation', errorThrown);
+                }
+            });
+    });
+}
+
+    </script>
+<style>
+    table, tr, td{
+        margin-left:8%;
+        padding:20px;
+    }
+    button{
+        font-size:25px;
+        width:100%;
+    }
+    h1{
+        text-align: center;
+    }
+    </style>
+</head>
+
+<body>
+
+    <h1>Restsrt Microservice</h1>
+
+    <table>
+        <tr>
+            <td><button type="button"  onclick="startMs('ms-api')">MS-API</button></td>
+            <td><button type="button"  onclick="startMs('ms-authentication')">MS-Authentication</button></td>
+            <td><button type="button"  onclick="startMs('ms-bootstrap')">MS-Bootstrap</button></td>
+            <td><button type="button"  onclick="startMs('ms-chatHistory')">MS-ChatHistory</button></td>
+        </tr>
+
+        <tr>
+            <td><button type="button"  onclick="startMs('ms-chatSocket')">MS-ChatSocket</button></td>
+            <td><button type="button"  onclick="startMs('ms-chFbMsgIn')"> MS-ChFbMsgIn</button></td>
+            <td><button type="button"  onclick="startMs('ms-bootstrap')"> MS-ChFbMsgOut</button></td>
+            <td><button type="button"  onclick="startMs('ms-common')"> MS-Common</button></td>
+        </tr>
+        <tr>
+            <td><button type="button"  onclick="startMs('ms-companyProfile')"> MS-CompanyProfile</button></td>
+            <td><button type="button"  onclick="startMs('ms-email')"> MS-Email</button></td>
+            <td><button type="button"  onclick="startMs('ms-invitations')"> MS-Invitations</button></td>
+            <td><button type="button"  onclick="startMs('ms-socialIntegrations')"> MS-SocialIntegrations</button></td>
+        </tr>
+        <tr>
+            <td><button type="button"  onclick="startMs('ms-ugrp')"> MS-UGRP</button></td>
+            <td><button type="button"  onclick="startMs('ms-users')"> MS-Users</button></td>
+            <td><button type="button"  onclick="startMs('ms-webHooks')"> MS-WebHooks</button></td>
+
+        </tr>
+    </table>
+
+</body>
+</html>
