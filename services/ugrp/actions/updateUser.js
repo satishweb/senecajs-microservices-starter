@@ -19,7 +19,7 @@ var User = null;
 //Joi validation Schema
 // TODO: All joi validations schema should inside joiSchemaValidations.js
 var userSchema = Joi.object().keys({
-    userId: Joi.string().trim().required(),
+    userId: Joi.number().trim().required(),
     email: Joi.string().regex(/^\s*[\w\-\+​_]+(\.[\w\-\+_​]+)*\@[\w\-\+​_]+\.[\w\-\+_​]+(\.[\w\-\+_]+)*\s*$/),
     firstName: Joi.string().allow('').trim(),
     lastName: Joi.string().allow('').trim(),

@@ -31,7 +31,7 @@ function updateUser(input) {
     return new Promise(function (resolve, reject) {
         var orgIds;
         // Update the user document by adding the organization Id to array of organizations
-        User.findOne({ userId: input.userId }, { select: [ownedOrgIds] })
+        User.findOne({ userId: input.userId }, { select: ['ownedOrgIds'] })
             .then(function (user) {
                 orgIds = user.ownedOrgIds;
                 if (lodash.isEmpty(orgIds)) {
@@ -40,7 +40,7 @@ function updateUser(input) {
                     orgIds = lodash.concat(orgIds, input.orgId);
                     orgIds = lodash.uniq(orgIds);   
                 }
-                return User.update({ userId: input.userId }, { ownerOrgIds: orgIds })
+                return User.update({ userId: input.userId }, { ownedOrgIds: orgIds })
             })
             .then(function (updateResponse) {
                 resolve(updateResponse);
@@ -101,7 +101,8 @@ module.exports = function(options) {
             .then(function(response) {
                 sendResponse(response, done);
             })
-            .catch(function(err) {
+            .catch(function (err) {
+                console.log("Error in add organization --- ", err);
                 // in case of error, print the error and send as response
                 utils.senecaLog(seneca, 'error', __filename.split('/').pop(), err);
 

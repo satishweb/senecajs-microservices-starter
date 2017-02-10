@@ -74,9 +74,9 @@ function createGroup(ownerId, orgId, input) {
         })
         .catch(function (err) {  // if error, check if error code represents duplicate index on unique field (name)
             console.log("Error in create group ---- ", err);
-            if (err.code === 11000) { // if error code is 11000, it means the name already exists
+            if (err.code === 'E_VALIDATION') { // if error code is 11000, it means the name already exists
                 // reject with custom error message
-                reject({ id: 400, msg: "Name already exists." });
+                reject({ id: 400, msg: "Group name already exists." });
             } else {    // in case of other errors, reject received error
                 reject({ id: 400, msg: err.message });
             }

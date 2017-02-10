@@ -90,6 +90,7 @@ function listUsers(input, orgId) {
             "filter": true
         }
     };
+
     var config = { 'listUsers': { 'collections': {} }};
     config.listUsers.collections['users'] = collection;
     delete input.action;
