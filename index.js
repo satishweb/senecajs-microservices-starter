@@ -1,6 +1,4 @@
 'use strict';
-var Waterline = require('waterline');
-var waterline = new Waterline();
 var seneca = require('seneca');
 seneca = new seneca({
     strict: {
@@ -21,7 +19,7 @@ function dbInit(options) {
     seneca.log.info('[ ' + process.env.SRV_NAME + ' ]', 'DB HOST: ', process.env.DB_HOST);
     seneca.log.info('[ ' + process.env.SRV_NAME + ' ]', 'DB NAME: ', process.env.DB_NAME);
 
-    loadModels(waterline);
+    // loadModels(waterline);
     if (process.env.DB_TYPE === 'mongodb') {
         var sailsMongoAdapter = require('sails-mongo');
 
@@ -40,40 +38,16 @@ function dbInit(options) {
             }
         };
     } else if (process.env.DB_TYPE === 'postgresdb') {
-        var sailsPostgresAdapter = require('sails-postgresql');
-
-        var config = {
-            adapters: {
-                'postgres': sailsPostgresAdapter
-            },
-
-            connections: {
-                default: {
-                    adapter: 'postgres',
-                    database: process.env.DB_NAME,
-                    host: process.env.DB_HOST || 'localhost',
-                    user: process.env.DB_USER,
-                    password: process.env.DB_PASS,
-                    port: 5432,
-                    pool: true,
-                    ssl: false
-                }
-            }
-        };
+        var Sequelize = require('sequelize');
+        var dbConnection = new Sequelize(process.env.DB_NAME, process.env.DB_USER, process.env.DB_PASS, {
+            host: process.env.DB_HOST,
+            dialect: 'postgres'
+        });
     }
-    waterline.initialize(config, function(err, ontology) {
-        if (err) {
-            return console.error("Error initializing ------ ", err);
-        } else {
-            console.log("Connected to " + process.env.DB_TYPE + " --------");
-            options.wInstance = ontology;
-            if (process.env.SRV_NAME === 'api') {
-                loadApi(options);
-            } else {
-                loadActions(options);
-            }
-        }
-    });
+    console.log("Connected to DB ---- ");
+    options.dbConnection = dbConnection;
+    loadModels(options);
+
 }
 
 /* add comments later - to be used only by enpoint api microservice type */
@@ -86,31 +60,23 @@ function dbInit(options) {
 
 function workerPlugin() {
 
-    if (process.env.SRV_NAME === 'bootstrap') {
-        // Plugin init, for database connection setup
-        seneca.add({
-            init: process.env.SRV_NAME
-        }, loadActions({ seneca: seneca }));
-    } else {
-        // Plugin init, for database connection setup
-        seneca.add({
-            init: process.env.SRV_NAME
-        }, dbInit({ seneca: seneca }));
-    }
-
+    // Plugin init, for database connection setup
+    seneca.add({
+        init: process.env.SRV_NAME
+    }, dbInit({ seneca: seneca }));
 
     return process.env.SRV_NAME;
 };
 
-function loadModels(waterline) {
+function loadModels(options) {
 
     var fs = require('fs');
     var path = require('path');
 
     // Shared models path
-    var SHARED_MODELS_PATH = path.join(__dirname, '/sharedmodels/' + 'waterline');
+    var SHARED_MODELS_PATH = path.join(__dirname, '/sharedmodels/' + process.env.DB_TYPE);
     // models path
-    var MODELS_PATH = path.join(__dirname, '/models/' + 'waterline');
+    var MODELS_PATH = path.join(__dirname, '/models/' + process.env.DB_TYPE);
 
     // TODO: search and load all files from multiple directories in single function
     // TODO: Make it recursive
@@ -119,7 +85,7 @@ function loadModels(waterline) {
         fs.readdirSync(SHARED_MODELS_PATH).forEach(function(file) {
             var f = path.basename(file, '.js');
             seneca.log.info('[ ' + process.env.SRV_NAME + ' ]', 'Loading Shared Model: ', f);
-            waterline.loadCollection(Waterline.Collection.extend(require(path.join(SHARED_MODELS_PATH, file))));
+            require(path.join(SHARED_MODELS_PATH, file))(options.dbConnection);
         });
     }
 
@@ -128,13 +94,19 @@ function loadModels(waterline) {
         fs.readdirSync(MODELS_PATH).forEach(function(file) {
             var f = path.basename(file, '.js');
             seneca.log.info('[ ' + process.env.SRV_NAME + ' ]', 'Loading Model: ', f);
-            waterline.loadCollection(Waterline.Collection.extend(require(path.join(MODELS_PATH, file))));
+            require(path.join(MODELS_PATH, file))(options.dbConnection);
         });
     }
 
+    if (process.env.SRV_NAME === 'api') {
+        loadApi(options);
+    } else {
+        loadActions(options);
+    }
 }
 
 function loadActions(options) {
+    console.log("Loading actions ----- ");
     var fs = require('fs');
     var path = require('path');
 
@@ -157,6 +129,8 @@ function loadActions(options) {
 ;
 
 function loadApi(options) {
+    console.log("Loading APIs ---- ");
+
     // authentication/authorization modules
     // register the auth strategies
     require('./auth/index.js')(options);

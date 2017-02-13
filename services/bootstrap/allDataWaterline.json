@@ -14,8 +14,7 @@
         "firstName": "Admin",
         "email": "admin@example.io",
         "contact": "1234567890",
-        "isDeleted": false,
-        "ownedOrgIds": [1]
+        "isDeleted": false
     }, {
         "userId": 2,
         "passwordStatus": "passwordSet",
@@ -30,8 +29,7 @@
         "firstName": "Postman",
         "email": "postman@user.io",
         "contact": "1234567890",
-        "isDeleted": false,
-        "ownedOrgIds": [2]
+        "isDeleted": false
     }, {
         "userId": 3,
         "passwordStatus": "passwordSet",
@@ -46,8 +44,7 @@
         "firstName": "Employee1",
         "email": "employee1@example.io",
         "contact": "1234567890",
-        "isDeleted": false,
-        "orgIds": [1]
+        "isDeleted": false
     }, {
         "userId": 4,
         "passwordStatus": "passwordSet",
@@ -62,8 +59,7 @@
         "firstName": "Employee2",
         "email": "employee2@example.io",
         "contact": "1234567890",
-        "isDeleted": false,
-        "orgIds": [1, 2]
+        "isDeleted": false
     }]
 }, {
     "collection": "organizations",
@@ -79,7 +75,7 @@
         "name": "Example"
     }, {
         "orgId": 2,
-        "ownerId": 2,
+        "ownerId": 1,
         "isDeleted": false,
         "website": "www.example1.com",
         "description": "Example1",
@@ -94,6 +90,27 @@
 }, {
     "collection": "invitations",
     "data": []
+}, {
+    "collection": "join_userownedorgs",
+    "data": [{
+        "userId": 1,
+        "orgId": 1
+    }, {
+        "userId": 1,
+        "orgId": 2
+    }]
+}, {
+    "collection": "join_userorgs",
+    "data": [{
+        "userUserId": 3,
+        "organizationOrgId": 1
+    }, {
+        "userUserId": 4,
+        "organizationOrgId": 1
+    }, {
+        "userUserId": 3,
+        "organizationOrgId": 2 
+    }]
 }, {
     "collection": "sessions",
     "data": [{

@@ -40,9 +40,9 @@ module.exports.createSession = function(Session, token, sessionData) {
  */
 
 module.exports.deleteSessions = function deleteSessions(Session, userId, orgId, sessionId) {
-    var find = { 'userId': userId, 'orgId': orgId }; // create find query
+    var find = { where: { 'userId': userId, 'orgId': orgId } }; // create find query
     if (sessionId) { // if sessionId is present, exclude it from remove
-        find.sessionId = { '!': sessionId };
+        find.where.sessionId = { '$ne': sessionId };
     }
     // remove sessions matching the find query
     Session.destroy(find)

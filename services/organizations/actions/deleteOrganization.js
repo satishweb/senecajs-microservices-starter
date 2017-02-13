@@ -48,7 +48,7 @@ function deleteOrganization(ownerId, orgId) {
     return new Promise(function(resolve, reject) {
 
         // update the organization to isDeleted true by the orgId and return the updated document
-        Organization.update({ orgId: orgId, ownerId: ownerId, isDeleted: false }, { 'isDeleted': true })
+        Organization.update({ 'isDeleted': true }, { where: { orgId: orgId, ownerId: ownerId, isDeleted: false } })
             .then(function (updateResponse) {
                 if (lodash.isEmpty(updateResponse)) {  // if error or empty, reject with the error message
                     reject({ id: 400, msg: "Invalid organization Id or not authorized to delete organization." });
@@ -91,11 +91,11 @@ function sendResponse(result, done) {
 
 module.exports = function(options) {
     var seneca = options.seneca;
-    var ontology = options.wInstance;
+    var dbCOnnection = options.dbConnection;
     return function(args, done) {
         
         // load the mongoose model for organization
-        Organization = Organization || ontology.collections.organizations;
+        Organization = Organization || dbConnection.models.organizations;
 
         // validate input against Joi schema
         utils.checkInputParameters(args.body, OrganizationSchema)

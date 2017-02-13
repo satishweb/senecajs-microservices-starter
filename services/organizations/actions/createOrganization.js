@@ -391,19 +391,20 @@ function createOrganization(ownerId, input, amazonResponse, seneca) {
     return new Promise(function(resolve, reject) {
         var data = {
             ownerId: ownerId,
-            fqdn: subDomain,
-            route53Response: amazonResponse.route53Response,
-            cloudFrontResponse: amazonResponse.cloudFrontResponse
+            fqdn: subDomain
+                // route53Response: amazonResponse.route53Response,
+                // cloudFrontResponse: amazonResponse.cloudFrontResponse
         };
         data = lodash.assign(data, input);
 
         Organization.create(data)
             .then(function(saveResponse) {
                 var header = utils.createMsJWT({ isMicroservice: true }); //create microservice token
-                updateUser(ownerId, header, seneca);
+                // updateUser(ownerId, header, seneca);
                 resolve(saveResponse);
             })
-            .catch(function(err) {
+            .catch(function (err) {
+                console.log("Error in create --- ", err);
                 if (err.code == 'E_VALIDATION') { //check if duplicate sub domain is used to create a new organization
                     reject({ id: 400, msg: "Sub Domain already exists." });
                 } else {
@@ -470,34 +471,36 @@ function sendResponse(result, done) {
 
 module.exports = function(options) {
     var seneca = options.seneca;
-    var ontology = options.wInstance;
+    var dbConnection = options.dbConnection;
     return function(args, done) {
 
         // load waterline models for organization and session
-        Organization = Organization || ontology.collections.organizations;
-        Session = Session || ontology.collections.sessions;
-        route53 = new AWS.Route53();
-        AWSCloud.config.update({
-            accessKeyId: process.env.CLOUD_FRONT_ACCESS_ID,
-            secretAccessKey: process.env.CLOUD_FRONT_SECRET_KEY,
-            region: process.env.CLOUD_FRONT_REGION
-        });
-        cloudfront = new AWSCloud.CloudFront({ apiVersion: process.env.CLOUD_FRONT_API_VERSION });
+        Organization = Organization || dbConnection.models.organizations;
+        // Session = Session || ontology.collections.sessions;
         if (args.body.name) { //check if name is present
             args.body.name = args.body.name.toLowerCase();
         }
         var decodedHeader = null;
         utils.checkInputParameters(args.body, schema)
-            .then(function() {
+            .then(function () {
+                console.log("reached checkifauthroized");
                 return utils.checkIfAuthorized(args.credentials);
             })
-            .then(function() {
+            .then(function () {
+                console.log("reached cloudfront check");
                 decodedHeader = args.credentials;
                 subDomain = args.body.subDomain + '.' + process.env.DOMAIN; //form complete url for sub-domain
                 subDomain = subDomain.toLowerCase(); //convert sub-domain to lower case as CNAME is required small in cloud
                 // front create distribution
                 if (process.env.CLOUD_FRONT_ACCESS == 'true' && process.env.R53_ACCESS == 'true') { //check if
                     //  CLOUD_FRONT_ACCESS and R53_ACCESS is true
+                    route53 = new AWS.Route53();
+                    AWSCloud.config.update({
+                        accessKeyId: process.env.CLOUD_FRONT_ACCESS_ID,
+                        secretAccessKey: process.env.CLOUD_FRONT_SECRET_KEY,
+                        region: process.env.CLOUD_FRONT_REGION
+                    });
+                    cloudfront = new AWSCloud.CloudFront({ apiVersion: process.env.CLOUD_FRONT_API_VERSION });
                     return createCouldFrontDistribution(subDomain)
                 } else {
                     return new Promise(function(resolve, reject) {
@@ -510,13 +513,14 @@ module.exports = function(options) {
                     });
                 }
             })
-            .then(function(response) {
-                AWS.config.update({
-                    accessKeyId: process.env.R53_ACCESS_ID,
-                    secretAccessKey: process.env.R53_SECRET_KEY,
-                    region: process.env.R53_REGION
-                });
+            .then(function (response) {
+                console.log("reached route53 check");
                 if (process.env.R53_ACCESS == 'true') { //check if R53_ACCESS is true
+                    AWS.config.update({
+                        accessKeyId: process.env.R53_ACCESS_ID,
+                        secretAccessKey: process.env.R53_SECRET_KEY,
+                        region: process.env.R53_REGION
+                    });
                     return createRoute53ResourceRecordSet(args.body, response);
                 } else {
                     return new Promise(function(resolve) {
@@ -524,10 +528,11 @@ module.exports = function(options) {
                     })
                 }
             })
-            .then(function(response) {
+            .then(function (response) {
+                console.log("reached createOrg");
                 return createOrganization(decodedHeader.userId, args.body, response, seneca);
             })
-            .then(function(response) {
+            /*.then(function(response) {
                 response.registrationStep = 3;
                 var data = { //data to be stored in JWT token
                     isMicroservice: true,
@@ -561,6 +566,17 @@ module.exports = function(options) {
                     addToUserOrg(response.orgId, response.ownerId, header, seneca);
                     return sendResponse(response, done);
                 }
+            })*/
+            .then(function (response) {
+                console.log("reached send");
+                var data = { //data to be stored in JWT token
+                    isMicroservice: true,
+                    orgId: response.orgId,
+                    isOwner: true
+                };
+                var header = utils.createMsJWT(data);
+                addToUserOrg(response.orgId, response.ownerId, header, seneca);
+                sendResponse(response, done);
             })
             .catch(function(err) {
                 console.log('err in create organisation--- ', err);

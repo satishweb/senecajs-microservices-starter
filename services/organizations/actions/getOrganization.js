@@ -28,27 +28,34 @@ function fetchOrganization(args) {
 
         // if input has fqdn in input, create find query using fqdn in query
         if (args.fqdn) {
-            find = { fqdn: args.fqdn, isDeleted: false};
+            if (process.env.DB_TYPE == 'mongodb') {
+                find = { fqdn: args.fqdn, isDeleted: false };
+            } else {
+                find = { where: {fqdn: args.fqdn, isDeleted: false}}
+            }
         }
         // if input has organization Id in input, create find query using organization Id
         if (args.orgId) {
-            find = { orgId: args.orgId, isDeleted: false};
+            if (process.env.DB_TYPE == 'mongodb') {
+                find = { orgId: args.orgId, isDeleted: false };
+            } else {
+                find = { where: {orgId: args.orgId, isDeleted: false}}
+            }
         }
 
         // Find the organization using find query created
         Organization.findOne(find)
-            .then(function (findResponse) {
+            .then(function(findResponse) {
                 // if error or organization is not found, reject with error message
                 if (lodash.isEmpty(findResponse)) {
-                    reject({ id: 400, msg: 'Invalid organization.'});
+                    reject({ id: 400, msg: 'Invalid organization.' });
                 } else { // else return organization document fetched
-                    findResponse = JSON.parse(JSON.stringify(findResponse));
-                    resolve(findResponse);
+                    resolve(findResponse.toJSON());
                 }
             })
-            .catch(function (err) {
+            .catch(function(err) {
                 console.log("Error in fetchOrganization ---- ", err);
-                reject({ id: 400, msg: err || 'Invalid organization.'});
+                reject({ id: 400, msg: err || 'Invalid organization.' });
             })
     });
 }
@@ -104,7 +111,7 @@ function getOrganizationList(seneca, input) {
     // if filter is present in input, add it to filter
     if (input.filter) {
         input.filter.isDeleted = false;
-    } else {    // if filter object is not present in input, create filter and set is deleted
+    } else { // if filter object is not present in input, create filter and set is deleted
         input.filter = {
             isDeleted: false
         }
@@ -132,13 +139,13 @@ function sendResponse(result, done) {
         if (result && result.data && result.data.configuration) {
             delete result.data.configuration;
         }
-        done(null, { statusCode: result.success ? 200 : 400, content: result})
-    } else if (!lodash.isEmpty(result)) {   // else format the output
+        done(null, { statusCode: result.success ? 200 : 400, content: result })
+    } else if (!lodash.isEmpty(result)) { // else format the output
         done(null, {
             statusCode: 200,
             content: outputFormatter.format(true, 2040, result, 'Organization')
         });
-    } else {    //else return error
+    } else { //else return error
         done(null, {
             statusCode: 200,
             content: outputFormatter.format(false, 102)
@@ -154,9 +161,9 @@ function sendResponse(result, done) {
  * error message if incorrect or no action provided.
  */
 
-function createSchema (input) {
+function createSchema(input) {
     var joiSchema;
-    return new Promise(function (resolve, reject) {
+    return new Promise(function(resolve, reject) {
         switch (input.action) {
             // if action is either 'id' or 'fqdn', create same schema
             case 'id':
@@ -164,7 +171,7 @@ function createSchema (input) {
                 //Joi validation Schema for action fqdn or orgId
                 //TODO: MOVE
                 joiSchema = Joi.object().keys({
-                    fqdn : Joi.string(),
+                    fqdn: Joi.string(),
                     orgId: Joi.number()
                 }).without('fqdn', 'orgId').without('orgId', 'fqdn'); // input should have either fqdn or orgId
                 resolve(joiSchema);
@@ -172,17 +179,17 @@ function createSchema (input) {
             case 'list':
                 //Joi validation Schema for list
                 joiSchema = Joi.object().keys({
-                    filter       : Joi.object(),
+                    filter: Joi.object(),
                     searchKeyword: Joi.object(),
-                    sort         : Joi.object(),
-                    limit        : Joi.number(),
-                    page         : Joi.number()
+                    sort: Joi.object(),
+                    limit: Joi.number(),
+                    page: Joi.number()
                 });
                 resolve(joiSchema);
                 break;
             default:
                 // if action doesn't match any of the above, return error
-                reject({id: 400, msg: "Enter a valid action."});
+                reject({ id: 400, msg: "Enter a valid action." });
         }
     });
 }
@@ -196,46 +203,48 @@ function createSchema (input) {
 
 module.exports = function(options) {
     var seneca = options.seneca;
-    var ontology = options.wInstance;
+    var dbConnection = options.dbConnection;
     return function(args, done) {
         var action = null;
 
         // load the mongoose model for Organizations
-        Organization = Organization || ontology.collections.organizations;
+        Organization = Organization || dbConnection.models.organizations;
 
         // create appropriate schema depending on input action
         createSchema(args.body)
-            .then(function (schema){
+            .then(function(schema) {
 
                 // copy the action before deleting it from input
                 action = args.body.action;
-                delete args.body.action;    // delete action from input
+                delete args.body.action; // delete action from input
 
                 // validate input against Joi schema
                 return utils.checkInputParameters(args.body, schema);
             })
-            .then(function () {
+            .then(function() {
                 // depending on action, call appropriate function
                 switch (action) {
                     case 'id':
                     case 'fqdn':
-                        return fetchOrganization(args.body);    // if action is 'fqdn' or 'id', call fetchOrganization
+                        return fetchOrganization(args.body); // if action is 'fqdn' or 'id', call fetchOrganization
                         break;
                     case 'list':
                         return getOrganizationList(options, args.body); // if action is 'list', call getOrganizationList
                 }
             })
-            .then(function (result) {
+            .then(function(result) {
                 sendResponse(result, done);
             })
             .catch(function (err) {
+                console.log("Error in getOrg ---- ", err);
+
                 // in case of error, print the error and send as response
                 utils.senecaLog(seneca, 'error', __filename.split('/').pop(), err);
 
                 // if the error message is formatted, send it as reply, else format it and then send
                 done(null, {
                     statusCode: 200,
-                    content: err.success === true || err.success === false ? err : utils.error(err.id || 400, err ? err.msg : 'Unexpected error', microtime.now())
+                    content: err.success === true || err.success === false ? err : utils.error(err.id || 400, err.msg || 'Unexpected error', microtime.now())
                 });
             })
     };

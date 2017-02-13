@@ -42,7 +42,7 @@ function updateOrganization(input, userId) {
 
         // update the organization details, find organization to update by Id and check if the requesting user is
         // the owner of the organization and update with input details
-        Organization.update({ orgId: input.orgId, ownerId: userId }, updateData)
+        Organization.update(updateData, { where: { orgId: input.orgId, ownerId: userId } })
         .then( function (updateResponse) {
             // if no error, check if organization is returned
             if (lodash.isEmpty(updateResponse)) {   // if no organization is returned, return error
@@ -92,11 +92,11 @@ function sendResponse(result, done) {
 
 module.exports = function(options) {
     var seneca = options.seneca;
-    var ontology = options.wInstance;
+    var dbConnection = options.dbConnection;
     return function(args, done) {
 
         // load the mongoose model for Organizations
-        Organization = Organization || ontology.collections.organizations;
+        Organization = Organization || dbConnection.models.organizations;
 
         // if input contains field name, convert it to lowercase
         if (args.body.name) {

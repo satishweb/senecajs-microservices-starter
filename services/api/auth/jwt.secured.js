@@ -13,11 +13,11 @@ var Session = null;
 
 function schema(server, options) {
     var seneca = options.seneca;
-    var ontology = options.wInstance;
+    var dbConnection = options.dbConnection;
     return {
         authenticate: function(request, reply) {
 
-            Session = Session || ontology.collections.sessions;
+            Session = Session || dbConnection.models.sessions;
             // get the token from header or query with key authorization
             var req = request.raw.req;
             var authorization = req.headers.authorization || request.query.authorization;
@@ -34,7 +34,7 @@ function schema(server, options) {
                     // decoded token
                 })
                 .then(function() {
-                    return Session.findOne({ JWT: authorization }); // check if session for the token exists in DB
+                    return Session.findOne({ where: { JWT: authorization } }); // check if session for the token exists in DB
                 })
                 .then(function(response) {
                     // if userId in token and DB session matches, continue with call API

@@ -28,105 +28,6 @@ var token = null;
  * @returns {Promise} Returns Promise with decoded information from token when token is valid.
  */
 
-function dbInit(ontology, waterline, seneca) {
-    return new Promise(function(resolve, reject) {
-        if (ontology) {
-            resolve(ontology);
-        } else {
-            seneca.log.info('[ ' + process.env.SRV_NAME + ' ]', 'Plugins Loaded ');
-            seneca.log.info('[ ' + process.env.SRV_NAME + ' ]', 'DB TYPE: ', process.env.DB_TYPE);
-            seneca.log.info('[ ' + process.env.SRV_NAME + ' ]', 'DB HOST: ', process.env.DB_HOST);
-            seneca.log.info('[ ' + process.env.SRV_NAME + ' ]', 'DB NAME: ', process.env.DB_NAME);
-
-            loadModels(waterline, seneca);
-            if (process.env.DB_TYPE === 'mongodb') {
-                var sailsMongoAdapter = require('sails-mongo');
-
-                var config = {
-                    adapters: {
-                        'mongo': sailsMongoAdapter
-                    },
-
-                    connections: {
-                        default: {
-                            adapter: 'mongo',
-                            host: process.env.DB_HOST || 'localhost',
-                            port: 27017,
-                            database: process.env.DB_NAME
-                        }
-                    }
-                };
-            } else if (process.env.DB_TYPE === 'postgresdb') {
-                var sailsPostgresAdapter = require('sails-postgresql');
-
-                var config = {
-                    adapters: {
-                        'postgres': sailsPostgresAdapter
-                    },
-
-                    connections: {
-                        default: {
-                            adapter: 'postgres',
-                            database: process.env.DB_NAME,
-                            host: process.env.DB_HOST || 'localhost',
-                            user: process.env.DB_USER,
-                            password: process.env.DB_PASS,
-                            port: 5432,
-                            pool: true,
-                            ssl: false
-                        }
-                    }
-                };
-            }
-            waterline.initialize(config, function(err, ontology) {
-                if (err) {
-                    return console.error("Error initializing ------ ", err);
-                    reject({ id: 400, msg: err });
-                } else {
-                    console.log("Connected to " + process.env.DB_TYPE + " --------");
-                    resolve(ontology);
-                }
-            });
-        }
-    });
-}
-
-function loadModels(waterline, seneca) {
-
-    var fs = require('fs');
-    var path = require('path');
-
-    // Shared models path
-    var SHARED_MODELS_PATH = path.join(__base, '/sharedmodels/' + 'waterline');
-    // models path
-    var MODELS_PATH = path.join(__base, '/models/' + 'waterline');
-
-    // TODO: search and load all files from multiple directories in single function
-    // TODO: Make it recursive
-    // Shared Models loading, form the models path
-    if (fs.existsSync(SHARED_MODELS_PATH)) {
-        fs.readdirSync(SHARED_MODELS_PATH).forEach(function(file) {
-            var f = path.basename(file, '.js');
-            seneca.log.info('[ ' + process.env.SRV_NAME + ' ]', 'Loading Shared Model: ', f);
-            var model = require(path.join(SHARED_MODELS_PATH, file));
-            model.migrate = 'alter';
-            waterline.loadCollection(Waterline.Collection.extend(model));
-        });
-    }
-
-    // Models loading, form the models path
-    if (fs.existsSync(MODELS_PATH)) {
-        fs.readdirSync(MODELS_PATH).forEach(function(file) {
-            var f = path.basename(file, '.js');
-            seneca.log.info('[ ' + process.env.SRV_NAME + ' ]', 'Loading Model: ', f);
-            var model = require(path.join(MODELS_PATH, file));
-            model.migrate = 'alter';
-            waterline.loadCollection(Waterline.Collection.extend(model));
-        });
-    }
-
-}
-
 var convertObjectIds = function() {
     return new Promise(function(resolve) {
         var d = new Date(); // timestamp to set the updatedAt and createdAt fields
@@ -189,36 +90,82 @@ var clearDatabase = function(db) {
 /**
  * Inserting bootstrap data for different collections into database from array of objects
  * @method insertDocuments
- * @param {Object} ontology Database connection
+ * @param {Object} dbConnection Database connection
  * @returns {Promise} Promise is always resolved after inserting all data into database
  */
-var insertDocuments = function(ontology) {
+var insertDocuments = function(dbConnection) {
     return new Promise(function(resolve, reject) {
         var length = data.length;
         var errors = [];
-        data.forEach(function(items, i) { // iterate over the different collections
-            var collection = (items.collection); // get the collection name
-            ontology.collections[collection].destroy({})
-                .then(function(data) {
-                    return ontology.collections[collection].create(items.data);
-                })
-                .then(function() {
-                    length--;
-                    if (length === 0 && errors.length === 0) {
+        dbConnection.sync({ force: true })
+            .then(function() {
+                return convertObjectIds();
+            })
+            .then(function() {
+                /*data.forEach(function (items, i) { // iterate over the different collections
+                    var collection = items.collection;
+                    console.log("Model ---- ", dbConnection.models[collection]);
+                    if (dbConnection.models[collection]) {
+                        dbConnection.models[collection].bulkCreate(items.data)
+                            .then(function () {
+                                length--;
+                                if (length === 0 && errors.length === 0) {
+                                    resolve();
+                                } else if (length === 0 && errors.length > 0) {
+                                    reject(errors);
+                                }
+                            })
+                            .catch(function (err) {
+                                length--;
+                                console.log("Error in insert ----- ", err);
+                                errors.push(err.message);
+                                if (length === 0) {
+                                    reject(errors);
+                                }
+                            });
+                    }
+                });*/
+                Promise.each(data, function(items) {
+                        var collection = items.collection;
+                        console.log("Model ---- ", dbConnection.models[collection]);
+                        if (dbConnection.models[collection]) {
+                            return Promise.each(items.data, function (row) {
+                                return dbConnection.models[collection].create(row);
+                            });
+                        }
+                    })
+                    // .then(function() {
+
+                        // joins on users using ownerId
+                        /*return dbConnection.models['organizations'].findAll({
+                            include: [{
+                                model: dbConnection.models.users,
+                                through: {
+                                    attributes: ['userId'],
+                                    where: { userId: 1 }
+                                }
+                            }]
+                        })*/
+
+                        // joins on users using join_userorgs                        
+                        /*return dbConnection.models['organizations'].findAll({
+                            include: [{
+                                model: dbConnection.models.users
+                            }]
+                        })*/
+
+                    //     return dbConnection.models['organizations'].findAll()
+                    // })
+                    .then(function (orgs) {
+                        // orgs.forEach(function(org) {
+                        //     console.log("orgs ---- ", org.toJSON());
+                        // });
                         resolve();
-                    } else if (length === 0 && errors.length > 0) {
-                        reject(errors);
-                    }
-                })
-                .catch(function(err) {
-                    length--;
-                    console.log("Error in insert ----- ", err);
-                    errors.push(err.message);
-                    if (length === 0) {
-                        reject(errors);
-                    }
-                });
-        });
+                    })
+                    .catch(function(err) {
+                        reject(err);
+                    })
+            })
     });
 };
 
@@ -229,22 +176,13 @@ var insertDocuments = function(ontology) {
 
 module.exports = function(options) {
     var seneca = options.seneca;
-    var ontology = null;
+    var dbConnection = options.dbConnection;
     return function(args, done) {
 
         // check if token is present in input headers
         if (args.header && args.header.bootstraptoken && token != null && args.header.bootstraptoken === token) {
-            var waterline = new Waterline();
-            dbInit(ontology, waterline, seneca)
-                .then(function(response) {
-                    ontology = response;
-                    // read the bootstrap data from file                    
-                    data = JSON.parse(fs.readFileSync(__dirname + '/../allDataWaterline.json'));
-                    return convertObjectIds();
-                })
-                .then(function() {
-                    return insertDocuments(ontology);
-                })
+            data = JSON.parse(fs.readFileSync(__base + 'allDataWaterline.json'));
+            insertDocuments(dbConnection)
                 .then(function() {
                     token = null;
                     done(null, {
@@ -261,6 +199,7 @@ module.exports = function(options) {
                     });
                 });
         } else {
+            // console.log("dbConnection ---- ", dbConnection);
             token = utils.createMsJWT({ timestamp: microtime.now() }).authorization;
             done(null, {
                 statusCode: 200,

@@ -11,6 +11,7 @@ var Promise = require('bluebird');
 var microtime = require('microtime');
 var url = require('url');
 var User = null;
+var Organization = null;
 var Session = null;
 var isOwner = false;
 /**
@@ -69,7 +70,7 @@ var sendResponse = function (result, done) {
 module.exports = function (options) {
     options = options || {};
     var seneca = options.seneca;
-    var ontology = options.wInstance;
+    var dbConnection = options.dbConnection;
     return function (args, done) {
 
         var finalResponse = null;   // stores the final response to be returned
@@ -79,8 +80,9 @@ module.exports = function (options) {
         isOwner = false;            // flag for whether the user is owner of the organization
 
         // load waterline models
-        User = User || ontology.collections.users;
-        Session = Session || ontology.collections.sessions;
+        User = User || dbConnection.models.users;
+        Organization = Organization || dbConnection.models.organizations;
+        Session = Session || dbConnection.models.sessions;
 
         // if input contains email id, convert it to lowercase
         if (args.body.email) {
@@ -91,7 +93,7 @@ module.exports = function (options) {
                 return utils.fetchOrganisationId(null, args.header, seneca);
             })
             .then(function (response) {
-                // console.log("Organization ----", response);
+                console.log("Organization ----", response);
                 // if organization is returned, store the organization Id and name and switch the mongoose model to
                 // point to the organization users collection
                 if (!lodash.isNull(response)) {
@@ -104,14 +106,21 @@ module.exports = function (options) {
                 ownerId = response ? response.ownerId : null;   // if organization is fetched, set the
 
                 // organization owner Id
-                return signIn.loginUser(User, args.body, ownerId, args.header, seneca);
+                return signIn.loginUser(User, Organization, args.body, ownerId, args.header, seneca);
             })
-            .then(function (userDetails) {
+            .then(function (user) {
+                return signIn.comparePasswords(args.body, user);
+            })
+            .then(function (user) {
                 // if login was successful, update the last logged in time for user to current time
-                return signIn.updateLoginTime(User, userDetails);
+                return user.update({ lastLoggedInTime: microtime.now()/1000 })
             })
-            .then(function (userDetails) {
+            .then(function (user) {
           
+                var userDetails = user.toJSON();
+
+                console.log("User details ---- ", userDetails);
+
                 // if organization Id is not set, user is main user, so set isOwner to true
                 if (ownerId == userDetails.userId || lodash.isNull(orgId)) {
                     isOwner = true;
@@ -132,6 +141,7 @@ module.exports = function (options) {
             })
             .then(function () {
                 finalResponse.orgName = orgName;    // add the organization name to the response
+                delete finalResponse.password;
                 sendResponse(finalResponse, done);
             })
             .catch(function (err) {

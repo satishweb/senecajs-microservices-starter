@@ -71,21 +71,35 @@ module.exports.callSignUp = callSignUp;
  * else it returns appropriate error message.
  *
  */
-module.exports.loginUser = function(User, input, ownerId, header, seneca) {
+module.exports.loginUser = function(User, Organization, input, ownerId, header, seneca) {
     var query = {};
     return new Promise(function(resolve, reject) {
 
         /************* Create find query based on type of login  ************/
         if (input.type === 'email') {
-            query = { "email": input.email, isDeleted: false };
+            // if (process.env.DB_TYPE == 'mongodb') {
+            //     query = { "email": input.email, isDeleted: false };
+            // } else {
+            query = {
+                where: { email: input.email, isDeleted: false },
+                /*include: [{
+                    model: Organization,
+                    as: 'owner'
+                }]*/
+            };
+            // }
         } else {
             // create DB field by adding "Id" to the social type,
             // ie. facebook->facebookId, google->googleId, ...
             var field = input.type + "Id";
-            query[field] = input.socialId;
+            // if (process.env.DB_TYPE == 'mongodb') {
+            //     query[field] = input.socialId;
+            // } else {
+            query.where[field] = input.socialId;
+            // }
         }
 
-        // console.log("Find query --- ", query);
+        console.log("Find query --- ", query);
 
         /************* Fetch user with matching email or socialID **************/
         User.find(query)
@@ -112,68 +126,114 @@ module.exports.loginUser = function(User, input, ownerId, header, seneca) {
                         // reject({id: 400, msg: "User with email not found."});
                     }
                 } else if (input.type !== 'email') {
-                    var user = lodash.filter(result, function (user) {
+                    var user = lodash.filter(result, function(user) {
                         if (input.orgId) {
                             return (user.userId == ownerId || lodash.indexOf(user.orgIds, input.orgId) != -1)
                         } else {
                             return (!lodash.isEmpty(user.ownedOrgIds));
-                        }    
+                        }
                     });
                     user = user[0];
                     // console.log("User result after filtering ---- ", user);
                     // if sign in type was social and user is found,
                     // delete password and return user details
-                    delete user.password;
                     resolve(user);
                 } else {
                     var userFound = true;
-                    var user = lodash.filter(result, function (user) {
+                    /*var user = lodash.filter(result, function(user) {
                         if (input.orgId) {
                             return (user.userId == ownerId || lodash.indexOf(user.orgIds, input.orgId) != -1)
                         } else {
                             return (!lodash.isEmpty(user.ownedOrgIds));
-                        }    
-                    });
-                    // console.log("User result after filtering ---- ", user, input.orgId);
-                    if (lodash.isEmpty(user)) {
-                        // console.log("Org user not found ---- ");
-                        userFound = false;
-                    }
-
-                    if (userFound) {
-                        user = user[0];
-
-                        // if sign in type was email and user is found
-                        // if user's password is not set, user had signed up using social login, ask him to reset his password.
-                        if (user.password === null) {
-                            reject(outputFormatter.format(false, 2280, null));
-                            // reject({id: 400, msg: "To sign in using email, reset your password."});
-                        } else {
-                            // if user is found and password is set, compare saved password input password
-                            bcrypt.compare(input.password, user.password, function(err, isMatch) {
-                                if (err) {
-                                    reject(outputFormatter.format(false, 2290, null));
-                                }
-                                if (isMatch) {
-                                    // if passwords match, sign in successful, return user details
-                                    delete user.password;
-                                    resolve(user);
-                                } else {
-                                    reject(outputFormatter.format(false, 1020, null, "Password"));
-                                    // reject({id: 400, msg: "Password doesn't match."});
-                                }
-                            });
                         }
+                    });*/
+
+                    // console.log("User before get ---- ", result);
+
+                    if (ownerId && result.userId === ownerId) {
+                        resolve(result);
+                    } else if (input.orgId) {
+                        result.getOrganizations({ where: { orgId: input.orgId } })
+                            .then(function(org) {
+                                if (lodash.isEmpty(org)) {
+                                    console.log("Org user not found ---- ");
+                                    reject(outputFormatter.format(false, 2270, null, 'email'));
+                                } else {
+                                    console.log("Response of getOrgs for org ---- ", org[0].toJSON(), result.password);
+                                    resolve(result);
+                                }
+                            })
+                            .catch(function(err) {
+                                console.log("Error in getOrgs ---- ", err);
+                            })
                     } else {
-                        reject(outputFormatter.format(false, 2270, null, 'email'));
+                        
+                        // TODO: Check if owner
+                        resolve(result);
+                        /*result.getOwners()
+                            .then(function(org) {
+                                if (lodash.isEmpty(org)) {
+                                    console.log("Main site not owner ---- ");
+                                    reject(outputFormatter.format(false, 2270, null, 'email'));
+                                } else {
+                                    console.log("Response of getOrgs for main site ---- ", org[0].toJSON(), result.password);
+                                    resolve(result);
+                                }
+                            })
+                            .catch(function(err) {
+                                console.log("Error in getOrgs ---- ", err);
+                            })*/
+                            /*Organization.find({ where: { ownerId: result.userId } })
+                                .then(function (org) {
+                                    if (lodash.isEmpty(org)) {
+                                        console.log("Org user not found ---- ");
+                                        reject(outputFormatter.format(false, 2270, null, 'email'));
+                                    } else {
+                                        console.log("Response of getOrgs ---- ", org[0].toJSON(), result.password);
+                                        resolve(result);
+                                    }
+                                })
+                                .catch(function(err) {
+                                    console.log("Error in getOrgs ---- ", err);
+                                })*/
                     }
                 }
             })
             .catch(function(err) {
-                reject({id: 400, msg: err});
+                reject({ id: 400, msg: err });
             })
     });
 };
+
+module.exports.comparePasswords = function(input, user) {
+    return new Promise(function(resolve, reject) {
+        // console.log("Inside compare passwords ---- ");
+        if (input.type == 'email') {
+            // if sign in type was email and user is found
+            // if user's password is not set, user had signed up using social login, ask him to reset his password.
+            if (user.password === null) {
+                reject(outputFormatter.format(false, 2280, null));
+                // reject({id: 400, msg: "To sign in using email, reset your password."});
+            } else {
+                // if user is found and password is set, compare saved password input password
+                bcrypt.compare(input.password, user.password, function(err, isMatch) {
+                    if (err) {
+                        reject(outputFormatter.format(false, 2290, null));
+                    }
+                    if (isMatch) {
+                        // if passwords match, sign in successful, return user details
+                        resolve(user);
+                    } else {
+                        reject(outputFormatter.format(false, 1020, null, "Password"));
+                        // reject({id: 400, msg: "Password doesn't match."});
+                    }
+                });
+            }
+        } else {
+            resolve(user);
+        }
+    });
+}
 
 
 /**
@@ -187,14 +247,14 @@ module.exports.loginUser = function(User, input, ownerId, header, seneca) {
 module.exports.updateLoginTime = function(User, userDetails) {
     return new Promise(function(resolve) {
         // Update lastLoggedInTime in user document and return updated document.
-        User.update({ userId: userDetails.userId }, { lastLoggedInTime: microtime.now()})
-            .then(function (updatedUser) {
+        User.update({ last_login: microtime.now() / 1000 }, { where: { userId: userDetails.userId } })
+            .then(function(updatedUser) {
                 // if user details updated and returned,
                 // remove password and return remaining details
                 delete updatedUser[0].password;
                 resolve(updatedUser[0]);
             })
-            .catch(function (err) {
+            .catch(function(err) {
                 console.log("Error updating user's login time ---- ", err);
                 resolve(userDetails);
             });
