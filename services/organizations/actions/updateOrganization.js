@@ -16,10 +16,10 @@ var Organization = null;
 //Joi validation Schema
 //TODO: MOVE
 var OrganizationSchema = Joi.object().keys({
-    orgId: Joi.string().required(),
+    orgId: Joi.number().required(),
     name: Joi.string(),
     description: Joi.string().allow(''),
-    ownerId: Joi.string(),
+    ownerId: Joi.number(),
     website: Joi.string().regex(/^$|^(http\:\/\/|https\:\/\/)?([a-zA-Z0-9][a-z0-9\-]*\.)+[a-zA-Z0-9][a-zA-Z0-9\-]*/).allow('')
 });
 
@@ -42,21 +42,18 @@ function updateOrganization(input, userId) {
 
         // update the organization details, find organization to update by Id and check if the requesting user is
         // the owner of the organization and update with input details
-        Organization.update(updateData, { where: { orgId: input.orgId, ownerId: userId } })
-        .then( function (updateResponse) {
-            // if no error, check if organization is returned
+        Organization.update(updateData, { where: { orgId: input.orgId, ownerId: userId }, returning: true, plain: true})
+            .then(function (updateResponse) {
+                // if no error, check if organization is returned
             if (lodash.isEmpty(updateResponse)) {   // if no organization is returned, return error
-                reject({ id: 400, msg: 'Invalid Organization Id or not owner of the organization.' });
+                reject({ id: 400, msg: 'Invalid Organization Id or not authorized to update the organization.' });
             } else { // if organization is returned, transform the object and return it
-                updateResponse = JSON.parse(JSON.stringify(updateResponse));    // force mongoose transform
-                resolve(updateResponse);
+                resolve(updateResponse[1].toJSON());
             }
         })
-        .catch( function (err) {
-            if (err.ValidationError) { // if validation fails it means the fqdn already exists
-                reject({ id: 400, msg: "Sub Domain already exists." });
-            } else {    // for any other error, return the error message
-                reject({ id: 400, msg: err.message || err });
+            .catch(function (err) {
+            {   // for any other error, return the error message
+                reject({ id: 400, msg: 'Invalid Organization Id or not authorized to update the organization.' });
             }
         });
     });
@@ -116,7 +113,9 @@ module.exports = function(options) {
             .then(function(response) {
                 sendResponse(response, done);
             })
-            .catch(function(err) {
+            .catch(function (err) {
+                
+                console.log("Error in update organization --- ", err);
                 // in case of error, print the error and send as response
                 utils.senecaLog(seneca, 'error', __filename.split('/').pop(), err);
 

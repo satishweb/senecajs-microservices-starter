@@ -211,9 +211,9 @@ definitions:
       website:
         type: string
       ownerId:
-        type: string
+        type: integer
       orgId:
-        type: string
+        type: integer
   deleteOrganization:
     type: object
     properties:

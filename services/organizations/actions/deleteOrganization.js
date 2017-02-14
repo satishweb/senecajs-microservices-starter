@@ -19,24 +19,6 @@ var OrganizationSchema = Joi.object().keys({
 });
 
 /**
- * Check if user is authorized to delete the organization
- * @method checkIfAuthorized
- * @param {String} decodedToken The decoded JWT token from the header
- * @returns {Promise} Resolved Promise if successful, else containing the error message
- */
-function checkIfAuthorized(decodedToken) {
-    return new Promise(function(resolve, reject) {
-        if (decodedToken && decodedToken.isOwner) {    // if the decoded token belongs to an owner, resolve the
-            // decoded token
-            resolve();
-        } else {    // else return unauthorized message
-            reject({ id: 400, msg: "You are not authorized to delete the organization." });
-        }
-    });
-}
-
-
-/**
  * Soft delete the organization by updating isDeleted to true
  * @method deleteOrganization
  * @param {String} orgId Organization Id of the organization to delete
@@ -48,15 +30,16 @@ function deleteOrganization(ownerId, orgId) {
     return new Promise(function(resolve, reject) {
 
         // update the organization to isDeleted true by the orgId and return the updated document
-        Organization.update({ 'isDeleted': true }, { where: { orgId: orgId, ownerId: ownerId, isDeleted: false } })
+        Organization.update({ 'isDeleted': true }, { where: { orgId: orgId, ownerId: ownerId, isDeleted: false }, returning: true, plain: true })
             .then(function (updateResponse) {
-                if (lodash.isEmpty(updateResponse)) {  // if error or empty, reject with the error message
+                if (lodash.isEmpty(updateResponse[1])) {  // if error or empty, reject with the error message
                     reject({ id: 400, msg: "Invalid organization Id or not authorized to delete organization." });
+                } else {
+                    resolve();
                 }
-                resolve(updateResponse);
             })
             .catch(function (err) {
-                reject({ id: 400, msg: err.message || "Invalid Organization Id"});
+                reject({ id: 400, msg: "Invalid organization Id or not authorized to delete organization." });
             })
     });
 }
@@ -72,7 +55,7 @@ function sendResponse(result, done) {
     if (result !== null) {
         done(null, {
             statusCode: 200,
-            content: outputFormatter.format(true, 2060, result, 'Organization')
+            content: outputFormatter.format(true, 2060, null, 'Organization')
         });
     } else {
         //else return error
@@ -91,7 +74,7 @@ function sendResponse(result, done) {
 
 module.exports = function(options) {
     var seneca = options.seneca;
-    var dbCOnnection = options.dbConnection;
+    var dbConnection = options.dbConnection;
     return function(args, done) {
         
         // load the mongoose model for organization
@@ -101,7 +84,7 @@ module.exports = function(options) {
         utils.checkInputParameters(args.body, OrganizationSchema)
             .then(function() {
                 // check if owner
-                return checkIfAuthorized(args.credentials);
+                return utils.checkIfAuthorized(args.credentials);
             })
             .then(function() {
                 // soft delete the organization
