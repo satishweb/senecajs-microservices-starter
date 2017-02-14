@@ -15,7 +15,7 @@ var Organization = null;
 
 //Joi validation Schema
 var OrganizationSchema = Joi.object().keys({
-    orgId: Joi.string().required()
+    orgId: Joi.number().required()
 });
 
 /**

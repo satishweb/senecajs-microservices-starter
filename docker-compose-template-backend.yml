@@ -34,35 +34,35 @@ services:
     restart: 'on-failure:10'
     network_mode: "bridge"
 
-  apidocs:
-    image: node:${NODEVERSION}
-    container_name: ${PROJECTKEY}-${SYSENV}-apidocs
-    expose:
-      - 80
-    volumes:
-      - apidocs/src:/src
-    env_file:
-      - ./${SYSENV}.env
-    command: /bin/bash /src/run
-    restart: 'on-failure:1'
-    network_mode: "bridge"
+  # apidocs:
+  #   image: node:${NODEVERSION}
+  #   container_name: ${PROJECTKEY}-${SYSENV}-apidocs
+  #   expose:
+  #     - 80
+  #   volumes:
+  #     - apidocs/src:/src
+  #   env_file:
+  #     - ./${SYSENV}.env
+  #   command: /bin/bash /src/run
+  #   restart: 'on-failure:1'
+  #   network_mode: "bridge"
 
   web:
     image: nginx:${NGINXVERSION}
     container_name: ${PROJECTKEY}-${SYSENV}-web
     links: 
       - api:api
-      - apidocs:apidocs
+      # - apidocs:apidocs
     depends_on:
       - api
-      - apidocs
+      # - apidocs
     ports: 
       - 80:80
       - 443:443
     volumes:
       - ./data/etc-nginx-conf.d/default.conf:/etc/nginx/conf.d/default.conf
       - ./data/etc-nginx-conf.d/web-${SYSENV}-api.conf:/etc/nginx/conf.d/web-${SYSENV}-api.conf
-      - ./data/etc-nginx-conf.d/web-${SYSENV}-apidocs.conf:/etc/nginx/conf.d/web-${SYSENV}-apidocs.conf
+      # - ./data/etc-nginx-conf.d/web-${SYSENV}-apidocs.conf:/etc/nginx/conf.d/web-${SYSENV}-apidocs.conf
       - ./data/etc-nginx-conf.d/web-${SYSENV}-jsdocs.conf:/etc/nginx/conf.d/web-${SYSENV}-jsdocs.conf
       - ./docs:/src
       - ./data/etc-nginx-conf.d/.htpasswd:/etc/nginx/conf.d/.htpasswd

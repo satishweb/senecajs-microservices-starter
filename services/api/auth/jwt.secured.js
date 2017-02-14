@@ -38,7 +38,7 @@ function schema(server, options) {
                 })
                 .then(function(response) {
                     // if userId in token and DB session matches, continue with call API
-                    if (!lodash.isEmpty(response) && decodedToken.userId.toString() === response.userId) {
+                    if (!lodash.isEmpty(response) && decodedToken.userId === response.userId) {
                         seneca.log.info('[ ' + process.env.SRV_NAME + ']', "AUTH INFO : ", 'Valid session.');
                         reply.continue({ credentials: decodedToken });
                     } else {

@@ -180,6 +180,6 @@
         "en": "Error comparing passwords."
     },
     "2300": {
-        "en": "Sorry, this email id is already exists. Please try with another email id."
+        "en": "Sorry, this email id already exists. Please sign in or try with another email id."
     }
 }

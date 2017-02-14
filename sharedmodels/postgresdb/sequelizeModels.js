@@ -8,7 +8,7 @@ module.exports = function(sequelize) {
         email: { type: Sequelize.STRING(255), notNull: true },
         firstName: Sequelize.STRING,
         lastName: Sequelize.STRING,
-        isDeleted: Sequelize.BOOLEAN,
+        isDeleted: { type: Sequelize.BOOLEAN, defaultValue: false },
         gender: Sequelize.STRING,
         birthDate: Sequelize.DATE,
         contactNumber: Sequelize.STRING,
@@ -19,7 +19,7 @@ module.exports = function(sequelize) {
         linkedInId: Sequelize.STRING,
         avatar: Sequelize.STRING,
         lastLoggedInTime: { type: Sequelize.DATE },
-        profileComplete: Sequelize.BOOLEAN,
+        profileComplete: { type: Sequelize.BOOLEAN, defaultValue: false },
         passwordStatus: Sequelize.STRING,
         registrationStep: Sequelize.INTEGER,
     });
@@ -39,11 +39,11 @@ module.exports = function(sequelize) {
     var Session = sequelize.define('sessions', {
         sessionId: { type: Sequelize.INTEGER, primaryKey: true, autoIncrement: true },
         JWT: { type: Sequelize.TEXT },
-        orgId: { type: Sequelize.STRING },
+        orgId: { type: Sequelize.INTEGER },
         firstName: { type: Sequelize.STRING },
         lastName: { type: Sequelize.STRING },
         avatar: { type: Sequelize.STRING },
-        userId: { type: Sequelize.STRING },
+        userId: { type: Sequelize.INTEGER },
         emailId: { type: Sequelize.STRING },
         lastLoggedInTime: { type: Sequelize.DATE }
     });

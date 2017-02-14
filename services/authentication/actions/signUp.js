@@ -4,9 +4,8 @@ var signUp = require(__base + 'sharedlib/signUp');
 var session = require(__base + 'sharedlib/session');
 var utils = require(__base + 'sharedlib/utils');
 var Locale = require(__base + 'sharedlib/formatter');
-var outputFormatter = new Locale(__dirname + '/../');
+var outputFormatter = new Locale(__base);
 var Joi = require('joi');
-var mongoose = require('mongoose');
 var microtime = require('microtime');
 var User = null;
 var Session = null;
@@ -27,7 +26,7 @@ var signUpSchema = Joi.object().keys({
                 .regex(/^\s*[\w\-\+​_]+(\.[\w\-\+_​]+)*\@[\w\-\+​_]+\.[\w\-\+_​]+(\.[\w\-\+_]+)*\s*$/)
                 .required()
         }), // email field is required only when type is email
-    name: Joi.string().when('signUpType', { is: 'email', then: Joi.string().trim().required() }), // password
+    password: Joi.string().when('signUpType', { is: 'email', then: Joi.string().trim().required() }), // password
     // is required only when type is email
     socialId: Joi.string()
         .when('signUpType', { is: ['google', 'linkedIn', 'facebook', 'microsoft'], then: Joi.string().trim().required() }),
@@ -64,13 +63,13 @@ function sendResponse(result, done) {
  */
 module.exports = function(options) {
     var seneca = options.seneca;
-    var ontology = options.wInstance;
+    var dbConnection = options.dbConnection;
 
     return function(args, done) {
 
         // Waterline models for user and session
-        User = User || ontology.collections.users;
-        Session = Session || ontology.collections.sessions;
+        User = User || dbConnection.models.users;
+        Session = Session || dbConnection.models.sessions;
 
         flag = false; // used to determine if user is a new user or already registered user with other login type
         var finalResponse = null; // stores the user details to be sent in response
@@ -94,12 +93,14 @@ module.exports = function(options) {
             })
             .spread(function(response, Flag) {
                 flag = Flag;
+                response = response.toJSON();
+                delete response.password;
                 response.isOwner = true; // only organization owner's can sign up, so set isOwner to true in response
                 response.orgId = null;
                 // create a session token for the signed up user
                 return utils.createJWT(response, args.header);
             })
-            .then(function(response) {
+            /*.then(function(response) {
                 finalResponse = response; // store the final response for further use
                 // if user signed up using email, send confirmation mail with set password link
                 if (args.body.email) {
@@ -109,8 +110,9 @@ module.exports = function(options) {
                         resolve();
                     });
                 }
-            })
-            .then(function() {
+            })*/
+            .then(function (response) {
+                finalResponse = response; // store the final response for further use
                 // create a session and delete any previous sessions of the user
                 return session.createSession(Session, finalResponse.output.token, finalResponse.sessionData);
             })

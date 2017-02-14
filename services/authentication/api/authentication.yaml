@@ -106,7 +106,7 @@ paths:
               email:
                 type: string
                 description: "EmailId of the user"
-              name:
+              password:
                 type: string
                 description: "Password of the user"
               socialId:

@@ -96,7 +96,9 @@ module.exports.createSaveData = function(input, findResult) {
             temp = {
                 email: input.email,
                 firstName: input.name,
-                lastLoggedInTime: microtime.now()/1000
+                lastLoggedInTime: microtime.now() / 1000,
+                password: bcrypt.hashSync(input.password, 10), // hash the input password
+                passwordStatus: "passwordSet"
             };
             data = lodash.merge(data, temp); // merge the defaults with the object created from inputs
             resolve(data);
@@ -114,7 +116,7 @@ module.exports.createSaveData = function(input, findResult) {
             if (input.socialProfilePic && (lodash.isEmpty(findResult || findResult.avatar === null))) {
                 temp.avatar = input.socialProfilePic; // setting profile picture of user if not already present in database
             }
-            temp.lastLoggedInTime = microtime.now(); // set last logged in time to current time
+            temp.lastLoggedInTime = microtime.now() / 1000; // set last logged in time to current time
 
             // merge the fetched user data with the object created from inputs
             findResult = lodash.merge(findResult, temp);
@@ -147,9 +149,8 @@ module.exports.saveUserDetails = function(User, userDetails, flag) {
                 .then(function(saveResponse) {
                     resolve([saveResponse, flag]);
                 })
-                .catch(function(err) {
-                    console.log("Error in save user details create ----- ", err);
-                    reject({ id: 400, msg: err });
+                .catch(function (err) {
+                    reject({ id: 400, msg: err.errors ? err.errors[0].message : err.message || err});
                 });
         } else if (flag) { // updating existing user if flag is true
             // update existing user
@@ -159,7 +160,6 @@ module.exports.saveUserDetails = function(User, userDetails, flag) {
                     resolve([updateResponse[0], flag]);
                 })
                 .catch(function(err) {
-                    console.log("Error in save user details update ----- ", err);
                     reject({ id: 400, msg: err });
                 });
         }

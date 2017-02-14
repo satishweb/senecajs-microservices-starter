@@ -22,7 +22,7 @@ module.exports = function(options) {
     var dbConnection = options.dbConnection;
     return function(args, done) {
 
-        Session = Session || dbConnections.models.sessions;
+        Session = Session || dbConnection.models.sessions;
         try {
             // delete the users sessions from DB
             session.deleteSessions(Session, args.credentials.userId, args.credentials.orgId, null);

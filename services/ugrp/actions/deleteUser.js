@@ -34,12 +34,12 @@ function deleteUser(input) {
             .then(function (removeResponse) {
                 console.log("Remove response ---- ", removeResponse);
                 // if no user is deleted, user id was not found or user does not belong to requester's organization
-                if (lodash.isEmpty(removeResponse)) {
+                if (removeResponse != 1) {
                     reject({ id: 400, msg: 'User Id not found in the organization.' });
                 } else {
                     // TODO: uncomment after using groups
                     // removeFromGroups(input.userId, input.orgId); // remove Id of user from all groups, does not wait for response
-                    resolve(updateResponse);
+                    resolve(true);
                 }
             })
             .catch(function(err) { // if error in updating, return with error message

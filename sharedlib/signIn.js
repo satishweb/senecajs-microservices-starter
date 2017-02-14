@@ -77,9 +77,6 @@ module.exports.loginUser = function(User, Organization, input, ownerId, header, 
 
         /************* Create find query based on type of login  ************/
         if (input.type === 'email') {
-            // if (process.env.DB_TYPE == 'mongodb') {
-            //     query = { "email": input.email, isDeleted: false };
-            // } else {
             query = {
                 where: { email: input.email, isDeleted: false },
                 /*include: [{
@@ -87,16 +84,11 @@ module.exports.loginUser = function(User, Organization, input, ownerId, header, 
                     as: 'owner'
                 }]*/
             };
-            // }
         } else {
             // create DB field by adding "Id" to the social type,
             // ie. facebook->facebookId, google->googleId, ...
             var field = input.type + "Id";
-            // if (process.env.DB_TYPE == 'mongodb') {
-            //     query[field] = input.socialId;
-            // } else {
             query.where[field] = input.socialId;
-            // }
         }
 
         console.log("Find query --- ", query);
@@ -123,7 +115,6 @@ module.exports.loginUser = function(User, Organization, input, ownerId, header, 
                     } else {
                         // if sign in type was email and email is not found, return error message
                         reject(outputFormatter.format(false, 2270, null, 'email'));
-                        // reject({id: 400, msg: "User with email not found."});
                     }
                 } else if (input.type !== 'email') {
                     var user = lodash.filter(result, function(user) {
@@ -168,8 +159,9 @@ module.exports.loginUser = function(User, Organization, input, ownerId, header, 
                             })
                     } else {
                         
-                        // resolve(result);
-                        result.getOwnedOrgs()
+                        // TODO: Add condition for users signing in from main site
+                        resolve(result);
+                        /*result.getOwnedOrgs()
                             .then(function(org) {
                                 if (lodash.isEmpty(org)) {
                                     console.log("Main site not owner ---- ");
@@ -181,7 +173,7 @@ module.exports.loginUser = function(User, Organization, input, ownerId, header, 
                             })
                             .catch(function(err) {
                                 console.log("Error in getOrgs ---- ", err);
-                            })
+                            })*/
                             /*Organization.find({ where: { ownerId: result.userId } })
                                 .then(function (org) {
                                     if (lodash.isEmpty(org)) {

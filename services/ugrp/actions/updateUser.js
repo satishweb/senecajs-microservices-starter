@@ -59,33 +59,44 @@ function verifyTokenBelongsToUser(userId, decodedToken) {
  * @returns {Promise} Promise containing the updated user details if successful, else containing the appropriate
  * error message
  */
-function updateUser(input) {
-    return new Promise(function (resolve, reject) {
-        
+function updateUser(input, decodedToken) {
+    return new Promise(function(resolve, reject) {
+        var userInstance = null;
+
         // remove null or empty values from input
         input = lodash.omitBy(input, function(value) {
             return value === null || value === '' || value === {};
         });
 
         // create find query to find user by userId and return the updated row
-        var find = { where: { userId: input.userId }, returning: true, plain: true };
+        var find = { where: { userId: input.userId } };
         // remove userId from input
         delete input.userId;
         // if organization is known, check if to be updated user belongs to that organization       
-        if (input.orgId) {
-            find.include = [{ model: Organization, where: { orgId: input.orgId } }]
-            delete input.orgId;
-        }
 
-        // update user using created find query and input details        
-        User.update(input, find)
-            .then(function (findResult) {
-                // if returned object is empty, no user was updated, return error message
-                if (lodash.isEmpty(findResult)) {
-                    reject({ id: 400, msg: 'User Id not found in the organization.' });
+        // update user using created find query and input details 
+        User.findOne(find)
+            .then(function(user) {
+                if (lodash.isEmpty(user)) {
+                    return new Promise(function(resolve, reject) { reject('User Id not found.') });
+                } else {
+                    userInstance = user;
+                    return user.getOrganizations({ where: { orgId: input.orgId } });
+                }
+            })
+            .then(function(org) {
+                if (lodash.isEmpty(org)) {
+                    return new Promise(function(resolve, reject) { reject('User does not belong to organization.') });
+                } else {
+                    return userInstance.update(input)
+                }
+            })
+            .then(function(updateResponse) {
+                if (lodash.isEmpty(updateResponse)) {
+                    reject({ id: 400, msg: 'User Id not updated.' });
                 } else {
                     // resolve the updated user
-                    resolve(updateResponse[1].toJSON());
+                    resolve(updateResponse.toJSON());
                 }
             })
             .catch(function(err) {
@@ -122,7 +133,7 @@ function sendResponse(result, done) {
 module.exports = function(options) {
     var seneca = options.seneca;
     var dbConnection = options.dbConnection;
-    return function (args, done) {
+    return function(args, done) {
         // load the database models
         User = User || dbConnection.models.users;
         Organization = Organization || dbConnection.models.organizations;
@@ -131,21 +142,21 @@ module.exports = function(options) {
             .then(function() {
                 return verifyTokenBelongsToUser(args.body.userId, args.credentials);
             })
-            .then(function () {
-                
+            .then(function() {
+
                 // if orgId is present in the token, add it to input
-                if (!lodash.isEmpty(args.credentials.orgId)) {
+                if (args.credentials.orgId) {
                     args.body.orgId = args.credentials.orgId;
                 }
-                return updateUser(args.body);
+                return updateUser(args.body, args.credentials);
             })
-            .then(function (response) {
+            .then(function(response) {
                 // remove password from output
                 delete response.password;
                 return sendResponse(response, done);
             })
-            .catch(function (err) {
-                
+            .catch(function(err) {
+                console.log("Error in updateUser ---- ", err);
                 utils.senecaLog(seneca, 'error', __filename.split('/').pop(), err);
                 var error = err || { id: 400, msg: "Unexpected error" };
                 done(null, {

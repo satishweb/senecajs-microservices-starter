@@ -43,7 +43,7 @@ function updateOrganization(input, userId) {
         // update the organization details, find organization to update by Id and check if the requesting user is
         // the owner of the organization and update with input details
         // returning: true - returns the updated document
-        Organization.update(updateData, { where: { orgId: input.orgId, ownerId: userId }, returning: true, plain: true })
+        Organization.update(updateData, { where: { orgId: input.orgId, ownerId: userId, isDeleted: false }, returning: true, plain: true })
             .then(function(updateResponse) {
                 // if no error, check if organization is returned
                 if (lodash.isEmpty(updateResponse)) { // if no organization is returned, return error

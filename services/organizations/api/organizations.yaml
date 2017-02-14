@@ -218,4 +218,4 @@ definitions:
     type: object
     properties:
       orgId:
-        type: string
+        type: integer
