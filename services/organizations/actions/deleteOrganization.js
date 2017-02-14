@@ -1,7 +1,7 @@
 'use strict';
 
-var utils = require(__base + '/sharedlib/utils');
-var Locale = require(__base + '/sharedlib/formatter');
+var utils = require(__base + 'sharedlib/utils');
+var Locale = require(__base + 'sharedlib/formatter');
 var outputFormatter = new Locale(__base);
 var Joi = require('joi');
 var lodash = require('lodash');
@@ -101,7 +101,7 @@ module.exports = function(options) {
                 // if the error message is formatted, send it as reply, else format it and then send
                 done(null, {
                     statusCode: 200,
-                    content: err.success === true || err.success === false ? err : utils.error(err.id || 400, err ? err.msg : 'Unexpected error', microtime.now())
+                    content: 'success' in err ? err : utils.error(err.id || 400, err ? err.msg : 'Unexpected error', microtime.now())
                 });
             });
     };

@@ -1,16 +1,15 @@
 'use strict';
 
 
-var utils = require(__base + '/sharedlib/utils');
-var Locale = require(__base + '/sharedlib/formatter');
+var utils = require(__base + 'sharedlib/utils');
+var Locale = require(__base + 'sharedlib/formatter');
 var outputFormatter = new Locale(__base);
 var Joi = require('joi');
 var lodash = require('lodash');
-var waterline = require('waterline');
 var Promise = require('bluebird');
-var jwt = require('jsonwebtoken');
 var microtime = require('microtime');
 var User = null;
+var Organization = null;
 
 /**
  * @module updateUser
@@ -19,7 +18,7 @@ var User = null;
 //Joi validation Schema
 // TODO: All joi validations schema should inside joiSchemaValidations.js
 var userSchema = Joi.object().keys({
-    userId: Joi.number().trim().required(),
+    userId: Joi.number().required(),
     email: Joi.string().regex(/^\s*[\w\-\+​_]+(\.[\w\-\+_​]+)*\@[\w\-\+​_]+\.[\w\-\+_​]+(\.[\w\-\+_]+)*\s*$/),
     firstName: Joi.string().allow('').trim(),
     lastName: Joi.string().allow('').trim(),
@@ -61,23 +60,32 @@ function verifyTokenBelongsToUser(userId, decodedToken) {
  * error message
  */
 function updateUser(input) {
-    return new Promise(function(resolve, reject) {
+    return new Promise(function (resolve, reject) {
+        
+        // remove null or empty values from input
         input = lodash.omitBy(input, function(value) {
             return value === null || value === '' || value === {};
         });
-        var find = { userId: input.userId };
 
+        // create find query to find user by userId and return the updated row
+        var find = { where: { userId: input.userId }, returning: true, plain: true };
+        // remove userId from input
+        delete input.userId;
+        // if organization is known, check if to be updated user belongs to that organization       
         if (input.orgId) {
-            find.orgId = input.orgId;
+            find.include = [{ model: Organization, where: { orgId: input.orgId } }]
+            delete input.orgId;
         }
 
-        User.update(find, input)
-            .then(function(findResult) {
+        // update user using created find query and input details        
+        User.update(input, find)
+            .then(function (findResult) {
+                // if returned object is empty, no user was updated, return error message
                 if (lodash.isEmpty(findResult)) {
-                    reject({ id: 400, msg: 'User id not found in the organization.' });
+                    reject({ id: 400, msg: 'User Id not found in the organization.' });
                 } else {
-                    delete findResult[0].password;
-                    resolve(findResult);
+                    // resolve the updated user
+                    resolve(updateResponse[1].toJSON());
                 }
             })
             .catch(function(err) {
@@ -113,25 +121,31 @@ function sendResponse(result, done) {
  */
 module.exports = function(options) {
     var seneca = options.seneca;
-    var ontology = options.wInstance;
-    return function(args, done) {
-        User = User || ontology.collections.users;
+    var dbConnection = options.dbConnection;
+    return function (args, done) {
+        // load the database models
+        User = User || dbConnection.models.users;
+        Organization = Organization || dbConnection.models.organizations;
+
         utils.checkInputParameters(args.body, userSchema)
             .then(function() {
                 return verifyTokenBelongsToUser(args.body.userId, args.credentials);
             })
-            .then(function() {
+            .then(function () {
+                
+                // if orgId is present in the token, add it to input
                 if (!lodash.isEmpty(args.credentials.orgId)) {
                     args.body.orgId = args.credentials.orgId;
                 }
                 return updateUser(args.body);
             })
-            .then(function(response) {
+            .then(function (response) {
+                // remove password from output
+                delete response.password;
                 return sendResponse(response, done);
             })
-            .catch(function(err) {
-                console.log("Error in updateUser ------ ", err);
-                // TODO: Implement this log for all messages
+            .catch(function (err) {
+                
                 utils.senecaLog(seneca, 'error', __filename.split('/').pop(), err);
                 var error = err || { id: 400, msg: "Unexpected error" };
                 done(null, {

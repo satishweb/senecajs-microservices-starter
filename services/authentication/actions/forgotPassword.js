@@ -1,8 +1,8 @@
 'use strict';
 
-var utils = require(__base + '/sharedlib/utils');
-var Locale = require(__base + '/sharedlib/formatter');
-var outputFormatter = new Locale(__dirname + '/../');
+var utils = require(__base + 'sharedlib/utils');
+var Locale = require(__base + 'sharedlib/formatter');
+var outputFormatter = new Locale(__base);
 var lodash = require('lodash');
 var Joi = require('joi');
 var Promise = require('bluebird');
@@ -10,6 +10,7 @@ var jwt = require('jsonwebtoken');
 var microtime = require('microtime');
 var url = require('url');
 var User = null;
+var Organization = null;
 var Token = null;
 var expireTime = process.env.RESET_PASS_EXPIRY_TIME || '2d'; // expiry time of token sent in redirect URL
 
@@ -21,8 +22,7 @@ var expireTime = process.env.RESET_PASS_EXPIRY_TIME || '2d'; // expiry time of t
 var forgotPasswordSchema = Joi.object().keys({
     email: Joi.string().regex(/^\s*[\w\-\+​_]+(\.[\w\-\+_​]+)*\@[\w\-\+​_]+\.[\w\-\+_​]+(\.[\w\-\+_]+)*\s*$/).required(),
     orgId: Joi.string().trim(),
-    fromInvitation: Joi.boolean(),
-    fromSignUp: Joi.boolean()
+    fromInvitation: Joi.boolean()
 });
 
 /**
@@ -36,8 +36,12 @@ function checkEmailPresent(input) {
     return new Promise(function(resolve, reject) {
         // skip email check if called by send invitations
         if (!input.fromInvitation) {
+            var find = { where: { email: input.email } };
+            if (input.orgId) {
+                find.include = [{ model: Organization, where: {orgId: input.orgId} }] 
+            }
             // find if email exists in database
-            User.findOne({ email: input.email , orgId: input.orgId})
+            User.findOne(find)
                 .then(function(findResult) {
                     // return error message if email id not found
                     if (lodash.isEmpty(findResult)) {
@@ -49,7 +53,7 @@ function checkEmailPresent(input) {
                     reject({ id: 400, msg: err });
                 });
         } else {
-            // if called by send invitations continue
+            // if called by send invitations continue without checking
             resolve(true);
         }
     });
@@ -102,24 +106,13 @@ function createTokenAndSaveDetails(args, orgId, invitedUserDetails) {
 
         // TODO: Replace with model instance static method
         // add the expiry timestamp and token to user document and return the updated document
-        Token.update({ email: args.body.email }, { tokenValidTillTimestamp: timestamp, token: token })
-            .then(function(updateResult) {
-                if (updateResult.length === 0) {
-                    // No records updated, Token does not exist. Create.
-                    Token.create({ email: args.body.email, tokenValidTillTimestamp: timestamp, token: token })
-                        .then(function (createResult) {
-                            resolve({token: token, userDetails: createResult});
-                        })
-                        .catch(function (err) {
-                            reject({ id: 400, msg: err});
-                        })
-                } else {
-                    resolve({token: token, userDetails: updateResult});
-                }
+        Token.upsert({ tokenValidTillTimestamp: timestamp, token: token }, { where: { email: args.body.email } })
+            .then(function (upsertResult) {
+                resolve({token: token, userDetails: upsertResult});
             })
-            .catch(function(err) {
+            .catch(function (err) {
                 reject({ id: 400, msg: err});
-            });
+            })
     });
 }
 
@@ -141,11 +134,6 @@ function sendEmailToUser(args, url, userDetails, header, seneca) {
             // default subject and content for formatter input
             var subject = "ResetPasswordSubject";
             var content = "ResetPasswordMessage";
-            // if request is received from sign up, change subject and content
-            if (args.body.fromSignUp) {
-                subject = 'ConfirmUserSubject';
-                content = "ConfirmUserBody";
-            }
             // create input for the email
             var body = {
                 subject: outputFormatter.email(subject)
@@ -182,12 +170,13 @@ function sendResponse(result, done) {
 
 module.exports = function(options) {
     var seneca = options.seneca;
-    var ontology = options.wInstance;
+    var dbConnection = options.dbConnection;
     return function(args, done) {
         
-        // load mongoose models
-        User = User || ontology.collections.users;
-        Token = Token || ontology.collections.tokens;
+        // load models
+        User = User || dbConnection.models.users;
+        Token = Token || dbConnection.models.tokens;
+        Organization = Organization || dbConnection.models.organizations;
         
         var resetURL = null;    // stores the reset URL depending on the incoming request URL
         var token = null;   // stores the reset token created
@@ -199,18 +188,19 @@ module.exports = function(options) {
                 // set the reset password URL
                 resetURL = args.header ? args.header.origin || 'https://' + process.env.APP_URL : 'https://' + process.env.APP_URL;
                 resetURL = resetURL + '/#/reset-password?token=';
-                return utils.fetchOrganisationId(args.body.orgId || args.body.fromSignUp, args.header, seneca); // fetch user
+                return utils.fetchOrganisationId(args.body.orgId, args.header, seneca); // fetch user
                 // organization
             })
-            .then(function(response) {
+            .then(function (response) {
+                console.log("Response of fetchOrg --- ", response);
                 orgId = response ? (args.body.orgId || response.orgId) : args.body.orgId;
                 if (orgId) {
                     args.body.orgId = orgId;
                 }
-                // if organization id is returned,
                 return checkEmailPresent(args.body);
             })
-            .then(function(response) {
+            .then(function (response) {
+                console.log("Response of checkEmail ---- ", response);
                 userDetails = response;
                 return verifyTokenAndDecode(args);
             })

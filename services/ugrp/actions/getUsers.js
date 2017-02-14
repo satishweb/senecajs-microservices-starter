@@ -1,6 +1,5 @@
 'use strict';
 
-var mongoose = require('mongoose');
 var utils = require(__base + '/sharedlib/utils');
 var InitCompositeGrid = require(__base + '/sharedlib/grid/initCompositeGrid');
 var Joi = require('joi');
@@ -34,14 +33,16 @@ var userGetSchema = Joi.object().keys({
  * @returns {Promise} Promise containing the user details if successful or the error message if unsuccessful
  */
 function getUser(userId, orgId) {
-    return new Promise(function(resolve, reject) {
-        User.findOne({ userId: userId, isDeleted: false })
+    return new Promise(function (resolve, reject) {
+        
+        //TODO: Confirm if there is supposed to be a org check when fetching users
+        
+        User.findOne({ where: { userId: userId, isDeleted: false } })
             .then( function(result) {
                 if (lodash.isEmpty(result)) {
                     reject({ id: 400, msg: "User not found." });
                 } else {
-                    delete result.password;
-                    resolve(result);
+                    resolve(result.toJSON());
                 }
             })
             .catch(function (err) {
@@ -137,10 +138,10 @@ var sendResponse = function(result, done) {
  */
 module.exports = function(options) {
     var seneca = options.seneca;
-    var ontology = options.wInstance;
-    return function(args, done) {
-        console.log("----------- Get users called -----------");
-        User = User || ontology.collections.users;
+    var dbConnection = options.dbConnection;
+    return function (args, done) {
+        
+        User = User || dbConnection.models.users;
         utils.checkInputParameters(args.body, userGetSchema)
             .then(function() {
                 return utils.verifyTokenAndDecode(args.header.authorization)
@@ -148,11 +149,9 @@ module.exports = function(options) {
             .then(function(decoded) {
                 switch (args.body.action) {
                     case 'list':
-                        // console.log("Is List called ---- ");
                         return listUsers(args.body, decoded.orgId);
                         break;
                     case 'id':
-                        // console.log("Get called ----- ");
                         return getUser(args.body.userId, decoded.orgId);
                         break;
                     default:

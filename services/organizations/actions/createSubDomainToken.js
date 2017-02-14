@@ -17,12 +17,14 @@ var schema = Joi.object().keys({
 });
 
 /**
+ * Fetch organization from organization Id
  * @method fetchOrganization
  * @param {String} orgId organization Id
+ * @returns {Promise} Resolved promise containing the fetched organization if successful or rejected promise with appropriate error message in case of error
  */
 function fetchOrganization(orgId) {
     return new Promise(function(resolve, reject) {
-        Organization.findOne({ orgId: orgId })
+        Organization.findOne({ where: { orgId: orgId } })
             .then(function(findResponse) {
                 if (lodash.isEmpty(findResponse)) {
                     reject({ id: 400, msg: "Invalid organization Id" });
@@ -59,11 +61,11 @@ function sendResponse(result, done) {
 
 
 module.exports = function(options) {
-  var seneca = options.seneca;
-  var ontology = options.wInstance;
+    var seneca = options.seneca;
+    var dbConnection = options.dbConnection;
     return function(args, done) {
-        Organization = Organization || ontology.collections.organizations;
-        Session = Session || ontology.collections.sessions;
+        Organization = Organization || dbConnection.models.organizations;
+        Session = Session || dbConnection.models.sessions;
         var decodedHeader = null;
         var output = null;
         utils.checkInputParameters(args.body, schema)
@@ -80,21 +82,14 @@ module.exports = function(options) {
                     // deployed
                 }
                 decodedHeader.orgId = response.orgId;
-                utils.createJWT(decodedHeader, args.header)
-                    .then(function(result) {
-                        output.registartionToken = result.output.token;
-                        return session.createSession(Session, result.output.token, result.sessionData);
-                    })
-                    .then(function() {
-                        return sendResponse(output, done);
-                    })
-                    .catch(function(err) {
-                        console.log('err in create token---- ', err);
-                        done(null, {
-                            statusCode: 200,
-                            content: err.success === true || err.success === false ? err : utils.error(err.id || 400, err ? err.msg : 'Unexpected error', microtime.now())
-                        });
-                    })
+                return utils.createJWT(decodedHeader, args.header)
+            })
+            .then(function(result) {
+                output.registartionToken = result.output.token;
+                return session.createSession(Session, result.output.token, result.sessionData);
+            })
+            .then(function() {
+                sendResponse(output, done);
             })
             .catch(function(err) {
                 console.log('err in create sub-domain token--- ', err);

@@ -27,7 +27,7 @@ var schema = Joi.object().keys({
  */
 function fetchOrganization(orgId) {
     return new Promise(function(resolve, reject) {
-        Organization.findOne({ orgId: orgId })
+        Organization.findOne({ where: { orgId: orgId } })
             .then(function(findResult) {
                 resolve(findResult);
             })
@@ -43,7 +43,7 @@ function fetchOrganization(orgId) {
  * @param {Object} update data to be updated
  */
 function updateOrganization(orgId, update) {
-    Organization.update({ orgId: orgId }, update)
+    Organization.update(update, { orgId: orgId })
         .then(function(updateResponse) {})
         .catch(function(err) {
             if (err) {

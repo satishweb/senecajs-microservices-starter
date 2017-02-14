@@ -20,11 +20,11 @@ var microtime = require('microtime');
  */
 module.exports.checkIfAlreadyPresent = function(User, input, flag, done) {
     return new Promise(function(resolve, reject) {
-        var find = { orgId: null }; // object for search query parameters
+        var find = { where: {} }; // object for search query parameters
         var temp = []; // array for or queries in find
         switch (input.signUpType) {
             case 'email': // checking if signUpType is email then setting email as find query parameter
-                find.email = input.email;
+                find.where.email = input.email;
                 break;
             case 'google':
             case 'linkedIn':
@@ -34,9 +34,11 @@ module.exports.checkIfAlreadyPresent = function(User, input, flag, done) {
                 socialId[input.signUpType + 'Id'] = input.socialId;
                 temp.push(socialId);
                 input.socialEmail ? temp.push({ 'email': input.socialEmail }) : null;
-                find.or = temp;
+                find.where.$or = temp;
                 break;
         }
+        console.log("Find query ---- ", find);
+
         // fetch user if present in database
         if (lodash.isEmpty(find)) {
             reject(outputFormatter.format(false, 1020, 'input'));
@@ -94,7 +96,7 @@ module.exports.createSaveData = function(input, findResult) {
             temp = {
                 email: input.email,
                 firstName: input.name,
-                lastLoggedInTime: microtime.now()
+                lastLoggedInTime: microtime.now()/1000
             };
             data = lodash.merge(data, temp); // merge the defaults with the object created from inputs
             resolve(data);
@@ -134,9 +136,9 @@ module.exports.createSaveData = function(input, findResult) {
 module.exports.saveUserDetails = function(User, userDetails, flag) {
 
     return new Promise(function(resolve, reject) {
-        var find = {};
+        var find = { where: {} };
         if (userDetails.userId) { // if userDetails contains the objectId, copy it into find query and delete it from userDetails
-            find.userId = userDetails.userId;
+            find.where.userId = userDetails.userId;
             delete userDetails.userId;
         }
         if (flag === false) { // creating new user if flag is false
@@ -151,9 +153,9 @@ module.exports.saveUserDetails = function(User, userDetails, flag) {
                 });
         } else if (flag) { // updating existing user if flag is true
             // update existing user
-            User.update(find, userDetails)
+            User.update(userDetails, find)
                 .then(function(updateResponse) {
-                    delete updateResponse.password; // delete the user's hashed password before returning the user details
+                    // delete updateResponse.password; // delete the user's hashed password before returning the user details
                     resolve([updateResponse[0], flag]);
                 })
                 .catch(function(err) {

@@ -30,7 +30,7 @@ var changePasswordSchema = Joi.object().keys({
 var changePassword = function(decodedToken, input, action) {
     return new Promise(function(resolve, reject) {
         //create find object for user
-        var find = { email: decodedToken.emailId };
+        var find = { where: { email: decodedToken.emailId } };
 
         // create update object for user
         var update = {
@@ -52,7 +52,7 @@ var changePassword = function(decodedToken, input, action) {
 
         //TODO: Replace with model instance static method
         // update user document by email
-        User.update(find, update)
+        User.update(update, find)
             .then(function(updateResult) {
                 // if no user was updated, user does not exist, create user after checking if action is reset password
                 if (lodash.isEmpty(updateResult)) {
@@ -97,7 +97,7 @@ var changePassword = function(decodedToken, input, action) {
 function removeTokenFromDB(action, token) {
     return new Promise(function(resolve, reject) {
         if (action === 'resetPassword') { // if action is resetPassword, delete token, else skip this
-            Token.destroy({ 'token': token })
+            Token.destroy({ where: {'token': token} })
                 .then(function(result) {
                     if (lodash.isEmpty(result)) { // if no document was removed, return error
                         reject({ id: 400, msg: "Invalid reset token. Please generate new reset token from Forgot Password or Invitation." });
@@ -163,13 +163,12 @@ var sendResponse = function(result, done) {
  */
 module.exports = function(options) {
     var seneca = options.seneca;
-    var ontology = options.wInstance;
+    var dbConnection = options.dbConnection;
     return function(args, done) {
 
         // load waterline models
-        User = User || ontology.collections.users;
-        Token = Token || ontology.collections.tokens;
-
+        User = User || dbConnection.models.users;
+        Token = Token || dbConnection.models.tokens;
 
         var action = 'resetPassword'; // stores if password is being reset or changed, default - reset
         var decodedToken = null;
@@ -200,7 +199,9 @@ module.exports = function(options) {
                     // create a token to send to API in microservice calls containing organization Id
                     var header = utils.createMsJWT({ orgId: decodedToken.orgId, isMicroservice: true });
                     removeInvitation(decodedToken.emailId, header, seneca);
-                    addInvitedToGeneral(updateResponse.upserted[0]._id, header, seneca);
+
+                    // TODO: Uncomment on adding ugrp
+                    // addInvitedToGeneral(updateResponse.upserted[0]._id, header, seneca);
                 }
                 sendResponse(updateResponse, done);
             })

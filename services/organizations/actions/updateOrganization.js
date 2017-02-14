@@ -31,10 +31,10 @@ var OrganizationSchema = Joi.object().keys({
  * error message
  */
 function updateOrganization(input, userId) {
-    return new Promise(function (resolve, reject) {
+    return new Promise(function(resolve, reject) {
 
         // remove null and empty objects from input and store in separate variable
-        var updateData = lodash.omitBy(input, function (value) {
+        var updateData = lodash.omitBy(input, function(value) {
             return value === null || value === {};
         });
         // remove organization Id from update object
@@ -42,20 +42,21 @@ function updateOrganization(input, userId) {
 
         // update the organization details, find organization to update by Id and check if the requesting user is
         // the owner of the organization and update with input details
-        Organization.update(updateData, { where: { orgId: input.orgId, ownerId: userId }, returning: true, plain: true})
-            .then(function (updateResponse) {
+        // returning: true - returns the updated document
+        Organization.update(updateData, { where: { orgId: input.orgId, ownerId: userId }, returning: true, plain: true })
+            .then(function(updateResponse) {
                 // if no error, check if organization is returned
-            if (lodash.isEmpty(updateResponse)) {   // if no organization is returned, return error
-                reject({ id: 400, msg: 'Invalid Organization Id or not authorized to update the organization.' });
-            } else { // if organization is returned, transform the object and return it
-                resolve(updateResponse[1].toJSON());
-            }
-        })
-            .catch(function (err) {
-            {   // for any other error, return the error message
-                reject({ id: 400, msg: 'Invalid Organization Id or not authorized to update the organization.' });
-            }
-        });
+                if (lodash.isEmpty(updateResponse)) { // if no organization is returned, return error
+                    reject({ id: 400, msg: 'Invalid Organization Id or not authorized to update the organization.' });
+                } else { // if organization is returned, transform the object and return it
+                    resolve(updateResponse[1].toJSON());
+                }
+            })
+            .catch(function(err) {
+                { // for any other error, return the error message
+                    reject({ id: 400, msg: 'Invalid Organization Id or not authorized to update the organization.' });
+                }
+            });
     });
 }
 
@@ -103,7 +104,7 @@ module.exports = function(options) {
         // validate input against Joi schema
         utils.checkInputParameters(args.body, OrganizationSchema)
             .then(function() {
-                // verify and decode input token and check if owner
+                // check if owner
                 return utils.checkIfAuthorized(args.credentials);
             })
             .then(function() {
@@ -113,8 +114,8 @@ module.exports = function(options) {
             .then(function(response) {
                 sendResponse(response, done);
             })
-            .catch(function (err) {
-                
+            .catch(function(err) {
+
                 console.log("Error in update organization --- ", err);
                 // in case of error, print the error and send as response
                 utils.senecaLog(seneca, 'error', __filename.split('/').pop(), err);
@@ -122,7 +123,7 @@ module.exports = function(options) {
                 // if the error message is formatted, send it as reply, else format it and then send
                 done(null, {
                     statusCode: 200,
-                    content: err.success === true || err.success === false ? err : utils.error(err.id || 400, err ? err.msg : 'Unexpected error', microtime.now())
+                    content: 'success' in err ? err : utils.error(err.id || 400, err ? err.msg : 'Unexpected error', microtime.now())
                 });
             });
     };

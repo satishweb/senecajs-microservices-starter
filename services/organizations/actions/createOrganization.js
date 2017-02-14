@@ -11,9 +11,7 @@ var microtime = require('microtime');
 var Organization = null;
 var Session = null;
 var subDomain = null;
-var cloudfront = null;
 var route53 = null;
-var AWSCloud = require('aws-sdk');
 var AWS = require('aws-sdk');
 AWS.config.update({
     accessKeyId: process.env.R53_ACCESS_ID,
@@ -36,197 +34,6 @@ var schema = Joi.object().keys({
 });
 
 /**
- * Create a distribution on amazon cloud front
- * @method createCouldFrontDistribution
- * @param {String} domainName domain name for which organization is created
- * @returns {Promise} Promise containing amazon response if successful, else containing the error message
- */
-function createCouldFrontDistribution(domainName) {
-    return new Promise(function(resolve, reject) {
-        var params = {
-            DistributionConfig: {
-                /* required */
-                CallerReference: domainName, //'key-dev-app-org1.example.com', /* required */
-                Comment: domainName.split('.')[0].toUpperCase(), //'KEY-DEV-APP-ORG1', /* required */
-                DefaultCacheBehavior: {
-                    /* required */
-                    ForwardedValues: {
-                        /* required */
-                        Cookies: {
-                            /* required */
-                            Forward: 'none' /* required */
-                        },
-                        QueryString: false,
-                        /* required */
-                        Headers: {
-                            Quantity: 0,
-                            /* required */
-                            Items: []
-                        },
-                        QueryStringCacheKeys: {
-                            Quantity: 0,
-                            /* required */
-                            Items: []
-                        }
-                    },
-                    MinTTL: process.env.CLOUD_FRONT_MIN_TTL, //120, /* required */
-                    TargetOriginId: 'S3-' + domainName, //'S3-key-dev-app-org1.example.com', /* required */
-                    TrustedSigners: {
-                        /* required */
-                        Enabled: false,
-                        /* required */
-                        Quantity: 0,
-                        /* required */
-                        Items: []
-                    },
-                    ViewerProtocolPolicy: 'redirect-to-https',
-                    /* required */
-                    AllowedMethods: {
-                        Items: [ /* required */
-                            'GET', 'HEAD'
-                        ],
-                        Quantity: 2,
-                        /* required */
-                        CachedMethods: {
-                            Items: [ /* required */
-                                'GET', 'HEAD'
-                            ],
-                            Quantity: 2 /* required */
-                        }
-                    },
-                    Compress: false,
-                    DefaultTTL: process.env.CLOUD_FRONT_DEFAULT_TTL, //120,
-                    // LambdaFunctionAssociations: {
-                    //   Quantity: 0, /* required */
-                    //   Items: []
-                    // },
-                    MaxTTL: process.env.CLOUD_FRONT_MAX_TTL, //120,
-                    SmoothStreaming: false
-                },
-                Enabled: true,
-                /* required */
-                Origins: {
-                    /* required */
-                    Quantity: 1,
-                    /* required */
-                    Items: [{
-                        DomainName: process.env.CLOUD_FRONT_DOMAIN_NAME, //'key-dev-app.example.com.s3.amazonaws.com', /* required */
-                        Id: 'S3-' + domainName, //'S3-key-dev-app-org1.example.com',/* required */
-                        CustomHeaders: {
-                            Quantity: 0,
-                            /* required */
-                            Items: []
-                        },
-                        S3OriginConfig: {
-                            OriginAccessIdentity: '' /* required */
-                        }
-                    }]
-                },
-                Aliases: {
-                    Quantity: 1,
-                    /* required */
-                    Items: [domainName]
-                },
-                CacheBehaviors: {
-                    Quantity: 0,
-                    /* required */
-                    Items: []
-                },
-                CustomErrorResponses: {
-                    Quantity: 0,
-                    /* required */
-                    Items: []
-                },
-                DefaultRootObject: 'index.html',
-                // IsIPV6Enabled: true,
-                PriceClass: 'PriceClass_All',
-                Restrictions: {
-                    GeoRestriction: {
-                        /* required */
-                        Quantity: 0,
-                        /* required */
-                        RestrictionType: 'none',
-                        /* required */
-                        Items: []
-                    }
-                },
-                ViewerCertificate: {
-                    Certificate: process.env.CLOUD_FRONT_VIEWER_CERT,
-                    CertificateSource: 'iam',
-                    IAMCertificateId: process.env.CLOUD_FRONT_IAM_CERT_ID,
-                    MinimumProtocolVersion: 'TLSv1',
-                    SSLSupportMethod: 'sni-only'
-                },
-                WebACLId: ''
-            }
-        };
-        cloudfront.createDistribution(params, function(err, data) {
-            if (err) {
-                console.log('error createDistribution:---- ', err);
-                if (err.code == 'DistributionAlreadyExists') { //check if Distribution Already Exists then find that Distribution
-                    findMatchingDistribution({}, domainName)
-                        .then(function(response) {
-                            response.Distribution = { //format response as required by createRoute53ResourceRecordSet
-                                Id: response.Id,
-                                ARN: response.ARN,
-                                Status: response.Status,
-                                LastModifiedTime: response.LastModifiedTime,
-                                DomainName: response.DomainName
-                            };
-                            resolve(response)
-                        })
-                        .catch(function(error) {
-                            reject(error);
-                        })
-                } else {
-                    reject({ id: 400, msg: err.message })
-                }
-            } else {
-                console.log('data createDistribution:-----', JSON.stringify(data));
-                resolve(data);
-            }
-        });
-    })
-}
-
-/**
- * List all the distribution on cloud front and find distribution containing domain name
- * @method findMatchingDistribution
- * @param {Object} param used to get input parameters
- * @param {String} domainName domain for which distribution is to be fetched
- */
-function findMatchingDistribution(param, domainName) {
-    return new Promise(function(resolve, reject) {
-        cloudfront.listDistributions(param, function(err, data) {
-            if (err) {
-                reject({ id: 400, msg: err.message });
-            } else {
-                console.log('\n\ndata listDistributions:-----', data);
-                //find out distribution where sub-domain to be created is present
-                var distribution = lodash.filter(data.DistributionList.Items, function(distribution) {
-                    return lodash.indexOf(distribution.Aliases.Items, domainName) != -1;
-                });
-
-                //check if matching distribution are not found and result of listDistributions is Truncated then fetch next list
-                if (lodash.isEmpty(distribution) && data.DistributionList.IsTruncated == true) {
-                    var input = {
-                        "Marker": data.DistributionList.NextMarker
-                    };
-                    findMatchingDistribution(input, domainName)
-                } else {
-                    console.log('matching distribution:- ', distribution);
-                    if (lodash.isEmpty(distribution)) { //check if matching distribution is not found
-                        reject({ id: 400, msg: 'No matching distribution found' })
-                    } else {
-                        resolve(distribution[0]);
-                    }
-                }
-            }
-        });
-    });
-}
-
-/**
  * Get list of resource record set from Amazon Route53
  * @method getResourceRecordSet
  * @param {Object} input used to get input parameters
@@ -243,7 +50,6 @@ function getResourceRecordSet(input) {
             if (err) {
                 reject({ id: 400, msg: err.message });
             } else {
-                // console.log('getResourceRecordSet :-----', JSON.stringify(data));
                 resolve(data.ResourceRecordSets)
             }
         });
@@ -287,13 +93,10 @@ function checkIfRecordSetPresent(data, filterName, createRecordObject) {
                 if (resource.AliasTarget) {
                     inputParam.ChangeBatch.Changes[0].AliasTarget = resource.AliasTarget;
                 }
-                // console.log('inputParam:--- ', JSON.stringify(inputParam));
                 route53.changeResourceRecordSets(inputParam, function(err, data) {
                     if (err) {
-                        console.log('error ' + i + ':---- ', err);
                         reject({ id: 400, msg: err.message });
                     } else {
-                        console.log('data deleted ' + i + ' :-----', data);
                         if ((filteredData.length - 1) == i) {
                             resolve(filterName);
                         }
@@ -313,27 +116,6 @@ function checkIfRecordSetPresent(data, filterName, createRecordObject) {
  */
 function createRoute53ResourceRecordSet(input, cloudFrontResponse) {
     return new Promise(function(resolve, reject) {
-        cloudFrontResponse = JSON.parse(JSON.stringify(cloudFrontResponse));
-        var outputData = { //amazon response to be stored in database
-            cloudFrontResponse: {
-                Distribution: {}
-            }
-        };
-
-        if (!lodash.isEmpty(cloudFrontResponse)) {
-            outputData.cloudFrontResponse = { //cloud front response to be stored in database
-                Distribution: {
-                    Id: cloudFrontResponse.Distribution.Id,
-                    DomainName: cloudFrontResponse.Distribution.DomainName,
-                    Status: cloudFrontResponse.Distribution.Status,
-                    LastModifiedTime: cloudFrontResponse.Distribution.LastModifiedTime,
-                    ARN: cloudFrontResponse.Distribution.ARN
-                },
-                ETag: cloudFrontResponse.ETag,
-                Comment: cloudFrontResponse.Comment,
-                Location: cloudFrontResponse.Location
-            };
-        }
         var inputParams = {
             "HostedZoneId": process.env.R53_ZONE_ID,
             "ChangeBatch": {
@@ -344,8 +126,7 @@ function createRoute53ResourceRecordSet(input, cloudFrontResponse) {
                         "Type": "CNAME",
                         "TTL": 300,
                         "ResourceRecords": [{
-                            "Value": cloudFrontResponse.Distribution ?
-                                cloudFrontResponse.Distribution.DomainName : process.env.CLOUD_FRONT_DEFAULT_DOMAIN //process.env.R53_ALIAS_APP_URL
+                            "Value": process.env.CLOUD_FRONT_DEFAULT_DOMAIN //process.env.R53_ALIAS_APP_URL
                         }]
                     }
                 }]
@@ -365,7 +146,7 @@ function createRoute53ResourceRecordSet(input, cloudFrontResponse) {
                         if (err) {
                             reject({ id: 400, msg: err.message });
                         } else {
-                            outputData.route53Response = data;
+                            var outputData = { route53Response: data };
                             resolve(outputData)
                         }
                     });
@@ -389,26 +170,27 @@ function createRoute53ResourceRecordSet(input, cloudFrontResponse) {
  */
 function createOrganization(ownerId, input, amazonResponse, seneca) {
     return new Promise(function(resolve, reject) {
+
+        // create organization data using fields not present in input
         var data = {
             ownerId: ownerId,
-            fqdn: subDomain
-                // route53Response: amazonResponse.route53Response,
-                // cloudFrontResponse: amazonResponse.cloudFrontResponse
+            fqdn: subDomain,
+            route53Response: amazonResponse.route53Response
         };
+
+        // merge with input fields
         data = lodash.assign(data, input);
 
+        // save data to database        
         Organization.create(data)
             .then(function(saveResponse) {
-                var header = utils.createMsJWT({ isMicroservice: true }); //create microservice token
-                // updateUser(ownerId, header, seneca);
                 resolve(saveResponse);
             })
-            .catch(function (err) {
-                console.log("Error in create --- ", err);
-                if (err.code == 'E_VALIDATION') { //check if duplicate sub domain is used to create a new organization
+            .catch(function(err) {
+                if (err.parent && err.parent.code == 23505) { // check if duplicate sub domain is used to create a new organization
                     reject({ id: 400, msg: "Sub Domain already exists." });
                 } else {
-                    reject({ id: 400, msg: err.message || err });
+                    reject({ id: 400, msg: err.errors ? err.errors[0].message : err.message || err });
                 }
             })
     });
@@ -422,18 +204,6 @@ function createOrganization(ownerId, input, amazonResponse, seneca) {
  */
 function createGenDept(header, seneca) {
     utils.microServiceCall(seneca, 'ugrp', 'createDepartment', { name: 'general' }, header, null);
-}
-
-/**
- * Give microservice call to add user to organization
- * @method addToUserOrg
- * @param {String} orgId organizationId
- * @param {String} userId userId
- * @param {Object} header input header
- * @param {Seneca} seneca seneca instance
- */
-function addToUserOrg(orgId, userId, header, seneca) {
-    utils.microServiceCall(seneca, 'ugrp', 'addOrganization', { userId: userId, orgId: orgId }, header, null);
 }
 
 /**
@@ -474,7 +244,7 @@ module.exports = function(options) {
     var dbConnection = options.dbConnection;
     return function(args, done) {
 
-        // load waterline models for organization and session
+        // load database models for organization and session
         Organization = Organization || dbConnection.models.organizations;
         // Session = Session || ontology.collections.sessions;
         if (args.body.name) { //check if name is present
@@ -482,39 +252,14 @@ module.exports = function(options) {
         }
         var decodedHeader = null;
         utils.checkInputParameters(args.body, schema)
-            .then(function () {
-                console.log("reached checkifauthroized");
+            .then(function() {
                 return utils.checkIfAuthorized(args.credentials);
             })
-            .then(function () {
-                console.log("reached cloudfront check");
+            .then(function() {
                 decodedHeader = args.credentials;
                 subDomain = args.body.subDomain + '.' + process.env.DOMAIN; //form complete url for sub-domain
                 subDomain = subDomain.toLowerCase(); //convert sub-domain to lower case as CNAME is required small in cloud
                 // front create distribution
-                if (process.env.CLOUD_FRONT_ACCESS == 'true' && process.env.R53_ACCESS == 'true') { //check if
-                    //  CLOUD_FRONT_ACCESS and R53_ACCESS is true
-                    route53 = new AWS.Route53();
-                    AWSCloud.config.update({
-                        accessKeyId: process.env.CLOUD_FRONT_ACCESS_ID,
-                        secretAccessKey: process.env.CLOUD_FRONT_SECRET_KEY,
-                        region: process.env.CLOUD_FRONT_REGION
-                    });
-                    cloudfront = new AWSCloud.CloudFront({ apiVersion: process.env.CLOUD_FRONT_API_VERSION });
-                    return createCouldFrontDistribution(subDomain)
-                } else {
-                    return new Promise(function(resolve, reject) {
-                        if (process.env.R53_ACCESS == 'false' && process.env.CLOUD_FRONT_ACCESS == 'true') { //check if
-                            //  CLOUD_FRONT_ACCESS is true and R53_ACCESS is false
-                            reject({ id: 400, msg: 'Route53 Access should be enabled when Cloud Front Access is enabled' })
-                        } else {
-                            resolve(true);
-                        }
-                    });
-                }
-            })
-            .then(function (response) {
-                console.log("reached route53 check");
                 if (process.env.R53_ACCESS == 'true') { //check if R53_ACCESS is true
                     AWS.config.update({
                         accessKeyId: process.env.R53_ACCESS_ID,
@@ -528,11 +273,10 @@ module.exports = function(options) {
                     })
                 }
             })
-            .then(function (response) {
-                console.log("reached createOrg");
-                return createOrganization(decodedHeader.userId, args.body, response, seneca);
+            .then(function(response) {
+                return createOrganization(args.credentials.userId, args.body, response, seneca);
             })
-            /*.then(function(response) {
+            .then(function(response) {
                 response.registrationStep = 3;
                 var data = { //data to be stored in JWT token
                     isMicroservice: true,
@@ -557,26 +301,13 @@ module.exports = function(options) {
                         .then(function() {
                             // TODO: Uncomment on adding groups functionality
                             // createGenGroup(header, seneca);
-                            addToUserOrg(response.orgId, response.ownerId, header, seneca);
                             return sendResponse(response, done);
                         })
                 } else {
                     // TODO: Uncomment on adding groups functionality
                     // createGenGroup(header, seneca);
-                    addToUserOrg(response.orgId, response.ownerId, header, seneca);
                     return sendResponse(response, done);
                 }
-            })*/
-            .then(function (response) {
-                console.log("reached send");
-                var data = { //data to be stored in JWT token
-                    isMicroservice: true,
-                    orgId: response.orgId,
-                    isOwner: true
-                };
-                var header = utils.createMsJWT(data);
-                addToUserOrg(response.orgId, response.ownerId, header, seneca);
-                sendResponse(response, done);
             })
             .catch(function(err) {
                 console.log('err in create organisation--- ', err);
@@ -587,7 +318,7 @@ module.exports = function(options) {
                 // if the error message is formatted, send it as reply, else format it and then send
                 done(null, {
                     statusCode: 200,
-                    content: err.success === true || err.success === false ? err : utils.error(err.id || 400, err ? err.msg : 'Unexpected error', microtime.now())
+                    content: 'success' in err ? err : utils.error(err.id || 400, err ? err.msg : 'Unexpected error', microtime.now())
                 });
             });
     };

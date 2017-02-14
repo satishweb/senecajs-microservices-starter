@@ -28,19 +28,11 @@ function fetchOrganization(args) {
 
         // if input has fqdn in input, create find query using fqdn in query
         if (args.fqdn) {
-            if (process.env.DB_TYPE == 'mongodb') {
-                find = { fqdn: args.fqdn, isDeleted: false };
-            } else {
-                find = { where: {fqdn: args.fqdn, isDeleted: false}}
-            }
+            find = { where: {fqdn: args.fqdn, isDeleted: false}}
         }
         // if input has organization Id in input, create find query using organization Id
         if (args.orgId) {
-            if (process.env.DB_TYPE == 'mongodb') {
-                find = { orgId: args.orgId, isDeleted: false };
-            } else {
-                find = { where: {orgId: args.orgId, isDeleted: false}}
-            }
+            find = { where: {orgId: args.orgId, isDeleted: false}}
         }
 
         // Find the organization using find query created
@@ -244,7 +236,7 @@ module.exports = function(options) {
                 // if the error message is formatted, send it as reply, else format it and then send
                 done(null, {
                     statusCode: 200,
-                    content: err.success === true || err.success === false ? err : utils.error(err.id || 400, err.msg || 'Unexpected error', microtime.now())
+                    content: 'success' in err ? err : utils.error(err.id || 400, err.msg || 'Unexpected error', microtime.now())
                 });
             })
     };

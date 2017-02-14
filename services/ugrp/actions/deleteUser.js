@@ -1,12 +1,11 @@
 'use strict';
 
-var utils = require(__base + '/sharedlib/utils');
-var groupsLib = require(__base + '/lib/groups');
-var Locale = require(__base + '/sharedlib/formatter');
+var utils = require(__base + 'sharedlib/utils');
+var groupsLib = require(__base + 'lib/groups');
+var Locale = require(__base + 'sharedlib/formatter');
 var outputFormatter = new Locale(__base);
 var Joi = require('joi');
 var lodash = require('lodash');
-var waterline = require('waterline');
 var Promise = require('bluebird');
 var microtime = require('microtime');
 var User = null;
@@ -27,13 +26,18 @@ var userSchema = Joi.object().keys({
 function deleteUser(input) {
     return new Promise(function(resolve, reject) {
         // update the user document to set isDeleted true
-        User.update({ userId: input.userId, orgId: input.orgId, isDeleted: false }, { isDeleted: true })
-            .then(function(updateResponse) {
+        // User.update({ isDeleted: true }, { where: { userId: input.userId, isDeleted: false } })
+        User.findOne({ where: { userId: input.userId } })
+            .then(function (user) {
+                return user.removeOrganization(input.orgId);
+            })    
+            .then(function (removeResponse) {
+                console.log("Remove response ---- ", removeResponse);
                 // if no user is deleted, user id was not found or user does not belong to requester's organization
-                if (lodash.isEmpty(updateResponse)) {
+                if (lodash.isEmpty(removeResponse)) {
                     reject({ id: 400, msg: 'User Id not found in the organization.' });
                 } else {
-                    // TODO: create Group before calling this.
+                    // TODO: uncomment after using groups
                     // removeFromGroups(input.userId, input.orgId); // remove Id of user from all groups, does not wait for response
                     resolve(updateResponse);
                 }
@@ -91,11 +95,11 @@ function sendResponse(result, done) {
 
 module.exports = function(options) {
     var seneca = options.seneca;
-    var ontology = options.wInstance;
+    var dbConnection = options.dbConnection;
     return function(args, done) {
 
-        // load the waterline model for Users
-        User = User || ontology.collections.users;
+        // load the database models
+        User = User || dbConnection.models.users;
         // Group = Group || mongoose.model('Groups');
 
         // validate the input according to Joi schema

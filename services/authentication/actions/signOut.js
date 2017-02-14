@@ -14,15 +14,15 @@ var Session = null;
 
 /**
  * Used to Log out user.
- * The token is invalidated automatically when the timestamp of the token expires.
+ * Removes the session token from the database
  * @param {Object} options  Variables needed for database connection and microservices related details
  */
 module.exports = function(options) {
     var seneca = options.seneca;
-    var ontology = options.wInstance;
+    var dbConnection = options.dbConnection;
     return function(args, done) {
 
-        Session = Session || ontology.collections.sessions;
+        Session = Session || dbConnections.models.sessions;
         try {
             // delete the users sessions from DB
             session.deleteSessions(Session, args.credentials.userId, args.credentials.orgId, null);

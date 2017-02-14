@@ -48,6 +48,13 @@ module.exports = function(sequelize) {
         lastLoggedInTime: { type: Sequelize.DATE }
     });
 
+    var Token = sequelize.define('tokens', {
+        tokenId: { type: Sequelize.INTEGER, primaryKey: true, autoIncrement: true },
+        email: { type: Sequelize.STRING },
+        tokenValidTillTimestamp: { type: Sequelize.STRING },
+        token: { type: Sequelize.STRING }
+    })
+
     // User.belongsToMany(Organization, { as: 'users', through: 'join_userorgs', foreignKey: 'userId', otherKey: 'orgId' });
     // Organization.belongsToMany(User, { as: 'orgs', through: 'join_userorgs', foreignKey: 'orgId', otherKey: 'userId' });
     // User.hasMany(Organization, { as: 'owner', foreignKey: 'ownerId' });

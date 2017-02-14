@@ -212,7 +212,7 @@ definitions:
     type: object
     properties:
       userId:
-        type: string
+        type: integer
       email:
         type: string
       firstName:
@@ -250,4 +250,4 @@ definitions:
     type: object
     properties:
       deptId:
-        type: string
+        type: integer
