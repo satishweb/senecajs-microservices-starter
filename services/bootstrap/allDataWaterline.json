@@ -91,25 +91,16 @@
     "collection": "invitations",
     "data": []
 }, {
-    "collection": "join_userownedorgs",
-    "data": [{
-        "userId": 1,
-        "orgId": 1
-    }, {
-        "userId": 1,
-        "orgId": 2
-    }]
-}, {
     "collection": "join_userorgs",
     "data": [{
-        "userUserId": 3,
-        "organizationOrgId": 1
+        "userId": 3,
+        "orgId": 1
     }, {
-        "userUserId": 4,
-        "organizationOrgId": 1
+        "userId": 4,
+        "orgId": 1
     }, {
-        "userUserId": 3,
-        "organizationOrgId": 2 
+        "userId": 3,
+        "orgId": 2 
     }]
 }, {
     "collection": "sessions",

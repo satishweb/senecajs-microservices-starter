@@ -53,23 +53,8 @@ module.exports = function(sequelize) {
     // User.hasMany(Organization, { as: 'owner', foreignKey: 'ownerId' });
     // User.hasOne(Session, { foreignKey: 'userId' });
 
-    User.belongsToMany(Organization, { through: 'join_userorgs' });
-    Organization.belongsToMany(User, { through: 'join_userorgs' });
+    User.belongsToMany(Organization, { through: 'join_userorgs', foreignKey: 'userId', otherKey: 'orgId' });
+    Organization.belongsToMany(User, { through: 'join_userorgs', foreignKey: 'orgId', otherKey: 'userId' });
     User.hasMany(Organization, { as: 'ownedOrgs', foreignKey: 'ownerId' });
     // User.hasOne(Session, { foreignKey: 'userId'})
-    /*,
-     groupIds: {
-     collection: 'groups',
-     via: 'userIds'
-     },
-            updateOrCreate: function(find, update) {
-                return users.update(find, update)
-                    .then(function(updatedResult) {
-                        if (updatedResult.length === 0) {
-                            // No records updated, User does not exist. Create.
-                            update = lodash.assign(find, update);
-                            return users.create(update);
-                        }
-                    });
-            }*/
 };

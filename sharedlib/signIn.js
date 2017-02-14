@@ -168,21 +168,20 @@ module.exports.loginUser = function(User, Organization, input, ownerId, header, 
                             })
                     } else {
                         
-                        // TODO: Check if owner
-                        resolve(result);
-                        /*result.getOwners()
+                        // resolve(result);
+                        result.getOwnedOrgs()
                             .then(function(org) {
                                 if (lodash.isEmpty(org)) {
                                     console.log("Main site not owner ---- ");
                                     reject(outputFormatter.format(false, 2270, null, 'email'));
                                 } else {
-                                    console.log("Response of getOrgs for main site ---- ", org[0].toJSON(), result.password);
+                                    console.log("Response of getOrgs for main site ---- ");
                                     resolve(result);
                                 }
                             })
                             .catch(function(err) {
                                 console.log("Error in getOrgs ---- ", err);
-                            })*/
+                            })
                             /*Organization.find({ where: { ownerId: result.userId } })
                                 .then(function (org) {
                                     if (lodash.isEmpty(org)) {
