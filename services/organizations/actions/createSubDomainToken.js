@@ -22,14 +22,16 @@ var schema = Joi.object().keys({
  * @param {String} orgId organization Id
  * @returns {Promise} Resolved promise containing the fetched organization if successful or rejected promise with appropriate error message in case of error
  */
-function fetchOrganization(orgId) {
+function fetchOrganization(orgId, userId) {
     return new Promise(function(resolve, reject) {
         Organization.findOne({ where: { orgId: orgId } })
-            .then(function(findResponse) {
-                if (lodash.isEmpty(findResponse)) {
+            .then(function(org) {
+                if (lodash.isEmpty(org)) {
                     reject({ id: 400, msg: "Invalid organization Id" });
+                } else if (org.ownerId == userId){
+                    resolve(org)
                 } else {
-                    resolve(findResponse)
+                    reject({id: 400, msg: "Only organization owner can fetch sub domain token."});
                 }
             })
             .catch(function(err) {
@@ -60,18 +62,20 @@ function sendResponse(result, done) {
 }
 
 
-module.exports = function(options) {
+module.exports = function (options) {
     var seneca = options.seneca;
     var dbConnection = options.dbConnection;
-    return function(args, done) {
+    return function (args, done) {
+        
         Organization = Organization || dbConnection.models.organizations;
         Session = Session || dbConnection.models.sessions;
+
         var decodedHeader = null;
         var output = null;
         utils.checkInputParameters(args.body, schema)
             .then(function() {
                 decodedHeader = args.credentials;
-                return fetchOrganization(args.body.orgId);
+                return fetchOrganization(args.body.orgId, decodedHeader.userId);
             })
             .then(function(response) {
                 output = response;
@@ -82,14 +86,26 @@ module.exports = function(options) {
                     // deployed
                 }
                 decodedHeader.orgId = response.orgId;
-                return utils.createJWT(decodedHeader, args.header)
-            })
-            .then(function(result) {
-                output.registartionToken = result.output.token;
-                return session.createSession(Session, result.output.token, result.sessionData);
-            })
-            .then(function() {
-                sendResponse(output, done);
+                if (decodedHeader.userId == response.ownerId) {
+                    decodedHeader.isOwner = true;
+                } else {
+                    decodedHeader.isOwner = false;
+                }
+                utils.createJWT(decodedHeader, args.header)
+                    .then(function(result) {
+                        output.registrationToken = result.output.token;
+                        return session.createSession(Session, result.output.token, result.sessionData);
+                    })
+                    .then(function() {
+                        return sendResponse(output, done);
+                    })
+                    .catch(function(err) {
+                        console.log('err in create token---- ', err);
+                        done(null, {
+                            statusCode: 200,
+                            content: err.success === true || err.success === false ? err : utils.error(err.id || 400, err ? err.msg : 'Unexpected error', microtime.now())
+                        });
+                    })
             })
             .catch(function(err) {
                 console.log('err in create sub-domain token--- ', err);

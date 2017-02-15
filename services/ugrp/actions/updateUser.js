@@ -70,8 +70,7 @@ function updateUser(input, decodedToken) {
 
         // create find query to find user by userId and return the updated row
         var find = { where: { userId: input.userId } };
-        // remove userId from input
-        delete input.userId;
+
         // if organization is known, check if to be updated user belongs to that organization       
 
         // update user using created find query and input details 
@@ -79,15 +78,27 @@ function updateUser(input, decodedToken) {
             .then(function(user) {
                 if (lodash.isEmpty(user)) {
                     return new Promise(function(resolve, reject) { reject('User Id not found.') });
+                } else if (user.userId == decodedToken.userId) {
+                    // console.log("Changing own profile...", user.userId == decodedToken.userId, user.userId, decodedToken.userId);
+                    userInstance = user;
+                    if (user.registrationStep == 1 && input.name) {
+                        input.registrationStep = 2;
+                    }
+                    return new Promise(function(resolve, reject) { resolve(user) });
                 } else {
+                    // console.log("Changing employee's profile...", input.orgId);
                     userInstance = user;
                     return user.getOrganizations({ where: { orgId: input.orgId } });
                 }
             })
-            .then(function(org) {
+            .then(function (org) {
                 if (lodash.isEmpty(org)) {
+                    // console.log("User not found in org ---- ", org);
                     return new Promise(function(resolve, reject) { reject('User does not belong to organization.') });
                 } else {
+                    // console.log("User found in org ---- ", org);
+                    // remove userId from input
+                    delete input.userId;
                     return userInstance.update(input)
                 }
             })

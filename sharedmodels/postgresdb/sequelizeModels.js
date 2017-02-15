@@ -3,9 +3,12 @@ var Sequelize = require('sequelize');
 
 module.exports = function(sequelize) {
 
+    var Email = sequelize.define('emails', {
+        email: { type: Sequelize.STRING(255), primaryKey: true, notNull: true, unique: true },
+    })
+
     var User = sequelize.define('users', {
         userId: { type: Sequelize.INTEGER, primaryKey: true, autoIncrement: true },
-        email: { type: Sequelize.STRING(255), notNull: true },
         firstName: Sequelize.STRING,
         lastName: Sequelize.STRING,
         isDeleted: { type: Sequelize.BOOLEAN, defaultValue: false },
@@ -27,6 +30,7 @@ module.exports = function(sequelize) {
     var Organization = sequelize.define('organizations', {
         orgId: { type: Sequelize.INTEGER, primaryKey: true, autoIncrement: true },
         name: { type: Sequelize.STRING },
+        route53Response: { type: Sequelize.JSON },
         subDomain: { type: Sequelize.STRING, unique: true },
         domain: { type: Sequelize.STRING, defaultValue: process.env.DOMAIN },
         fqdn: { type: Sequelize.STRING, unique: true },
@@ -60,6 +64,7 @@ module.exports = function(sequelize) {
     // User.hasMany(Organization, { as: 'owner', foreignKey: 'ownerId' });
     // User.hasOne(Session, { foreignKey: 'userId' });
 
+    User.hasMany(Email, { as: 'emails', foreignKey: 'userId' });    
     User.belongsToMany(Organization, { through: 'join_userorgs', foreignKey: 'userId', otherKey: 'orgId' });
     Organization.belongsToMany(User, { through: 'join_userorgs', foreignKey: 'orgId', otherKey: 'userId' });
     User.hasMany(Organization, { as: 'ownedOrgs', foreignKey: 'ownerId' });

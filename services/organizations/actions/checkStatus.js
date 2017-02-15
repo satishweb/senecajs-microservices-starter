@@ -16,20 +16,31 @@ var AWS = require('aws-sdk');
 
 //Joi validation Schema
 var schema = Joi.object().keys({
-    orgId: Joi.string().required()
-});
+    orgId: Joi.string(),
+    subDomain: Joi.string()
+}).xor('orgId', 'subDomain');
 
 /**
  * Fetch organization details by organization Id
  * @method fetchOrganization
- * @param {String} orgId organization Id
+ * @param {String} input Contains the input parameters
  * @returns {Promise} Promise containing organization details if successful, else containing the error message
  */
-function fetchOrganization(orgId) {
+function fetchOrganization(input) {
     return new Promise(function(resolve, reject) {
-        Organization.findOne({ where: { orgId: orgId } })
+        var find = { where: {} };
+        if (input.orgId) {
+            find.where.orgId = input.orgId;
+        } else if (input.subDomain) {
+            find.where.subDomain = input.subDomain;
+        }
+        Organization.findOne(find)
             .then(function(findResult) {
-                resolve(findResult);
+                if (lodash.isEmpty(findResult)) {
+                    reject({ id: 400, msg: 'Organization not found' });
+                } else {
+                    resolve(findResult);
+                }
             })
             .catch(function(err) {
                 reject({ id: 400, msg: err })
@@ -42,14 +53,55 @@ function fetchOrganization(orgId) {
  * @param {String} orgId organization Id
  * @param {Object} update data to be updated
  */
-function updateOrganization(orgId, update) {
-    Organization.update(update, { orgId: orgId })
+function updateOrganization(org, update) {
+    org.update(update)
         .then(function(updateResponse) {})
         .catch(function(err) {
             if (err) {
                 console.log("error updating organization status", err);
             }
         })
+}
+
+/**
+ * Check the status of Cloud front distribution on Amazon Cloud Front
+ * @method checkCloudFrontStatus
+ * @param {Object} orgDetails organization details fetched
+ */
+function checkCloudFrontStatus(orgDetails) {
+  return new Promise(function (resolve, reject) {
+    AWS.config.update({
+      accessKeyId    : process.env.CLOUD_FRONT_ACCESS_ID,
+      secretAccessKey: process.env.CLOUD_FRONT_SECRET_KEY,
+      region         : process.env.CLOUD_FRONT_REGION
+    });
+    var cloudfront = new AWS.CloudFront({apiVersion: process.env.CLOUD_FRONT_API_VERSION});
+    
+    //check if distribution Id is present in database
+    if (orgDetails.cloudFrontResponse &&
+      orgDetails.cloudFrontResponse.Distribution &&
+      orgDetails.cloudFrontResponse.Distribution.Id) {
+      var param = {
+        Id: orgDetails.cloudFrontResponse.Distribution.Id
+      };
+      
+      cloudfront.getDistribution(param, function (err, data) {
+        if (err) {
+          reject({id: 400, msg: err.message});
+        } else {
+          // console.log('data checkCloudFrontStatus:-----', JSON.stringify(data));
+          updateOrganization(orgDetails.orgId, {'cloudFrontResponse.Distribution.Status': data.Distribution.Status});
+          if (data.Distribution.Status == 'Deployed') {
+            resolve({isUpdated: true})
+          } else {
+            resolve({isUpdated: false})
+          }
+        }
+      });
+    } else {
+      resolve({isUpdated: true})
+    }
+  })
 }
 
 /**
@@ -79,56 +131,8 @@ function checkDeploymentStatus(orgDetails) {
                 .catch(function(error) {
                     reject(error);
                 })
-        } else if (orgDetails.cloudFrontResponse && orgDetails.cloudFrontResponse.Distribution && orgDetails.cloudFrontResponse.Distribution.Status != 'Deployed' && process.env.CLOUD_FRONT_ACCESS == 'true') { //check if cloud front status
-            // is Deployed and CLOUD_FRONT_ACCESS is true
-            checkCloudFrontStatus(orgDetails)
-                .then(function(response) {
-                    resolve(response);
-                })
-                .catch(function(error) {
-                    reject(error);
-                })
         } else {
             resolve({ isUpdated: true });
-        }
-    })
-}
-
-/**
- * Check the status of Cloud front distribution on Amazon Cloud Front
- * @method checkCloudFrontStatus
- * @param {Object} orgDetails organization details fetched
- */
-function checkCloudFrontStatus(orgDetails) {
-    return new Promise(function(resolve, reject) {
-        AWS.config.update({
-            accessKeyId: process.env.CLOUD_FRONT_ACCESS_ID,
-            secretAccessKey: process.env.CLOUD_FRONT_SECRET_KEY,
-            region: process.env.CLOUD_FRONT_REGION
-        });
-        var cloudfront = new AWS.CloudFront({ apiVersion: process.env.CLOUD_FRONT_API_VERSION });
-
-        //check if distribution Id is present in database
-        if (orgDetails.cloudFrontResponse && orgDetails.cloudFrontResponse.Distribution && orgDetails.cloudFrontResponse.Distribution.Id) {
-            var param = {
-                Id: orgDetails.cloudFrontResponse.Distribution.Id
-            };
-
-            cloudfront.getDistribution(param, function(err, data) {
-                if (err) {
-                    reject({ id: 400, msg: err.message });
-                } else {
-                    console.log('data checkCloudFrontStatus:-----', JSON.stringify(data));
-                    updateOrganization(orgDetails.orgId, { 'cloudFrontResponse.Distribution.Status': data.Distribution.Status });
-                    if (data.Distribution.Status == 'Deployed') {
-                        resolve({ isUpdated: true })
-                    } else {
-                        resolve({ isUpdated: false })
-                    }
-                }
-            });
-        } else {
-            resolve({ isUpdated: true })
         }
     })
 }
@@ -151,7 +155,7 @@ function checkResourceRecordSetStatus(orgDetails) {
                 if (err) {
                     reject({ id: 400, msg: err.message });
                 } else {
-                    updateOrganization(orgDetails.orgId, { 'route53Response.ChangeInfo.Status': data.ChangeInfo.Status });
+                    updateOrganization(orgDetails, { 'route53Response.ChangeInfo.Status': data.ChangeInfo.Status });
                     if (data.ChangeInfo.Status == 'INSYNC') {
                         resolve({ isUpdated: true })
                     } else {
@@ -189,25 +193,32 @@ function sendResponse(result, done) {
 
 module.exports = function(options) {
     var seneca = options.seneca;
-    var ontology = options.wInstance;
+    var dbConnection = options.dbConnection;
     return function(args, done) {
-        Organization = Organization || ontology.collections.organizations;
+        Organization = Organization || dbConnection.models.organizations;
         AWS.config.update({
             accessKeyId: process.env.R53_ACCESS_ID,
             secretAccessKey: process.env.R53_SECRET_KEY,
             region: process.env.R53_REGION
         });
+        var orgDetails = null;
         utils.checkInputParameters(args.body, schema)
             .then(function() {
-                return utils.checkIfAuthorized(args.credentials);
+                return utils.verifyTokenAndDecode(args.header.authorization, 'Invalid authorization token.');
+            })
+            .then(function(response) {
+                return utils.checkIfAuthorized(response);
             })
             .then(function() {
-                return fetchOrganization(args.body.orgId);
+                return fetchOrganization(args.body);
             })
-            .then(function(response) {
+            .then(function (response) {
+                console.log("Response of fetchOrg --- ", response);
+                orgDetails = response;
                 return checkDeploymentStatus(response);
             })
-            .then(function(response) {
+            .then(function (response) {
+                response = Object.assign(response, orgDetails.toJSON());
                 sendResponse(response, done);
             })
             .catch(function(err) {

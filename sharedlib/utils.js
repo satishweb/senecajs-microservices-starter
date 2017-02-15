@@ -77,7 +77,7 @@ module.exports.createJWT = function(userDetails, requestHeaders) {
  * @returns {Promise} Resolved promise containing the organization details if the request origin matches a non deleted
  * organization or null if no match is found or rejected promise containing the error message.
  */
-module.exports.fetchOrganisationId = function(orgId, header, seneca) {
+module.exports.fetchOrganizationId = function(orgId, header, seneca) {
     var that = this;
     return new Promise(function(resolve, reject) {
 
@@ -157,7 +157,7 @@ module.exports.verifyTokenAndDecode = function(token, errorMsg) {
  */
 module.exports.checkIfAuthorized = function(decodedToken) {
     return new Promise(function(resolve, reject) {
-        if (decodedToken && decodedToken.isOwner) {    // if the decoded token belongs to an owner, resolve the
+        if (decodedToken && (decodedToken.isMicroservice || decodedToken.isOwner)) {    // if the decoded token belongs to an owner, resolve the
             // decoded token
             resolve();
         } else {    // else return unauthorized message
@@ -176,7 +176,8 @@ module.exports.checkIfAuthorized = function(decodedToken) {
  * @param {Object} header The Header sent to the action
  * @param {Function} callback The callback function to be executed on response
  */
-module.exports.microServiceCall = function(seneca, role, cmd, body, header, callback) {
+module.exports.microServiceCall = function (seneca, role, cmd, body, header, callback) {
+    console.log("In utils microservice call ----- ");
     seneca.client({
         type: 'amqp',
         pin: ['role:' + role, 'cmd:' + cmd].join(','),
@@ -202,7 +203,7 @@ module.exports.microServiceCall = function(seneca, role, cmd, body, header, call
  * @returns {Promise} The Promise containing the action response in case of success and null in case of failure
  */
 module.exports.microServiceCallPromise = function(seneca, role, cmd, body, header, isRejected) {
-    return new Promise(function(resolve) {
+    return new Promise(function(resolve, reject) {
         seneca.client({
             type: 'amqp',
             pin: ['role:' + role, 'cmd:' + cmd].join(','),

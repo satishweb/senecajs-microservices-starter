@@ -60,7 +60,9 @@ module.exports.deleteSessions = function deleteSessions(Session, userId, orgId, 
  */
 
 module.exports.validateSession = function(decodedToken, requestHeaders) {
-    return new Promise(function(resolve, reject) {
+    return new Promise(function (resolve, reject) {
+        console.log(decodedToken.userAgent, requestHeaders['user-agent'], decodedToken.origin, requestHeaders.origin,
+            decodedToken.hostIp, requestHeaders['x-forwarded-for'], decodedToken.host, requestHeaders.host);
         // compare received header properties with those stored in token
         if (decodedToken.userAgent === requestHeaders['user-agent'] && decodedToken.origin === requestHeaders.origin &&
             decodedToken.hostIp === requestHeaders['x-forwarded-for'] && decodedToken.host === requestHeaders.host) {

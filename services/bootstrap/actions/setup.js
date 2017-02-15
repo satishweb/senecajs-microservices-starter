@@ -181,7 +181,7 @@ module.exports = function(options) {
 
         // check if token is present in input headers
         if (args.header && args.header.bootstraptoken && token != null && args.header.bootstraptoken === token) {
-            data = JSON.parse(fs.readFileSync(__base + 'allDataWaterline.json'));
+            data = JSON.parse(fs.readFileSync(__base + 'allData.json'));
             insertDocuments(dbConnection)
                 .then(function() {
                     token = null;

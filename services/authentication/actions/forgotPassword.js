@@ -188,7 +188,7 @@ module.exports = function(options) {
                 // set the reset password URL
                 resetURL = args.header ? args.header.origin || 'https://' + process.env.APP_URL : 'https://' + process.env.APP_URL;
                 resetURL = resetURL + '/#/reset-password?token=';
-                return utils.fetchOrganisationId(args.body.orgId, args.header, seneca); // fetch user
+                return utils.fetchOrganizationId(args.body.orgId, args.header, seneca); // fetch user
                 // organization
             })
             .then(function (response) {

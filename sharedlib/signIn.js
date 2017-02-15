@@ -35,6 +35,8 @@ var callSignUp = function callSignUp(input, header, seneca) {
         if (input.socialEmail) {
             body.socialEmail = input.socialEmail;
         }
+        console.log("Before call ---- ");
+
         /************ Call SignUp microservice **************/
         utils.microServiceCall(seneca, 'authentication', 'signUp', body, header, function(err, result) {
             // if registration fails, ask user to register manually
@@ -63,38 +65,39 @@ module.exports.callSignUp = callSignUp;
  * If socialId doesn't match then user is signed up using socialId.
  * @function loginUser
  * @param {Object} input - The input parameters
- * @param {Object} User - Used to get the mongoose connection object
- * @param {String} ownerId - The user Id of the owner of the organization
+ * @param {Object} User - Used to get the database model for User
+ * @param {Object} Email - Used to get the database model for Email
  * @param {Object} header - contains the JWT Token and the request tokens
  * @param {Seneca} seneca - the seneca instance used to call other microservice
  * @returns {Promise} Returns Promise. In case of successful login it returns user details in Promise,
  * else it returns appropriate error message.
  *
  */
-module.exports.loginUser = function(User, Organization, input, ownerId, header, seneca) {
+module.exports.findUser = function(User, Email, input, header, seneca) {
     var query = {};
     return new Promise(function(resolve, reject) {
 
         /************* Create find query based on type of login  ************/
         if (input.type === 'email') {
             query = {
-                where: { email: input.email, isDeleted: false },
-                /*include: [{
-                    model: Organization,
-                    as: 'owner'
-                }]*/
+                include: [{
+                    model: Email,
+                    as: 'emails',
+                    where: { email: input.email }
+                }]
             };
         } else {
             // create DB field by adding "Id" to the social type,
             // ie. facebook->facebookId, google->googleId, ...
             var field = input.type + "Id";
+            query.where = {};
             query.where[field] = input.socialId;
         }
 
         console.log("Find query --- ", query);
 
         /************* Fetch user with matching email or socialID **************/
-        User.find(query)
+        User.findOne(query)   
             .then(function(result) {
                 // console.log("Result of find ---- ", result);
                 if (lodash.isEmpty(result)) {
@@ -116,22 +119,24 @@ module.exports.loginUser = function(User, Organization, input, ownerId, header, 
                         // if sign in type was email and email is not found, return error message
                         reject(outputFormatter.format(false, 2270, null, 'email'));
                     }
-                } else if (input.type !== 'email') {
-                    var user = lodash.filter(result, function(user) {
+                } else { // if (input.type !== 'email') {
+                    /*var user = lodash.filter(result, function(user) {
                         if (input.orgId) {
                             return (user.userId == ownerId || lodash.indexOf(user.orgIds, input.orgId) != -1)
                         } else {
                             return (!lodash.isEmpty(user.ownedOrgIds));
                         }
                     });
-                    user = user[0];
+                    user = user[0];*/
                     // console.log("User result after filtering ---- ", user);
                     // if sign in type was social and user is found,
                     // delete password and return user details
-                    resolve(user);
-                } else {
+                    
+                    // resolve user if found
+                    resolve(result);
+                /*} else {
                     var userFound = true;
-                    /*var user = lodash.filter(result, function(user) {
+                    var user = lodash.filter(result, function(user) {
                         if (input.orgId) {
                             return (user.userId == ownerId || lodash.indexOf(user.orgIds, input.orgId) != -1)
                         } else {
@@ -141,7 +146,7 @@ module.exports.loginUser = function(User, Organization, input, ownerId, header, 
 
                     // console.log("User before get ---- ", result);
 
-                    if (ownerId && result.userId === ownerId) {
+                    /*if (ownerId && result.userId === ownerId) {
                         resolve(result);
                     } else if (input.orgId) {
                         result.getOrganizations({ where: { orgId: input.orgId } })
@@ -160,7 +165,9 @@ module.exports.loginUser = function(User, Organization, input, ownerId, header, 
                     } else {
                         
                         // TODO: Add condition for users signing in from main site
-                        resolve(result);
+                        resolve(result);*/
+                    
+                        // fetch ownedOrganizations using user instance
                         /*result.getOwnedOrgs()
                             .then(function(org) {
                                 if (lodash.isEmpty(org)) {
@@ -174,20 +181,20 @@ module.exports.loginUser = function(User, Organization, input, ownerId, header, 
                             .catch(function(err) {
                                 console.log("Error in getOrgs ---- ", err);
                             })*/
-                            /*Organization.find({ where: { ownerId: result.userId } })
-                                .then(function (org) {
-                                    if (lodash.isEmpty(org)) {
-                                        console.log("Org user not found ---- ");
-                                        reject(outputFormatter.format(false, 2270, null, 'email'));
-                                    } else {
-                                        console.log("Response of getOrgs ---- ", org[0].toJSON(), result.password);
-                                        resolve(result);
-                                    }
-                                })
-                                .catch(function(err) {
-                                    console.log("Error in getOrgs ---- ", err);
-                                })*/
-                    }
+                        /*result.getOwnedOrgs()
+                            .then(function(org) {
+                                if (lodash.isEmpty(org)) {
+                                    console.log("Main site not owner ---- ");
+                                    reject(outputFormatter.format(false, 2270, null, 'email'));
+                                } else {
+                                    console.log("Response of getOrgs for main site ---- ");
+                                    resolve(result);
+                                }
+                            })
+                            .catch(function(err) {
+                                console.log("Error in getOrgs ---- ", err);
+                            })
+                    }*/
                 }
             })
             .catch(function(err) {
@@ -238,12 +245,12 @@ module.exports.comparePasswords = function(input, user) {
 module.exports.updateLoginTime = function(User, userDetails) {
     return new Promise(function(resolve) {
         // Update lastLoggedInTime in user document and return updated document.
-        User.update({ last_login: microtime.now() / 1000 }, { where: { userId: userDetails.userId } })
-            .then(function(updatedUser) {
+        User.update({ lastLoggedInTime: microtime.now() / 1000 }, { where: { userId: userDetails.userId }, returning: true, plain: true })
+            .then(function (updatedUser) {
+                console.log("Updated response --- ", updatedUser);
                 // if user details updated and returned,
                 // remove password and return remaining details
-                delete updatedUser[0].password;
-                resolve(updatedUser[0]);
+                resolve(updatedUser[1].toJSON());
             })
             .catch(function(err) {
                 console.log("Error updating user's login time ---- ", err);

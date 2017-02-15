@@ -83,6 +83,9 @@ paths:
               birthDate:
                 type: string
                 description: "BirthDate of user returned by social site"
+              subDomain:
+                type: string
+                description: "The subDomain to be signed in to"
       responses:
         "200":
           description: "Successful"

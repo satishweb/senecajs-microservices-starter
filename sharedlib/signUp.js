@@ -12,19 +12,26 @@ var microtime = require('microtime');
 /**
  * Check if user is already present in Database
  * @method checkIfAlreadyPresent
- * @param {Object} User Used to get the mongoose connection object
+ * @param {Object} User Used to get the database model for User
+ * @param {Object} Email Used to get the database model for Email
  * @param {Object} input Used to get the input parameters
  * @param {Object} flag Boolean value whether to create new document(flag = false) or update existing document(flag = true)
  * @param {Function} done The callback to format and send the response
  * @returns {Promise} Promise containing the user details if successful, else the appropriate error message
  */
-module.exports.checkIfAlreadyPresent = function(User, input, flag, done) {
+module.exports.checkIfAlreadyPresent = function(sequelize, User, Email, input, flag, done) {
     return new Promise(function(resolve, reject) {
         var find = { where: {} }; // object for search query parameters
         var temp = []; // array for or queries in find
         switch (input.signUpType) {
             case 'email': // checking if signUpType is email then setting email as find query parameter
-                find.where.email = input.email;
+                find = {
+                    include: [{
+                        model: Email,
+                        as: 'emails',
+                        where: { email: input.email }
+                    }]
+                };
                 break;
             case 'google':
             case 'linkedIn':
@@ -33,7 +40,10 @@ module.exports.checkIfAlreadyPresent = function(User, input, flag, done) {
                 var socialId = {};
                 socialId[input.signUpType + 'Id'] = input.socialId;
                 temp.push(socialId);
-                input.socialEmail ? temp.push({ 'email': input.socialEmail }) : null;
+                if (input.socialEmail) {
+                    temp.push({ '$emails.email$': input.socialEmail });
+                    find.include = [{ model: Email, as: 'emails' }];
+                }
                 find.where.$or = temp;
                 break;
         }
@@ -45,6 +55,7 @@ module.exports.checkIfAlreadyPresent = function(User, input, flag, done) {
         } else {
             User.findOne(find)
                 .then(function(findResult) {
+                    console.log("Find result ---- ", findResult);
                     // if no user is found, can continue with sign up
                     if (lodash.isEmpty(findResult)) {
                         resolve([{}, flag]);
@@ -58,7 +69,7 @@ module.exports.checkIfAlreadyPresent = function(User, input, flag, done) {
                         } else {
                             done(null, {
                                 statusCode: 200,
-                                content: outputFormatter.format(false, 2300, null, findResult.email || 'User')
+                                content: outputFormatter.format(false, 2300, null, input.signUpType == 'email' ? 'email id' : 'account')
                             });
                         }
                     }
@@ -90,11 +101,12 @@ module.exports.createSaveData = function(input, findResult) {
             linkedInId: null,
             facebookId: null,
             lastLoggedInTime: null,
+            registrationStep: 1,
             passwordStatus: "passwordNotSet"
         };
         if (input.signUpType === 'email') { // if type is email, set email related fields
             temp = {
-                email: input.email,
+                emails: [{ email: input.email }],
                 firstName: input.name,
                 lastLoggedInTime: microtime.now() / 1000,
                 password: bcrypt.hashSync(input.password, 10), // hash the input password
@@ -102,7 +114,7 @@ module.exports.createSaveData = function(input, findResult) {
             };
             data = lodash.merge(data, temp); // merge the defaults with the object created from inputs
             resolve(data);
-        } else if (input.signUpType === 'google' || input.signUpType === 'linkedIn' || input.signUpType === 'facebook' || input.signUpType === 'microsoft' ) { // if type is social sign up
+        } else if (input.signUpType === 'google' || input.signUpType === 'linkedIn' || input.signUpType === 'facebook' || input.signUpType === 'microsoft') { // if type is social sign up
 
             var key = input.signUpType + 'Id';
             temp.passwordStatus = "passwordNotNeeded";
@@ -135,7 +147,7 @@ module.exports.createSaveData = function(input, findResult) {
  * @param {Object} flag Boolean value whether to create new document(flag = false) or update existing document(flag = true)
  * @returns {Promise} Promise containing the updated user details if successful, else containing the appropriate error message
  */
-module.exports.saveUserDetails = function(User, userDetails, flag) {
+module.exports.saveUserDetails = function(User, Email, userDetails, flag) {
 
     return new Promise(function(resolve, reject) {
         var find = { where: {} };
@@ -145,12 +157,17 @@ module.exports.saveUserDetails = function(User, userDetails, flag) {
         }
         if (flag === false) { // creating new user if flag is false
             // save new user document
-            User.create(userDetails)
+            User.create(userDetails, {
+                    include: [{
+                        model: Email,
+                        as: 'emails'
+                    }]
+                })
                 .then(function(saveResponse) {
                     resolve([saveResponse, flag]);
                 })
-                .catch(function (err) {
-                    reject({ id: 400, msg: err.errors ? err.errors[0].message : err.message || err});
+                .catch(function(err) {
+                    reject({ id: 400, msg: err.errors ? err.errors[0].message : err.message || err });
                 });
         } else if (flag) { // updating existing user if flag is true
             // update existing user

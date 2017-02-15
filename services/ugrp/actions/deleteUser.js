@@ -23,8 +23,14 @@ var userSchema = Joi.object().keys({
  * @returns {Promise} Promise containing the updated user details if successful, else containing the appropriate
  * error message
  */
-function deleteUser(input) {
-    return new Promise(function(resolve, reject) {
+function deleteUser(input, userId) {
+    return new Promise(function (resolve, reject) {
+        
+        // do not let user delete own profile
+        if (input.userId == userId) {
+            reject({id: 400, msg: 'User cannot delete himself/herself.'});
+        }
+
         // update the user document to set isDeleted true
         // User.update({ isDeleted: true }, { where: { userId: input.userId, isDeleted: false } })
         User.findOne({ where: { userId: input.userId } })

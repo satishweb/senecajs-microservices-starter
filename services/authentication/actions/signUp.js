@@ -9,6 +9,7 @@ var Joi = require('joi');
 var microtime = require('microtime');
 var User = null;
 var Session = null;
+var Email = null;
 var flag = false; // contains whether it is a new user or existing user and whether user document is to be created
 // or updated
 
@@ -67,9 +68,12 @@ module.exports = function(options) {
 
     return function(args, done) {
 
-        // Waterline models for user and session
+        console.log("Sign up called --- ", args.body);
+
+        // Database models for user and session
         User = User || dbConnection.models.users;
         Session = Session || dbConnection.models.sessions;
+        Email = Email || dbConnection.models.emails;
 
         flag = false; // used to determine if user is a new user or already registered user with other login type
         var finalResponse = null; // stores the user details to be sent in response
@@ -80,7 +84,7 @@ module.exports = function(options) {
                     args.body.email = args.body.email.toLowerCase();
                 }
                 // check if user with email already exists
-                return signUp.checkIfAlreadyPresent(User, args.body, flag, done);
+                return signUp.checkIfAlreadyPresent(dbConnection, User, Email, args.body, flag, done);
             })
             .spread(function(response, Flag) {
                 flag = Flag; // update the value of flag from the response
@@ -89,7 +93,7 @@ module.exports = function(options) {
             })
             .then(function(response) {
                 // create new user or update existing one from previous data
-                return signUp.saveUserDetails(User, response, flag);
+                return signUp.saveUserDetails(User, Email, response, flag);
             })
             .spread(function(response, Flag) {
                 flag = Flag;

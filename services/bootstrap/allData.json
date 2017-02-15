@@ -12,7 +12,6 @@
         "password": "password",
         "lastName": null,
         "firstName": "Admin",
-        "email": "admin@example.io",
         "contact": "1234567890",
         "isDeleted": false
     }, {
@@ -27,7 +26,6 @@
         "password": "password",
         "lastName": "User",
         "firstName": "Postman",
-        "email": "postman@user.io",
         "contact": "1234567890",
         "isDeleted": false
     }, {
@@ -42,7 +40,6 @@
         "password": "password",
         "lastName": null,
         "firstName": "Employee1",
-        "email": "employee1@example.io",
         "contact": "1234567890",
         "isDeleted": false
     }, {
@@ -57,7 +54,6 @@
         "password": "password",
         "lastName": null,
         "firstName": "Employee2",
-        "email": "employee2@example.io",
         "contact": "1234567890",
         "isDeleted": false
     }]
@@ -83,6 +79,21 @@
         "domain": "example1.com",
         "subDomain": "key-app-example1-dev",
         "name": "Example1"
+    }]
+}, {
+    "collection": "emails",
+    "data": [{
+        "email": "admin@example.io",
+        "userId": 1
+    }, {
+        "email": "postman@user.io",
+        "userId": 2
+    }, {
+        "email": "employee1@example.io",
+        "userId": 3
+    }, {
+        "email": "employee2@example.io",
+        "userId": 4
     }]
 }, {
     "collection": "tokens",
