@@ -38,24 +38,24 @@ module.exports.checkInputParameters = function(input, schema) {
  * @returns {Promise} Promise containing the user details along with the token
  */
 
-module.exports.createJWT = function(userDetails, requestHeaders) {
+module.exports.createJWT = function(userDetails, orgs, requestHeaders) {
     return new Promise(function(resolve) {
         var key = process.env.JWT_SECRET_KEY; // set the JWT key being used to sign the token
         var options = { expiresIn: process.env.JWT_EXPIRY_TIME }; // set the token expiry time
         var sessionData = { // Extract user details that need to be stored in the JWT token
             firstName: userDetails.firstName,
             lastName: userDetails.lastName,
-            orgId: userDetails.orgId,
+            // orgId: userDetails.orgId,
             avatar: userDetails.avatar,
             userId: userDetails.userId,
-            emailId: userDetails.email,
-            isOwner: userDetails.isOwner || false,
+            emailId: userDetails.emails,
+            // isOwner: userDetails.isOwner || false,
             accountType: userDetails.accountType,
             lastLoggedInTime: userDetails.lastLoggedInTime
         };
         var tokenData = { // Extract the request header details to be added to the token
             userAgent: requestHeaders['user-agent'],
-            origin: requestHeaders.origin,
+            origin: orgs,
             hostIp: requestHeaders['x-forwarded-for'],
             host: requestHeaders.host
         };

@@ -50,7 +50,7 @@ function schema(server, options) {
                 .catch(function(err) {
                     console.log("Error in jwt.secured ---- ", err);
                     seneca.log.error('[API-GW: AUTH] - ERROR: ', err);
-                    return reply(err);
+                    return reply({id: 401, msg: err.errors ? err.errors[0].message : err.message || err});
                 });
             return void 0;
         }

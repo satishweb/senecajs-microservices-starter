@@ -59,6 +59,14 @@ module.exports = function(sequelize) {
         token: { type: Sequelize.STRING }
     })
 
+    var Invitation = sequelize.define('invitations', {
+        email: {type: Sequelize.STRING, notNull: true},
+        firstName: { type: Sequelize.STRING },
+        lastName: { type: Sequelize.STRING },
+        orgId: { type: Sequelize.INTEGER },
+        token: { type: Sequelize.STRING }
+    })
+
     // User.belongsToMany(Organization, { as: 'users', through: 'join_userorgs', foreignKey: 'userId', otherKey: 'orgId' });
     // Organization.belongsToMany(User, { as: 'orgs', through: 'join_userorgs', foreignKey: 'orgId', otherKey: 'userId' });
     // User.hasMany(Organization, { as: 'owner', foreignKey: 'ownerId' });

@@ -20,25 +20,20 @@ var Invitation = null;
  * @returns {Promise} Promise containing fetched invitation document if successful, else containing the error message
  */
 function checkInDB(token, decodedToken) {
-    return new Promise(function (resolve, reject) {
-        
-        // fetch invitation matching the email Id, organization Id and token
-        Invitation.findOne({ email: decodedToken.email, orgId: decodedToken.orgId, token: token })
-            .then(function (findResponse) {
-                // if no document is found return message for invitation used
-                if (lodash.isEmpty(findResponse)) {
-                    reject({
-                        id: 400, msg: err || 'Invalid invitation or already used. Please ask admin to send invitation' +
+    // fetch invitation matching the email Id, organization Id and token
+    return Invitation.findOne({ where: { email: decodedToken.email, orgId: decodedToken.orgId, token: token } })
+        .then(function(findResponse) {
+            // if no document is found return message for invitation used
+            if (lodash.isEmpty(findResponse)) {
+                return Promise.reject({
+                    id: 400,
+                    msg: 'Invalid invitation or already used. Please ask admin to send invitation' +
                         ' again if not registered yet.'
-                    });
-                } else {
-                    resolve(findResponse)
-                }
-            })
-            .catch(function (err) {
-                reject({ id: 400, msg: err });
-            });
-    });
+                });
+            } else {
+                return Promise.resolve(findResponse);
+            }
+        })
 }
 
 /**
@@ -51,14 +46,12 @@ function checkInDB(token, decodedToken) {
  * containing the error message
  */
 function callForgotPassword(decodedToken, header, seneca) {
-    return new Promise(function (resolve, reject) {
-        utils.microServiceCall(seneca, 'authentication', 'forgotPassword', {email: decodedToken.email, orgId: decodedToken.orgId, fromInvitation: true}, header, function (err, result){
-            if (err) {
-                reject(err);
-            } else {
-                resolve(result.content.data);
-            }
-        });
+    return utils.microServiceCall(seneca, 'authentication', 'forgotPassword', { email: decodedToken.email, orgId: decodedToken.orgId, fromInvitation: true }, header, function(err, result) {
+        if (err) {
+            return Promise.reject(err);
+        } else {
+            return Promise.resolve(result.content.data);
+        }
     });
 }
 
@@ -73,13 +66,13 @@ function sendResponse(result, done) {
     if (result !== null) {
         done(null, {
             statusCode: 200,
-            content   : outputFormatter.format(true, 2220, result, 'Invitation')
+            content: outputFormatter.format(true, 2220, result, 'Invitation')
         });
     } else {
         //else return error
         done(null, {
             statusCode: 200,
-            content   : outputFormatter.format(false, 102)
+            content: outputFormatter.format(false, 102)
         });
     }
 }
@@ -90,42 +83,41 @@ function sendResponse(result, done) {
  * token for it to be used to reset the password by the invited user
  * @param {Object} options Contains the seneca instance
  */
-module.exports = function (options) {
+module.exports = function(options) {
     var seneca = options.seneca;
-    return function (args, done) {
+    var dbConnection = options.dbConnection;
+    return function(args, done) {
 
         // load mongoose model for invitations
-        Invitation = Invitation || mongoose.model('Invitations');
-        var decodedToken = null;    // stores the decoded token
-        
+        Invitation = Invitation || dbConnection.models.invitations;
+        var decodedToken = null; // stores the decoded token
+
         // verify and decode the input invitation token and pass an error message if invalid
         utils.verifyTokenAndDecode(args.header.authorization, 'Invalid invitation. Invitation might have expired. ' +
-            'Please ask admin to resend invite.')
-            .then(function (response) {
-                decodedToken = response;    // save the decoded token details
-                
+                'Please ask admin to resend invite.')
+            .then(function(response) {
+                decodedToken = response; // save the decoded token details
+
                 // check if the invitation is present in the database or has already been used
                 return checkInDB(args.header.authorization, response)
             })
-            .then(function () {
+            .then(function() {
                 // call forgot password to create a reset token
                 return callForgotPassword(decodedToken, args.header, seneca);
             })
-            .then(function (response) {
+            .then(function(response) {
                 return sendResponse(response, done);
             })
-            .catch(function (err) {
-                
+            .catch(function(err) {
+
                 // in case of error, print the error and send as response
                 utils.senecaLog(seneca, 'error', __filename.split('/').pop(), err);
 
                 // if the error message is formatted, send it as reply, else format it and then send
-                done(null,
-                    {
-                        statusCode: 200,
-                        content   : err.success === true || err.success === false ? err :
-                            utils.error(err.id || 400, err ? err.msg : 'Unexpected error', microtime.now())
-                    });
+                done(null, {
+                    statusCode: 200,
+                    content: err.success === true || err.success === false ? err : utils.error(err.id || 400, err ? err.msg : 'Unexpected error', microtime.now())
+                });
             });
     };
 };

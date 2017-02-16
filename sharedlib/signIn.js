@@ -134,67 +134,6 @@ module.exports.findUser = function(User, Email, input, header, seneca) {
                     
                     // resolve user if found
                     resolve(result);
-                /*} else {
-                    var userFound = true;
-                    var user = lodash.filter(result, function(user) {
-                        if (input.orgId) {
-                            return (user.userId == ownerId || lodash.indexOf(user.orgIds, input.orgId) != -1)
-                        } else {
-                            return (!lodash.isEmpty(user.ownedOrgIds));
-                        }
-                    });*/
-
-                    // console.log("User before get ---- ", result);
-
-                    /*if (ownerId && result.userId === ownerId) {
-                        resolve(result);
-                    } else if (input.orgId) {
-                        result.getOrganizations({ where: { orgId: input.orgId } })
-                            .then(function(org) {
-                                if (lodash.isEmpty(org)) {
-                                    console.log("Org user not found ---- ");
-                                    reject(outputFormatter.format(false, 2270, null, 'email'));
-                                } else {
-                                    console.log("Response of getOrgs for org ---- ", org[0].toJSON(), result.password);
-                                    resolve(result);
-                                }
-                            })
-                            .catch(function(err) {
-                                console.log("Error in getOrgs ---- ", err);
-                            })
-                    } else {
-                        
-                        // TODO: Add condition for users signing in from main site
-                        resolve(result);*/
-                    
-                        // fetch ownedOrganizations using user instance
-                        /*result.getOwnedOrgs()
-                            .then(function(org) {
-                                if (lodash.isEmpty(org)) {
-                                    console.log("Main site not owner ---- ");
-                                    reject(outputFormatter.format(false, 2270, null, 'email'));
-                                } else {
-                                    console.log("Response of getOrgs for main site ---- ");
-                                    resolve(result);
-                                }
-                            })
-                            .catch(function(err) {
-                                console.log("Error in getOrgs ---- ", err);
-                            })*/
-                        /*result.getOwnedOrgs()
-                            .then(function(org) {
-                                if (lodash.isEmpty(org)) {
-                                    console.log("Main site not owner ---- ");
-                                    reject(outputFormatter.format(false, 2270, null, 'email'));
-                                } else {
-                                    console.log("Response of getOrgs for main site ---- ");
-                                    resolve(result);
-                                }
-                            })
-                            .catch(function(err) {
-                                console.log("Error in getOrgs ---- ", err);
-                            })
-                    }*/
                 }
             })
             .catch(function(err) {
@@ -247,7 +186,7 @@ module.exports.updateLoginTime = function(User, userDetails) {
         // Update lastLoggedInTime in user document and return updated document.
         User.update({ lastLoggedInTime: microtime.now() / 1000 }, { where: { userId: userDetails.userId }, returning: true, plain: true })
             .then(function (updatedUser) {
-                console.log("Updated response --- ", updatedUser);
+                // console.log("Updated response --- ", updatedUser);
                 // if user details updated and returned,
                 // remove password and return remaining details
                 resolve(updatedUser[1].toJSON());

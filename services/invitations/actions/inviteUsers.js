@@ -9,12 +9,14 @@ var Promise = require('bluebird');
 var jwt = require('jsonwebtoken');
 var microtime = require('microtime');
 var Invitation = null;
-
+var User = null;
+var Email = null;
+var Organization = null;
 
 //Joi validation Schema
 //TODO: MOVE
 var saveInvitedUsersSchema = Joi.object().keys({
-    users: Joi.array().items(Joi.object().keys({    // array of users, with email and first name as required and
+    users: Joi.array().items(Joi.object().keys({ // array of users, with email and first name as required and
         // last name optional
         email: Joi.string().trim().regex(/^\s*[\w\-\+​_]+(\.[\w\-\+_​]+)*\@[\w\-\+​_]+\.[\w\-\+_​]+(\.[\w\-\+_]+)*\s*$/)
             .required(),
@@ -32,20 +34,14 @@ var saveInvitedUsersSchema = Joi.object().keys({
  * successful, else rejected with the error if unsuccessful
  */
 var fetchMatchingPendingInvitations = function fetchMatchingPendingInvitations(emailIds, orgId) {
-    return new Promise(function(resolve, reject) {
-
-        // fetch all invitations matching any of the email Id and sent for the same organization
-        Invitation.find({ email: emailIds, orgId: orgId })
-            .then(function (invitationPending) {
-                // if pending invitations are successfully fetched, return them along with all the
-                // input email Ids
-                resolve({ all: emailIds, pending: invitationPending });
-            })
-            .catch(function (err) {
-                // in case of error, reject with the error message
-                reject({ id: 400, msg: err.msg });
-            })
-    });
+    // fetch all invitations matching any of the email Id and sent for the same organization
+    return Invitation.findAll({ where: { email: { $in: emailIds }, orgId: orgId }, raw: true })
+        .then(function(invitationPending) {
+            console.log("Invitations ---- ", invitationPending);
+            // if pending invitations are successfully fetched, return them along with all the
+            // input email Ids
+            return Promise.resolve({ all: emailIds, pending: invitationPending });
+        })
 };
 
 /**
@@ -58,23 +54,29 @@ var fetchMatchingPendingInvitations = function fetchMatchingPendingInvitations(e
  * matching the email Ids if successful, else rejected with the error if unsuccessful
  */
 var fetchUsers = function fetchUsers(seneca, emailIds, orgId) {
-    return new Promise(function(resolve, reject) {
 
-        // microservice call to getUsers to fetch existing users matching the email Ids and organization
-        // the input body tells the output should be a list of users whose email Ids match the given ones and they are a part of the same organization
-        // creating a JWT token containing the organization Id and isMicroservice flag
-        utils.microServiceCall(seneca, 'ugrp', 'getUsers', { action: "list", filter: { email: emailIds } },
-            utils.createMsJWT({ orgId: orgId, isMicroservice: true }),
-            function(err, response) {
-
-                // if error or the response contains success false, return error message
-                if (err || (response && response.content && !response.content.success)) {
-                    reject({ id: 400, msg: err || response.content.message.description })
-                } else { // else return the uninvited email Ids and the existing users matching those emails Ids
-                    resolve({ uninvited: emailIds, existing: response.content.data.content });
-                }
-            });
-    });
+    // microservice call to getUsers to fetch existing users matching the email Ids and organization
+    // the input body tells the output should be a list of users whose email Ids match the given ones and they are a part of the same organization
+    // creating a JWT token containing the organization Id and isMicroservice flag
+    /*utils.microServiceCall(seneca, 'ugrp', 'getUsers', { action: "list", filter: { email: emailIds } },
+        utils.createMsJWT({ orgId: orgId, isMicroservice: true }),
+        function(err, response) {*/
+    return User.findAll({
+            include: [{
+                model: Email,
+                as: 'emails',
+                where: { email: { $in: emailIds } }
+            }, {
+                model: Organization,
+                where: { orgId: orgId }
+            }],
+            raw: true
+        })
+        .then(function(users) {
+            console.log("Fetched registered users ---- ", users);
+            // else return the uninvited email Ids and the existing users matching those emails Ids
+            return Promise.resolve({ uninvited: emailIds, existing: users });
+        })
 };
 
 /**
@@ -99,12 +101,12 @@ var sendInvitations = function sendInvitations(seneca, orgId, input, newUsers, p
 
             // create the input data to be stored in the JWT token
             var data = { email: email, firstName: input[email].firstName, lastName: input[email].lastName, orgId: orgId };
-            var jwt = createJwt(data);  // create invitation JWT token with created data
-            data.token = jwt;   // add token to data to save in database
-            
+            var jwt = createJwt(data); // create invitation JWT token with created data
+            data.token = jwt; // add token to data to save in database
+
             // save invitation to DB
             Invitation.create(data)
-                .then(function (result) {
+                .then(function(result) {
                     if (!lodash.isEmpty(result)) { // if invitation is saved successfully, send invitation
                         sendEmail(seneca, data, url);
                     }
@@ -115,7 +117,7 @@ var sendInvitations = function sendInvitations(seneca, orgId, input, newUsers, p
     // for pending invitees - resend token
     // if there are pending invitations present, iterate over them and send them again
     if (pendingInvitations && lodash.isArray(pendingInvitations)) {
-        pendingInvitations.forEach(function(invite) {   // for each pending invitee send invitation
+        pendingInvitations.forEach(function(invite) { // for each pending invitee send invitation
             sendEmail(seneca, invite, url)
         })
     }
@@ -129,15 +131,15 @@ var sendInvitations = function sendInvitations(seneca, orgId, input, newUsers, p
  * @param {String} url The reset URL to be sent in the email
  */
 function sendEmail(seneca, input, url) {
-    var token = utils.createMsJWT({ 'isMicroservice': true });  // create JWT token for microservice call
-    
+    var token = utils.createMsJWT({ 'isMicroservice': true }); // create JWT token for microservice call
+
     // create the input for email - use the subject and content from the translations file and pass any arguments needed
     var body = {
         subject: outputFormatter.email('InvitationSubject'),
         emailId: [input.email],
         content: outputFormatter.email('InvitationMessage', input.firstName || 'User', url + input.token)
     };
-    
+
     // make microservice call to send email
     utils.microServiceCall(seneca, 'email', 'sendEmail', body, token, null);
 }
@@ -151,8 +153,8 @@ function sendEmail(seneca, input, url) {
 function createJwt(input) {
     var options = { expiresIn: process.env.INVITATION_EXPIRY_TIME }; // set the token expiry time as invitation
     // expiry time
-    var key = process.env.JWT_SECRET_KEY;   // set the JWT secret
-    return jwt.sign(input, key, options);   // create the JWT token
+    var key = process.env.JWT_SECRET_KEY; // set the JWT secret
+    return jwt.sign(input, key, options); // create the JWT token
 }
 
 /**
@@ -161,8 +163,11 @@ function createJwt(input) {
  * @param {Function} done The done formats and sends the response.
  */
 var sendResponse = function(done) {
-    done(null, { statusCode: 200, content: outputFormatter.format(true, 2000, null, "Invitations have been sent" +
-        " successfully.") });
+    done(null, {
+        statusCode: 200,
+        content: outputFormatter.format(true, 2000, null, "Invitations have been sent" +
+            " successfully.")
+    });
 };
 
 /**
@@ -175,56 +180,64 @@ var sendResponse = function(done) {
  */
 module.exports = function(options) {
     var seneca = options.seneca;
-    var ontology = options.wInstance;
+    var dbConnection = options.dbConnection;
     return function(args, done) {
 
         // load the mongoose model for invitations collection
-        Invitation = ontology.collections.invitations;
-        var orgId = null;   // the organization Id to be set from the input token
-        var input = null;   // stores the input details formatted by email Ids
-        var pendingInvitations = null;  // to store the array of pending invitations
+        Invitation = Invitation || dbConnection.models.invitations;
+        User = User || dbConnection.models.users;
+        Email = Email || dbConnection.models.emails;
+        Organization = Organization || dbConnection.models.organizations;
+
+        var orgId = null; // the organization Id to be set from the input token
+        var input = null; // stores the input details formatted by email Ids
+        var pendingInvitations = null; // to store the array of pending invitations
 
         // validate if input is according to Joi schema
         utils.checkInputParameters(args.body, saveInvitedUsersSchema)
             .then(function() {
-                // verify and decode the input token
-                return utils.verifyTokenAndDecode(args.header.authorization)
-            })
-            .then(function(decoded) {
-                orgId = decoded.orgId;  // set the organization Id from the decoded token
+                orgId = args.credentials.orgId; // set the organization Id from the decoded token
 
                 // format the input array to an object with email Ids as key for easier access (removes duplicates
                 // in the process)
                 input = lodash.keyBy(args.body.users, 'email');
-                var emailIds = lodash.keys(input);  // get an array of input email Ids
+                var emailIds = lodash.keys(input); // get an array of input email Ids
 
+
+                console.log("Emails --- ", emailIds);
                 // fetch all pending invitations matching the input emails
                 return fetchMatchingPendingInvitations(emailIds, orgId);
             })
             .then(function(response) {
-                pendingInvitations = response.pending;  // store the pending invitations that match the input email Ids
+                pendingInvitations = response.pending; // store the pending invitations that match the input email Ids
 
                 // array of email Ids belonging to pending invitations to remove from input email Ids
                 var pendingEmails = lodash.keys(lodash.groupBy(response.pending, 'email'));
+
+                console.log("Pending emails --- ", pendingEmails);
                 // remove the pending invitation email Ids from array of input email Ids to get uninvited users
                 var uninvited = lodash.difference(response.all, pendingEmails);
+
+                console.log("Uninvited ---- ", uninvited);
                 //fetch already registered users matching the uninvited email Ids
                 return fetchUsers(seneca, uninvited, orgId);
             })
             .then(function(response) {
                 // array of email Ids belonging to already registered users to remove from uninvited email Ids
-                var existingUserEmails = lodash.keys(lodash.keyBy(response.existing, 'email'));
+                var existingUserEmails = lodash.keys(lodash.keyBy(response.existing, 'emails.email'));
 
+                console.log("Existing users --- ", existingUserEmails);
                 // array of new invitees' email Ids by removing existing email Ids
                 var newUsers = lodash.difference(response.uninvited, existingUserEmails);
 
+                console.log("new Users --- ", newUsers);
                 // create, save and send invitations to new users and send pending invitations to pending users
                 sendInvitations(seneca, orgId, input, newUsers, pendingInvitations, args.header.origin || ('https://' + process.env.APP_URL));
                 // return reply without waiting for the response of sendInvitations
                 sendResponse(done);
             })
             .catch(function(err) {
-                
+                console.log("Error in inviteUsers ---- ", err);
                 // in case of error, print the error and send as response
                 utils.senecaLog(seneca, 'error', __filename.split('/').pop(), err);
                 // if the error message is formatted, send it as reply, else format it and then send

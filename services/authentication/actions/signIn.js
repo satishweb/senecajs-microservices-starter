@@ -71,60 +71,77 @@ function checkOrganizationStatus(orgDetails) {
 /**
  * @method checkIfUserMemberInOrganization
  * @param {Object} orgDetails used to get organization details
- * @param {Object} userDetails used to get user details
+ * @param {Object} user the user instance
  * @returns {Promise} Promise containing the true details if successful, else containing the error message
  */
-function checkIfUserMemberInOrganization(orgDetails, userDetails) {
-    return new Promise(function(resolve, reject) {
-        checkOrganizationStatus(orgDetails)
-            .then(function(response) {
-                // console.log("------- ", userDetails, response, orgDetails.orgId);
-                if (response.ownerId == userDetails.userId) { //check if userId is same as ownerId of organization
-                    resolve([orgDetails, true]);
-                } else {
-                    userDetails.getOrganizations({ where: { orgId: orgDetails.orgId } })
-                        .then(function(org) {
-                            if (lodash.isEmpty(org)) {
-                                // console.log("Org user not found ---- ");
-                                reject({ id: 400, msg: 'User not member of organization' });
-                            } else {
-                                // console.log("Response of getOrgs for org ---- ", org[0].toJSON());
-                                resolve([orgDetails, false]);
-                            }
-                        })
-                        .catch(function(err) {
-                            // console.log("Error in getOrgs ---- ", err);
-                            reject(err);
-                        })
-                }
-            }).catch(function(err) {
-                reject(err);
-            })
-    })
+function checkIfUserMemberInOrganization(orgDetails, user, protocol) {
+    return checkOrganizationStatus(orgDetails)
+        .then(function(response) {
+            // console.log("------- ", userDetails, response, orgDetails.orgId);
+            if (response.ownerId == user.userId) { //check if userId is same as ownerId of organization
+                return fetchAllOrganizations(user, protocol, null, null);
+            } else {
+                return fetchAllOrganizations(user, protocol, orgDetails.orgId, null);
+            }
+        });
 }
 
-/**
- * 
- */
-function fetchOrganization(userId, header, seneca) {
-    return new Promise(function(resolve, reject) {
-        utils.fetchOrganizationId(null, header, seneca)
-            .then(function(org) {
-                var isOwner = false;
-                // console.log("Org fetched ---- ", org);
-                if (lodash.isEmpty(org)) { //check if result is empty
-                    reject({ id: 400, msg: 'Invalid Organization/Sub-Domain' });
-                } else if (org && org.orgId && org.isDeleted == false) { //check if
-                    // organization is not deleted
-                    if (org.ownerId == userId) { //check if userId is same as ownerId of organization
-                        isOwner = true;
+function fetchAllOrganizations(user, protocol, orgId, fqdn) {
+    var orgs = {};
+    orgs[protocol + '://' + process.env.APP_URL] = { orgId: null, isOwner: user.registrationStep != null };
+    var userId = user.userId;
+    var inOrg = false;
+    return user.getOrganizations({ where: { isDeleted: false }, attributes: ['orgId', 'ownerId', 'fqdn'] })
+        .then(function(fetchedOrgs) {
+            console.log("orgs ---- ", fetchedOrgs);
+            if (!lodash.isEmpty(fetchedOrgs)) {
+                fetchedOrgs.forEach(function(org) {
+                    orgs[protocol + '://' + org.fqdn] = { orgId: org.orgId, isOwner: org.ownerId == userId }
+                    if (orgId && !inOrg && org.orgId == orgId) {
+                        inOrg = true;
+                    } else if (fqdn && !inOrg && org.fqdn == fqdn) {
+                        inOrg = true;
                     }
-                    resolve([org, isOwner]);
-                } else {
-                    reject({ id: 400, msg: 'This Organization is currently disabled. Please contact Organization Admin.' });
-                }
-            })
-    });
+                });
+                console.log("orgs after for each ---- ", orgs, inOrg);
+            }
+            if (orgId && !inOrg) {
+                return Promise.reject({ id: 400, msg: 'User does not belong to this organization.' });
+            }
+            return user.getOwnedOrgs({ where: { isDeleted: false }, attributes: ['orgId', 'ownerId', 'fqdn'] })
+        })
+        .then(function(fetchedOrgs) {
+            if (fetchedOrgs) {
+                fetchedOrgs.forEach(function(org) {
+                    orgs[protocol + '://' + org.fqdn] = { orgId: org.orgId, isOwner: org.ownerId == userId };
+                    if (fqdn && !inOrg && org.fqdn == fqdn) {
+                        inOrg = true;
+                    }
+                });
+            }
+            if (fqdn && !inOrg) {
+                return Promise.reject({ id: 400, msg: 'User does not belong to this organization.' });
+            }
+            console.log("After merging ---- ", orgs);
+            return orgs;
+        })
+}
+
+
+/**
+ * TODO: fetch all organizations
+ */
+function fetchOrganization(user, header, protocol) {
+    header = url.parse(header.origin);
+    header = header.host;
+    var urlComp = header.split(':'); // remove the trailing port for localhost
+
+    // if main site, no need to check if user exists in the organization    
+    if (urlComp[0] == process.env.APP_URL) {
+        return fetchAllOrganizations(user, protocol, null, null);
+    } else { // for any other sub domain, need to check if the organization exists and user belongs to it
+        return fetchAllOrganizations(user, protocol, null, urlComp[0]);
+    }
 }
 
 /**
@@ -159,12 +176,11 @@ module.exports = function(options) {
     return function(args, done) {
 
         var finalResponse = null; // stores the final response to be returned
-        var orgId = null; // stores the organization Id fetched by sub-domain
-        var orgName = null; // stores the organization name
-        var ownerId = null;
         var user = null;
-        var isOwner = false; // flag for whether the user is owner of the organization
         var emails = null;
+        var orgs = {};
+        var orgId = null;
+        var isOwner = false;
 
         // load database models
         User = User || dbConnection.models.users;
@@ -203,47 +219,41 @@ module.exports = function(options) {
             })
             .then(function(response) {
                 // console.log("Response of checkStatus ---- ", response);
-                if (response && response.content && response.content.data) {
-                    orgId = response.content.data.orgId;
-                }
                 var appUrl = process.env.APP_URL;
                 var port = args.header.origin.split(":");
                 if (process.env.SYSENV == 'local') {
                     appUrl = process.env.APP_URL + ':' + port[port.length - 1];
                 }
-                // console.log('App url:- ', appUrl != args.header.origin.split('://')[1], appUrl, args.header.origin.split('://')[1]);
                 if (args.body.subDomain) {
-                    return checkIfUserMemberInOrganization(response.content.data, user);
-                } else if (appUrl != args.header.origin.split('://')[1]) {
-                    return fetchOrganization(user.userId, args.header, seneca);
+                    return checkIfUserMemberInOrganization(response.content.data, user, args.header.origin.split('://')[0]);
                 } else {
-                    return new Promise(function(resolve) {
-                        resolve([true, false]);
-                    })
+                    return fetchOrganization(user, args.header, args.header.origin.split('://')[0]);
                 }
             })
-            .spread(function(orgDetails, owner) {
-                isOwner = owner;
-                if (orgDetails && orgDetails.orgId) {
-                    orgId = orgDetails.orgId;
+            .then(function(org) {
+                var fqdn = null;
+                orgs = org;
+                if (orgs[args.header.origin]) {
+                    orgId = orgs[args.header.origin].orgId;
+                    isOwner = orgs[args.header.origin].isOwner;
                 }
+                console.log("Org ----- ", org);
                 // console.log("Response of checkMember/fetchOrg ---- ", orgDetails);
                 return signIn.updateLoginTime(User, user);
             })
-            .then(function(userDetails) {
-                // console.log("userDetails ---- ", userDetails);
-                userDetails.isOwner = isOwner;
+            .then(function (userDetails) {
+                delete userDetails.password;
                 userDetails.orgId = orgId;
-                return utils.createJWT(userDetails, args.header);
+                userDetails.isOwner = isOwner;
+                userDetails.emails = emails;
+                return utils.createJWT(userDetails, orgs, args.header);
             })
             .then(function(response) {
                 finalResponse = response.output;
+                response.sessionData.emailId = args.body.email;
                 return session.createSession(Session, response.output.token, response.sessionData);
             })
             .then(function(response) {
-                delete finalResponse.password;
-                finalResponse.emails = emails;
-                // console.log("Final response ---- ", finalResponse);
                 sendResponse(finalResponse, done);
             })
             .catch(function(err) {

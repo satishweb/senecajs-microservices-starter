@@ -85,15 +85,11 @@ module.exports = function (options) {
                     args.header.origin = args.header.origin + ':' + port[port.length - 1]; //add port number where project is
                     // deployed
                 }
-                decodedHeader.orgId = response.orgId;
-                if (decodedHeader.userId == response.ownerId) {
-                    decodedHeader.isOwner = true;
-                } else {
-                    decodedHeader.isOwner = false;
-                }
-                utils.createJWT(decodedHeader, args.header)
+                decodedHeader.origin[args.header.origin] = { orgId: response.orgId, isOwner: true }
+                utils.createJWT(decodedHeader, decodedHeader.origin, args.header)
                     .then(function(result) {
                         output.registrationToken = result.output.token;
+                        result.sessionData.emailId = result.sessionData.emailId[0];
                         return session.createSession(Session, result.output.token, result.sessionData);
                     })
                     .then(function() {

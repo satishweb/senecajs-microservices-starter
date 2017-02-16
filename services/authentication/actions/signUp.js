@@ -6,6 +6,7 @@ var utils = require(__base + 'sharedlib/utils');
 var Locale = require(__base + 'sharedlib/formatter');
 var outputFormatter = new Locale(__base);
 var Joi = require('joi');
+var lodash = require('lodash');
 var microtime = require('microtime');
 var User = null;
 var Session = null;
@@ -99,24 +100,17 @@ module.exports = function(options) {
                 flag = Flag;
                 response = response.toJSON();
                 delete response.password;
+                response.emails = lodash.keys(lodash.keyBy(response.emails, 'email'));
                 response.isOwner = true; // only organization owner's can sign up, so set isOwner to true in response
                 response.orgId = null;
+                var orgs = {};
+                orgs[args.header.origin.split('://')[0] + '://' + process.env.APP_URL] = { orgId: null, isOwner: true };
                 // create a session token for the signed up user
-                return utils.createJWT(response, args.header);
+                return utils.createJWT(response, orgs, args.header);
             })
-            /*.then(function(response) {
-                finalResponse = response; // store the final response for further use
-                // if user signed up using email, send confirmation mail with set password link
-                if (args.body.email) {
-                    return signUp.callForgotPassword(response.output, args.header, options);
-                } else { // else continue
-                    return new Promise(function(resolve) {
-                        resolve();
-                    });
-                }
-            })*/
             .then(function (response) {
                 finalResponse = response; // store the final response for further use
+                finalResponse.sessionData.emailId = args.body.email;
                 // create a session and delete any previous sessions of the user
                 return session.createSession(Session, finalResponse.output.token, finalResponse.sessionData);
             })

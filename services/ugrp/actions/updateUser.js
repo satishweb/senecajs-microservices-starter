@@ -31,7 +31,8 @@ var userSchema = Joi.object().keys({
     birthDate: Joi.date().allow(''), // specify date format
     facebookId: Joi.string().allow('').trim(),
     googleId: Joi.string().allow('').trim(),
-    linkedInId: Joi.string().allow('').trim()
+    linkedInId: Joi.string().allow('').trim(),
+    registrationStep: Joi.number()
 });
 
 /**
