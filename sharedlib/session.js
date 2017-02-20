@@ -61,11 +61,14 @@ module.exports.deleteSessions = function deleteSessions(Session, userId, orgId, 
 
 module.exports.validateSession = function(decodedToken, requestHeaders) {
     return new Promise(function (resolve, reject) {
-        console.log(decodedToken.userAgent, requestHeaders['user-agent'], decodedToken.origin, requestHeaders.origin,
-            decodedToken.hostIp, requestHeaders['x-forwarded-for'], decodedToken.host, requestHeaders.host);
+        console.log("decodedToken --- ", decodedToken, requestHeaders, !lodash.isEmpty(decodedToken.origin[requestHeaders.origin]),
+            decodedToken.userAgent === requestHeaders['user-agent'],
+            decodedToken.hostIp === requestHeaders['x-forwarded-for'], decodedToken.host === requestHeaders.host);
         // compare received header properties with those stored in token
-        if (decodedToken.userAgent === requestHeaders['user-agent'] && decodedToken.origin === requestHeaders.origin &&
+        if (decodedToken && decodedToken.userAgent === requestHeaders['user-agent'] && !lodash.isEmpty(decodedToken.origin[requestHeaders.origin]) &&
             decodedToken.hostIp === requestHeaders['x-forwarded-for'] && decodedToken.host === requestHeaders.host) {
+            decodedToken.orgId = decodedToken.origin[requestHeaders.origin].orgId;
+            decodedToken.isOwner = decodedToken.origin[requestHeaders.origin].isOwner;
             resolve(decodedToken);
         } else {
             reject({id: '501', msg: "Token-header mismatch. Please log in again."});

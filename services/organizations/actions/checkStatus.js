@@ -204,10 +204,7 @@ module.exports = function(options) {
         var orgDetails = null;
         utils.checkInputParameters(args.body, schema)
             .then(function() {
-                return utils.verifyTokenAndDecode(args.header.authorization, 'Invalid authorization token.');
-            })
-            .then(function(response) {
-                return utils.checkIfAuthorized(response);
+                return utils.checkIfAuthorized(args.credentials);
             })
             .then(function() {
                 return fetchOrganization(args.body);

@@ -246,9 +246,11 @@ module.exports = function(options) {
                 userDetails.orgId = orgId;
                 userDetails.isOwner = isOwner;
                 userDetails.emails = emails;
-                return utils.createJWT(userDetails, orgs, args.header);
+                userDetails.origin = orgs;
+                return utils.createJWT(userDetails, args.header);
             })
-            .then(function(response) {
+            .then(function (response) {
+                delete response.output.origin;
                 finalResponse = response.output;
                 response.sessionData.emailId = args.body.email;
                 return session.createSession(Session, response.output.token, response.sessionData);

@@ -35,13 +35,16 @@ function deleteUser(input, userId) {
         // User.update({ isDeleted: true }, { where: { userId: input.userId, isDeleted: false } })
         User.findOne({ where: { userId: input.userId } })
             .then(function (user) {
+                if (lodash.isEmpty(user)) {
+                    reject({ id: 400, msg: 'User not found.' });
+                }
                 return user.removeOrganization(input.orgId);
             })    
             .then(function (removeResponse) {
                 console.log("Remove response ---- ", removeResponse);
                 // if no user is deleted, user id was not found or user does not belong to requester's organization
-                if (removeResponse != 1) {
-                    reject({ id: 400, msg: 'User Id not found in the organization.' });
+                if (lodash.isEmpty(removeResponse)) {
+                    reject({ id: 400, msg: 'Deleting user from the organization failed.' });
                 } else {
                     // TODO: uncomment after using groups
                     // removeFromGroups(input.userId, input.orgId); // remove Id of user from all groups, does not wait for response

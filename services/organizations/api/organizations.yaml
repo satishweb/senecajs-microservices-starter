@@ -120,12 +120,13 @@ paths:
           required: true
           schema:
             type: object
-            required:
-              - orgId
             properties:
               orgId:
                 type: string
                 description: "The Id of the organization to be validated"
+              subDomain:
+                type: string
+                description: "The sub-domain of the organization to be validated"
       responses:
         "200":
           description: "Ok"

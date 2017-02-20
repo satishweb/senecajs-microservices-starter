@@ -28,27 +28,25 @@ var userSchema = Joi.object().keys({
  * error message
  */
 function updateUser(input) {
-    return new Promise(function (resolve, reject) {
-        var orgIds;
-        // Update the user document by adding the organization Id to array of organizations
-        User.findOne({ userId: input.userId }, { select: ['ownedOrgIds'] })
-            .then(function (user) {
-                orgIds = user.ownedOrgIds;
-                if (lodash.isEmpty(orgIds)) {
-                    orgIds = [input.orgId];
-                } else {
-                    orgIds = lodash.concat(orgIds, input.orgId);
-                    orgIds = lodash.uniq(orgIds);   
-                }
-                return User.update({ userId: input.userId }, { ownedOrgIds: orgIds })
-            })
-            .then(function (updateResponse) {
-                resolve(updateResponse);
-            })
-            .catch(function (err) {
-                reject({ id: 400, msg: err });
-            });
-    });
+
+    // Update the user document by adding the organization Id to array of organizations
+    return User.findOne({ where: { userId: input.userId } })
+        .then(function(user) {
+            if (lodash.isEmpty(user)) {
+                return Promise.reject({ id: 400, msg: 'User Id not found.' });
+            }
+            return user.addOrganization(input.orgId);
+        })
+        .then(function(updateResponse) {
+            console.log("Update response ---- ", updateResponse);
+            // if no user is deleted, user id was not found or user does not belong to requester's organization
+            if (updateResponse != 1) {
+                return Promise.reject({ id: 400, msg: 'Adding user to the organization failed.' });
+            } else {
+                // TODO: Add to general group when using groups
+                return true;
+            }
+        })
 }
 
 /**
@@ -80,14 +78,14 @@ function sendResponse(result, done) {
 
 module.exports = function(options) {
     var seneca = options.seneca;
-    var ontology = options.wInstance;
+    var dbConnection = options.dbConnection;
     return function(args, done) {
 
         console.log("Add Organization called ------- ", args.body);
 
         // load the ontology model for Users
-        User = User || ontology.collections.users;
-        
+        User = User || dbConnection.models.users;
+
         // validate input parameters as per Joi schema
         utils.checkInputParameters(args.body, userSchema)
             .then(function() {
@@ -101,7 +99,7 @@ module.exports = function(options) {
             .then(function(response) {
                 sendResponse(response, done);
             })
-            .catch(function (err) {
+            .catch(function(err) {
                 console.log("Error in add organization --- ", err);
                 // in case of error, print the error and send as response
                 utils.senecaLog(seneca, 'error', __filename.split('/').pop(), err);

@@ -65,10 +65,12 @@ var fetchUsers = function fetchUsers(seneca, emailIds, orgId) {
             include: [{
                 model: Email,
                 as: 'emails',
-                where: { email: { $in: emailIds } }
+                where: { email: { $in: emailIds } },
+                attributes: ['email']
             }, {
                 model: Organization,
-                where: { orgId: orgId }
+                where: { orgId: orgId },
+                attributes: ['orgId']
             }],
             raw: true
         })
@@ -140,6 +142,7 @@ function sendEmail(seneca, input, url) {
         content: outputFormatter.email('InvitationMessage', input.firstName || 'User', url + input.token)
     };
 
+    console.log("Sending mail to ----- ", body.emailId);    
     // make microservice call to send email
     utils.microServiceCall(seneca, 'email', 'sendEmail', body, token, null);
 }

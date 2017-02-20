@@ -29,7 +29,6 @@ var schema = Joi.object().keys({
     name: Joi.string().required(),
     website: Joi.string().regex(/^(http\:\/\/|https\:\/\/)?([a-zA-Z0-9][a-z0-9\-]*\.)+[a-zA-Z0-9][a-zA-Z0-9\-]*/),
     description: Joi.string(),
-    isSignUp: Joi.boolean(),
     subDomain: Joi.string().lowercase().required()
 });
 
@@ -246,7 +245,8 @@ module.exports = function(options) {
 
         // load database models for organization and session
         Organization = Organization || dbConnection.models.organizations;
-        // Session = Session || ontology.collections.sessions;
+        Session = Session || dbConnection.models.sessions;
+
         if (args.body.name) { //check if name is present
             args.body.name = args.body.name.toLowerCase();
         }
@@ -285,29 +285,10 @@ module.exports = function(options) {
                 };
                 var header = utils.createMsJWT(data);
 
-                if (args.body.isSignUp) { //check if request is from sign-up then create new session for the sub-domain
-                    var port = args.header.origin.split(":");
-                    args.header.origin = args.header.origin.split("://")[0] + '://' + response.fqdn;
-                    if (process.env.SYSENV == 'local') { //check if SYSENV is local
-                        args.header.origin = args.header.origin + ':' + port[port.length - 1]; //add port number where project is
-                        // deployed
-                    }
-                    decodedHeader.orgId = response.orgId;
-                    utils.createJWT(decodedHeader, args.header)
-                        .then(function(result) {
-                            response.token = result.output.token;
-                            return session.createSession(Session, result.output.token, result.sessionData);
-                        })
-                        .then(function() {
-                            // TODO: Uncomment on adding groups functionality
-                            // createGenGroup(header, seneca);
-                            return sendResponse(response, done);
-                        })
-                } else {
-                    // TODO: Uncomment on adding groups functionality
-                    // createGenGroup(header, seneca);
-                    return sendResponse(response, done);
-                }
+                // TODO: Uncomment on adding groups functionality
+                // createGenGroup(header, seneca);
+                updateUser(args.credentials.userId, header, seneca);
+                return sendResponse(response, done);
             })
             .catch(function(err) {
                 console.log('err in create organisation--- ', err);

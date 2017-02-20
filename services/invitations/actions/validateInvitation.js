@@ -7,6 +7,9 @@ var lodash = require('lodash');
 var Promise = require('bluebird');
 var microtime = require('microtime');
 var Invitation = null;
+var User = null;
+var Email = null;
+var Organization = null;
 
 /**
  * @module validateInvitation
@@ -37,6 +40,68 @@ function checkInDB(token, decodedToken) {
 }
 
 /**
+ * Check if the user exists
+ * @method fetchUser
+ * @param {Object} email The email to fetch the user
+ * @param {Object} header The microservice header
+ * @param {Seneca} seneca Seneca instance
+ * @returns {Promise} Promise containing fetched invitation document if successful, else containing the error message
+ */
+function fetchUser(email, header, seneca) {
+    // fetch user matching the email Id
+    // return utils.microServiceCallPromise(seneca, 'ugrp', 'getUsers', { action: 'list', filter: { email: [email] } }, header, true);
+    return User.findOne({ include: [{ model: Email, as: 'emails', where: { email: email } }] });
+}
+
+
+/**
+ * Add the user to the organization
+ * @method addUserToOrg
+ * @param {Object} user The user instance returned by find
+ * @param {Object} invitation The invitation instance returned by find
+ * @param {Number} decodedToken The decoded token containing the org Id and the email
+ * @param {Number} header The input header to be forwarded to forgotPassword
+ * @param {Number} seneca The seneca instance for microservice call
+ * @returns {Promise} Promise containing fetched invitation document if successful, else containing the error message
+ */
+function addUserToOrg(user, invitation, decodedToken, header, seneca) {
+    if (lodash.isEmpty(user)) {
+        return callForgotPassword(decodedToken, header, seneca)
+            .then(function(response) {
+                return response.content.data;
+            })
+    } else {
+        // if user is already present, add him to the organization
+        return user.addOrganization(decodedToken.orgId)
+            .then(function(updateResponse) {
+                console.log("Update response ---- ", updateResponse);
+                // if no user is deleted, user id was not found or user does not belong to requester's organization
+                if (lodash.isEmpty(updateResponse)) {
+                    return Promise.reject({ id: 400, msg: 'Adding user to the organization failed or user already added to organization.' });
+                } else {
+                    // TODO: Add to general group when using groups
+                    // delete the invitation token
+                    return invitation.destroy();
+                }
+            })
+    }
+}
+
+/**
+ * Add user to organization by calling add Organization
+ * @method callAddOrg
+ * @param {Number} userId The Id of the user to be added to the organization
+ * @param {Number} orgId The Id of the organization be added to
+ * @param {Object} header The microservice header
+ * @param {Seneca} seneca Seneca instance
+ * @returns {Promise} Promise containing fetched invitation document if successful, else containing the error message
+ */
+function callAddOrg(userId, orgId, header, seneca) {
+    // add user to the organization
+    return utils.microServiceCallPromise(seneca, 'ugrp', 'addOrganization', { orgId: orgId, userId: userId }, header, true);
+}
+
+/**
  * If invitation is valid and found in database, create a reset password token by calling forgot password
  * @method callForgotPassword
  * @param {Object} decodedToken The decoded token used to get the email Id and the organization Id
@@ -46,13 +111,7 @@ function checkInDB(token, decodedToken) {
  * containing the error message
  */
 function callForgotPassword(decodedToken, header, seneca) {
-    return utils.microServiceCall(seneca, 'authentication', 'forgotPassword', { email: decodedToken.email, orgId: decodedToken.orgId, fromInvitation: true }, header, function(err, result) {
-        if (err) {
-            return Promise.reject(err);
-        } else {
-            return Promise.resolve(result.content.data);
-        }
-    });
+    return utils.microServiceCallPromise(seneca, 'authentication', 'forgotPassword', { email: decodedToken.email, orgId: decodedToken.orgId, fromInvitation: true }, header, true);
 }
 
 /**
@@ -63,7 +122,7 @@ function callForgotPassword(decodedToken, header, seneca) {
  */
 function sendResponse(result, done) {
     // if the invitation is valid and reset URL and token is returned by forgot password, return them
-    if (result !== null) {
+    if (!lodash.isEmpty(result)) {
         done(null, {
             statusCode: 200,
             content: outputFormatter.format(true, 2220, result, 'Invitation')
@@ -72,7 +131,7 @@ function sendResponse(result, done) {
         //else return error
         done(null, {
             statusCode: 200,
-            content: outputFormatter.format(false, 102)
+            content: outputFormatter.format(true, 2000, null, 'Invitation verified successfully and user added to organization.')
         });
     }
 }
@@ -90,7 +149,12 @@ module.exports = function(options) {
 
         // load mongoose model for invitations
         Invitation = Invitation || dbConnection.models.invitations;
+        User = User || dbConnection.models.users;
+        Email = Email || dbConnection.models.emails;
+        Organization = Organization || dbConnection.models.organizations;
+
         var decodedToken = null; // stores the decoded token
+        var invitationInstance = null;
 
         // verify and decode the input invitation token and pass an error message if invalid
         utils.verifyTokenAndDecode(args.header.authorization, 'Invalid invitation. Invitation might have expired. ' +
@@ -101,11 +165,20 @@ module.exports = function(options) {
                 // check if the invitation is present in the database or has already been used
                 return checkInDB(args.header.authorization, response)
             })
-            .then(function() {
+            .then(function(response) {
+
+                invitationInstance = response;
                 // call forgot password to create a reset token
-                return callForgotPassword(decodedToken, args.header, seneca);
+                return fetchUser(decodedToken.email, args.header, seneca);
+            })
+            .then(function(user) {
+                console.log("Response of fetch user ---- ", user);
+
+                // call forgot password to create a reset token
+                return addUserToOrg(user, invitationInstance, decodedToken, args.header, seneca);
             })
             .then(function(response) {
+                console.log("Response of ---- ", response);
                 return sendResponse(response, done);
             })
             .catch(function(err) {

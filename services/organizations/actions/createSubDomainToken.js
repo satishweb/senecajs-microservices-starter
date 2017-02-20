@@ -28,10 +28,10 @@ function fetchOrganization(orgId, userId) {
             .then(function(org) {
                 if (lodash.isEmpty(org)) {
                     reject({ id: 400, msg: "Invalid organization Id" });
-                } else if (org.ownerId == userId){
+                } else if (org.ownerId == userId) {
                     resolve(org)
                 } else {
-                    reject({id: 400, msg: "Only organization owner can fetch sub domain token."});
+                    reject({ id: 400, msg: "Only organization owner can fetch sub domain token." });
                 }
             })
             .catch(function(err) {
@@ -62,11 +62,11 @@ function sendResponse(result, done) {
 }
 
 
-module.exports = function (options) {
+module.exports = function(options) {
     var seneca = options.seneca;
     var dbConnection = options.dbConnection;
-    return function (args, done) {
-        
+    return function(args, done) {
+
         Organization = Organization || dbConnection.models.organizations;
         Session = Session || dbConnection.models.sessions;
 
@@ -77,19 +77,22 @@ module.exports = function (options) {
                 decodedHeader = args.credentials;
                 return fetchOrganization(args.body.orgId, decodedHeader.userId);
             })
-            .then(function(response) {
-                output = response;
+            .then(function (response) {
+                output = response.toJSON();
                 var port = args.header.origin.split(":");
                 args.header.origin = args.header.origin.split("://")[0] + '://' + response.fqdn;
-                if (process.env.SYSENV == 'local') { //check if SYSENV is local
+                if (process.env.SYSENV == 'local' && args.header['user-agent'] != 'Postman') { //check if SYSENV is local
                     args.header.origin = args.header.origin + ':' + port[port.length - 1]; //add port number where project is
                     // deployed
                 }
-                decodedHeader.origin[args.header.origin] = { orgId: response.orgId, isOwner: true }
-                utils.createJWT(decodedHeader, decodedHeader.origin, args.header)
+                decodedHeader.origin[args.header.origin] = { orgId: response.orgId, isOwner: true };
+                decodedHeader.emails = decodedHeader.emailId;
+                utils.createJWT(decodedHeader, args.header)
                     .then(function(result) {
+                        console.log("Result of create token ---- ", result);
                         output.registrationToken = result.output.token;
                         result.sessionData.emailId = result.sessionData.emailId[0];
+                        console.log("Output ---- ", output, result.output.token);
                         return session.createSession(Session, result.output.token, result.sessionData);
                     })
                     .then(function() {

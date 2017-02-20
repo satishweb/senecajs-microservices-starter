@@ -12,6 +12,7 @@ var url = require('url');
 var User = null;
 var Organization = null;
 var Token = null;
+var Email = null;
 var expireTime = process.env.RESET_PASS_EXPIRY_TIME || '2d'; // expiry time of token sent in redirect URL
 
 /**
@@ -19,9 +20,10 @@ var expireTime = process.env.RESET_PASS_EXPIRY_TIME || '2d'; // expiry time of t
  */
 
 //Joi validation Schema
-var forgotPasswordSchema = Joi.object().keys({
+var forgotPasswordSchema = Joi.object().keys(
+    {
     email: Joi.string().regex(/^\s*[\w\-\+​_]+(\.[\w\-\+_​]+)*\@[\w\-\+​_]+\.[\w\-\+_​]+(\.[\w\-\+_]+)*\s*$/).required(),
-    orgId: Joi.string().trim(),
+    orgId: Joi.number(),
     fromInvitation: Joi.boolean()
 });
 
@@ -33,30 +35,27 @@ var forgotPasswordSchema = Joi.object().keys({
  * invitation and containing error message if email not found
  */
 function checkEmailPresent(input) {
-    return new Promise(function(resolve, reject) {
-        // skip email check if called by send invitations
-        if (!input.fromInvitation) {
-            var find = { where: { email: input.email } };
-            if (input.orgId) {
-                find.include = [{ model: Organization, where: {orgId: input.orgId} }] 
-            }
-            // find if email exists in database
-            User.findOne(find)
-                .then(function(findResult) {
-                    // return error message if email id not found
-                    if (lodash.isEmpty(findResult)) {
-                        reject(outputFormatter.format(false, 1100, null, 'User with email address ' + input.email));
-                    } else {
-                        resolve(findResult);
-                    }
-                }).catch(function(err) {
-                    reject({ id: 400, msg: err });
-                });
-        } else {
-            // if called by send invitations continue without checking
-            resolve(true);
-        }
-    });
+    // skip email check if called by send invitations
+    if (!input.fromInvitation) {
+        var find = {};
+        find.include = [{ model: Email, as: 'emails', where: { email: input.email } }];
+        /*if (input.orgId) {
+            find.include.push({ model: Organization, where: { orgId: input.orgId } }); 
+        }*/
+        // find if email exists in database
+        return User.findOne(find)
+            .then(function (findResult) {
+                // return error message if email id not found
+                if (lodash.isEmpty(findResult)) {
+                    return Promise.reject(outputFormatter.format(false, 1100, null, 'User with email address ' + input.email));
+                } else {
+                    return Promise.resolve(findResult);
+                }
+            })
+    } else {
+        // if called by send invitations continue without checking
+        return Promise.resolve(true);
+    }
 }
 
 /**
@@ -106,7 +105,7 @@ function createTokenAndSaveDetails(args, orgId, invitedUserDetails) {
 
         // TODO: Replace with model instance static method
         // add the expiry timestamp and token to user document and return the updated document
-        Token.upsert({ tokenValidTillTimestamp: timestamp, token: token }, { where: { email: args.body.email } })
+        Token.upsert({ tokenValidTillTimestamp: timestamp, token: token, email: args.body.email, orgId: orgId }, { where: { email: args.body.email, orgId: orgId } })
             .then(function (upsertResult) {
                 resolve({token: token, userDetails: upsertResult});
             })
@@ -157,7 +156,7 @@ function sendResponse(result, done) {
     if (result !== null) {
         done(null, {
             statusCode: 200,
-            content: outputFormatter.format(true, 2240, result, 'Reset password link has been', 'on your email address. Please check your email, to reset account password.')
+            content: outputFormatter.format(true, 2000, result, 'Reset password link has been sent on your email address. Please check your email to reset account password.')
         });
     }
 }
@@ -175,6 +174,7 @@ module.exports = function(options) {
         
         // load models
         User = User || dbConnection.models.users;
+        Email = Email || dbConnection.models.emails;
         Token = Token || dbConnection.models.tokens;
         Organization = Organization || dbConnection.models.organizations;
         

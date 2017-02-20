@@ -10,6 +10,8 @@ var lodash = require('lodash');
 var microtime = require('microtime');
 var User = null;
 var Token = null;
+var Email = null;
+var Organization = null;
 
 /**
  * @module changePassword
@@ -28,9 +30,8 @@ var changePasswordSchema = Joi.object().keys({
  * @returns {Promise} Promise containing the update response if successful, else the appropriate error message
  */
 var changePassword = function(decodedToken, input, action) {
-    return new Promise(function(resolve, reject) {
         //create find object for user
-        var find = { where: { email: decodedToken.emailId } };
+        var find = { include: [{ model: Email, as: 'emails', where: { email: decodedToken.emailId } }] };
 
         // create update object for user
         var update = {
@@ -44,46 +45,40 @@ var changePassword = function(decodedToken, input, action) {
         if (decodedToken.lastName) { // if token contains user's last name, set it in the update data object
             update.lastName = decodedToken.lastName;
         }
-        if (decodedToken.orgId) { // if token contains the organization id, set it in the update data object
-            update.orgIds = decodedToken.orgIds;
-        }
 
-        // console.log("Find ---- ", find, update);
+        console.log("Find ---- ", find, update);
 
         //TODO: Replace with model instance static method
         // update user document by email
-        User.update(update, find)
-            .then(function(updateResult) {
+        return User.findOne(find)
+            .then(function(user) {
                 // if no user was updated, user does not exist, create user after checking if action is reset password
-                if (lodash.isEmpty(updateResult)) {
+                if (lodash.isEmpty(user)) {
                     // check if action is reset password to check if new user should be created
                     if (action === 'resetPassword') {
                         // add find object to update object
-                        update = lodash.assign(find, update);
+                        update.emails = [{ email: decodedToken.emailId }];
+                        console.log("Update before create user ---- ", update);
                         // create new user with update object
-                        User.create(update)
-                            .then(function (createResult) {
-                                if (lodash.isEmpty(createResult)) {
-                                    reject({ id: 400, msg: "Updating password failed." });
+                        User.create(update, { include: [{ model: Email, as: 'emails' }] })
+                            .then(function(newUser) {
+                                if (lodash.isEmpty(newUser)) {
+                                    return Promise.reject({ id: 400, msg: "Updating password failed." });
                                 } else {
-                                    resolve(createResult);
-                                }    
+                                    return newUser.addOrganization({orgId: decodedToken.orgId});
+                                }
                             })
-                            .catch(function (err) {
-                                reject({ id: 400, msg: err });
-                            });
                     } else {
-                        reject({id: 400, msg: "Updating password failed."});
+                        return Promise.reject({ id: 400, msg: "Updating password failed." });
                     }
                 } else {
-                    resolve(updateResult);
+                    return user.update(update);
                 }
             })
             .catch(function(err) {
                 // console.log("Error in change password ---- ", err);
-                reject({ id: 400, msg: err || 'Password not changed.' });
+                return Promise.reject({ id: 400, msg: err || 'Password not changed.' });
             });
-    });
 };
 
 /**
@@ -95,24 +90,17 @@ var changePassword = function(decodedToken, input, action) {
  */
 
 function removeTokenFromDB(action, token) {
-    return new Promise(function(resolve, reject) {
-        if (action === 'resetPassword') { // if action is resetPassword, delete token, else skip this
-            Token.destroy({ where: {'token': token} })
-                .then(function(result) {
-                    if (lodash.isEmpty(result)) { // if no document was removed, return error
-                        reject({ id: 400, msg: "Invalid reset token. Please generate new reset token from Forgot Password or Invitation." });
-                    } else {
-                        resolve(true);
-                    }
-                })
-                .catch(function(err) {
-                    // console.log("Error in delete token ---- ", err);
-                    reject({ id: 400, msg: err });
-                });
-        } else { // if any other action, continue
-            resolve(true);
-        }
-    });
+    if (action === 'resetPassword') { // if action is resetPassword, delete token, else skip this
+        return Token.findOne({ where: { 'token': token } })
+            .then(function (token) {
+                if (lodash.isEmpty(token)) {
+                    return Promise.reject({ id: 400, msg: "Invalid reset token. Please generate new reset token from Forgot Password or Invitation." });
+                }
+                return token.destroy();
+            })
+    } else { // if any other action, continue
+        return Promise.resolve(true);
+    }
 };
 
 /**
@@ -169,6 +157,8 @@ module.exports = function(options) {
         // load waterline models
         User = User || dbConnection.models.users;
         Token = Token || dbConnection.models.tokens;
+        Email = Email || dbConnection.models.emails;
+        Organization = Organization || dbConnection.models.organizations;
 
         var action = 'resetPassword'; // stores if password is being reset or changed, default - reset
         var decodedToken = null;
@@ -188,7 +178,7 @@ module.exports = function(options) {
                 // remove the reset password token from DB if action is resetPassword
                 return removeTokenFromDB(action, args.header.authorization);
             })
-            .then(function () {
+            .then(function() {
                 // change or reset the user password
                 return changePassword(decodedToken, args.body, action);
             })

@@ -19,7 +19,7 @@ var User = null;
 //TODO: move this
 var userGetSchema = Joi.object().keys({
     action: Joi.string().trim().allow('list', 'id'),
-    userId: Joi.any().when('action', { is: 'id', then: Joi.string().trim().required(), otherwise: Joi.any().forbidden() }),
+    userId: Joi.any().when('action', { is: 'id', then: Joi.number().required(), otherwise: Joi.any().forbidden() }),
     searchKeyword: Joi.any().when('action', { is: 'list', then: Joi.object(), otherwise: Joi.any().forbidden() }),
     filter: Joi.any().when('action', { is: 'list', then: Joi.object(), otherwise: Joi.any().forbidden() }),
     sort: Joi.any().when('action', { is: 'list', then: Joi.object(), otherwise: Joi.any().forbidden() }),

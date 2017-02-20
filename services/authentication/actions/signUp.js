@@ -105,10 +105,12 @@ module.exports = function(options) {
                 response.orgId = null;
                 var orgs = {};
                 orgs[args.header.origin.split('://')[0] + '://' + process.env.APP_URL] = { orgId: null, isOwner: true };
+                response.origin = orgs;
                 // create a session token for the signed up user
-                return utils.createJWT(response, orgs, args.header);
+                return utils.createJWT(response, args.header);
             })
             .then(function (response) {
+                delete response.output.origin;
                 finalResponse = response; // store the final response for further use
                 finalResponse.sessionData.emailId = args.body.email;
                 // create a session and delete any previous sessions of the user
