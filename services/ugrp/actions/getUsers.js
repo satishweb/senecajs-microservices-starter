@@ -37,7 +37,7 @@ function getUser(userId, orgId) {
         
         //TODO: Confirm if there is supposed to be a org check when fetching users
         
-        User.findOne({ where: { userId: userId, isDeleted: false } })
+        User.findOne({ where: { userId: userId, isDeleted: false }, attributes: { exclude: ['password'] } })
             .then( function(result) {
                 if (lodash.isEmpty(result)) {
                     reject({ id: 400, msg: "User not found." });

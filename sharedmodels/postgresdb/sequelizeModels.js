@@ -53,7 +53,7 @@ module.exports = function(sequelize) {
     });
 
     var Token = sequelize.define('tokens', {
-        orgId: { type: Sequelize.INTEGER, primaryKey: true },
+        orgId: { type: Sequelize.INTEGER, primaryKey: true, defaultValue: 0 },
         email: { type: Sequelize.STRING, primaryKey: true },
         tokenValidTillTimestamp: { type: Sequelize.STRING },
         token: { type: Sequelize.STRING }

@@ -43,14 +43,14 @@ function schema(server, options) {
                         reply.continue({ credentials: decodedToken });
                     } else {
                         seneca.log.info('[ ' + process.env.SRV_NAME + ']', "AUTH INFO : ", 'Invalid session.');
-                        reply({id: '401', msg: "Session does not exist. Please log in."});
+                        reply({id: '501', msg: "Session does not exist. Please log in."});
                     }
                     return void 0;
                 })
                 .catch(function(err) {
                     console.log("Error in jwt.secured ---- ", err);
                     seneca.log.error('[API-GW: AUTH] - ERROR: ', err);
-                    return reply(('id' in err && 'msg' in err) ? err : {id: 401, msg: err.errors ? err.errors[0].message : err.message || err});
+                    return reply(('id' in err && 'msg' in err) ? err : {id: 501, msg: err.errors ? err.errors[0].message : err.message || err});
                 });
             return void 0;
         }

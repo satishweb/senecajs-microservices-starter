@@ -4,7 +4,6 @@ var Locale = require('./formatter');
 var outputFormatter = new Locale(__dirname + '/../');
 var utils = require('./utils');
 var lodash = require('lodash');
-var mongoose = require('mongoose');
 var Promise = require('bluebird');
 var bcrypt = require('bcrypt');
 var microtime = require('microtime');

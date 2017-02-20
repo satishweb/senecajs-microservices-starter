@@ -5,11 +5,10 @@
  * Used to enter sample data into database for testing purposes
  */
 
-var utils = require(__base + '/sharedlib/utils');
+var utils = require(__base + 'sharedlib/utils');
 var lodash = require('lodash');
 var Promise = require('bluebird');
 var fs = require('fs');
-var Waterline = require('waterline');
 var bcrypt = require('bcrypt');
 var microtime = require('microtime');
 var SALT_WORK_FACTOR = 10;

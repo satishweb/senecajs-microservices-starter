@@ -23,80 +23,91 @@ var changePasswordSchema = Joi.object().keys({
 });
 
 /**
- * Update user's password to new password. If user is not found in DB, create user with input password (for reset password links sent in invitation emails)
+ * Update user's password to new password.
+ * If user is not found in DB, create user with first name and last name from token and hashed input password,
+ * and add user to organization received in token (for reset password links sent in invitation emails)
+ * Otherwise update existing user with new password.
  * @method changePassword
  * @param {Object} decodedToken Contains the user's email, firstName and lastName decoded from the token
  * @param {Object} input The input parameters containing the new password
+ * @param {Object} action The action being performed. Decided by the route hit, either changePassword or resetPassword.
  * @returns {Promise} Promise containing the update response if successful, else the appropriate error message
  */
 var changePassword = function(decodedToken, input, action) {
-        //create find object for user
-        var find = { include: [{ model: Email, as: 'emails', where: { email: decodedToken.emailId } }] };
+    // create find object for user by using email from token
+    // add where condition to join
+    var find = { include: [{ model: Email, as: 'emails', where: { email: decodedToken.emailId } }] };
 
-        // create update object for user
-        var update = {
-            password: bcrypt.hashSync(input.password, 10), // hash the input password
-            passwordStatus: 'passwordSet',
-            invitationPending: false
-        };
-        if (decodedToken.firstName) { // if token contains user's first name, set it in the update data object
-            update.firstName = decodedToken.firstName;
-        }
-        if (decodedToken.lastName) { // if token contains user's last name, set it in the update data object
-            update.lastName = decodedToken.lastName;
-        }
+    // create update object for user
+    var update = {
+        password: bcrypt.hashSync(input.password, 10), // hash the input password
+        passwordStatus: 'passwordSet'
+    };
+    if (decodedToken.firstName) { // if token contains user's first name, set it in the update data object
+        update.firstName = decodedToken.firstName;
+    }
+    if (decodedToken.lastName) { // if token contains user's last name, set it in the update data object
+        update.lastName = decodedToken.lastName;
+    }
 
-        console.log("Find ---- ", find, update);
-
-        //TODO: Replace with model instance static method
-        // update user document by email
-        return User.findOne(find)
-            .then(function(user) {
-                // if no user was updated, user does not exist, create user after checking if action is reset password
-                if (lodash.isEmpty(user)) {
-                    // check if action is reset password to check if new user should be created
-                    if (action === 'resetPassword') {
-                        // add find object to update object
-                        update.emails = [{ email: decodedToken.emailId }];
-                        console.log("Update before create user ---- ", update);
-                        // create new user with update object
-                        User.create(update, { include: [{ model: Email, as: 'emails' }] })
-                            .then(function(newUser) {
-                                if (lodash.isEmpty(newUser)) {
-                                    return Promise.reject({ id: 400, msg: "Updating password failed." });
-                                } else {
-                                    return newUser.addOrganization({orgId: decodedToken.orgId});
-                                }
-                            })
-                    } else {
-                        return Promise.reject({ id: 400, msg: "Updating password failed." });
-                    }
+    // update user document by email
+    return User.findOne(find)
+        .then(function(user) {
+            // if user not found, user does not exist, create user after checking if action is reset password
+            if (lodash.isEmpty(user)) {
+                // check if action is reset password to check if new user should be created
+                if (action === 'resetPassword') {
+                    // add email to update object to create new email row and associate it with user
+                    update.emails = [{ email: decodedToken.emailId }];
+                    // create new user with update object
+                    return User.create(update, { include: [{ model: Email, as: 'emails' }] })
+                        .then(function(newUser) {
+                            // if the created user instance returned is empty, return failed error message 
+                            if (lodash.isEmpty(newUser)) {
+                                return Promise.reject({ id: 400, msg: "Updating password failed." });
+                            } else {
+                                // if user created successfully, add user to organization
+                                return newUser.addOrganization(decodedToken.orgId);
+                            }
+                        })
+                        /*.then(function (addOrg) {
+                            console.log("After adding organization --- ", addOrg);
+                            return Promise.resolve(true);
+                        })*/
                 } else {
-                    return user.update(update);
+                    // if user is not found and action is change password, return error
+                    return Promise.reject({ id: 400, msg: "Updating password failed. User not found." });
                 }
-            })
-            .catch(function(err) {
-                // console.log("Error in change password ---- ", err);
-                return Promise.reject({ id: 400, msg: err || 'Password not changed.' });
-            });
+            } else {
+                // if user is found, update the user password
+                return user.update(update);
+            }
+        })
+        .catch(function(err) {
+            return Promise.reject({ id: 400, msg: err || 'Password not changed.' });
+        });
 };
 
 /**
  * Remove reset password document from database if action is resetPassword
  * @method removeTokenFromDB
- * @param {String} action Contains the action being performed, reset or change
+ * @param {String} action Contains the action being performed, resetPassword or changePassword
  * @param {String} token The token to be deleted
  * @returns {Promise} Promise containing the update response if successful, else the appropriate error message
  */
 
 function removeTokenFromDB(action, token) {
     if (action === 'resetPassword') { // if action is resetPassword, delete token, else skip this
+        // find matching token in database
         return Token.findOne({ where: { 'token': token } })
-            .then(function (token) {
+            .then(function(token) {
+                // if token is not found in database, return error message
                 if (lodash.isEmpty(token)) {
                     return Promise.reject({ id: 400, msg: "Invalid reset token. Please generate new reset token from Forgot Password or Invitation." });
+                } else {
+                    // if token is found, delete token
+                    return token.destroy();
                 }
-                return token.destroy();
             })
     } else { // if any other action, continue
         return Promise.resolve(true);
@@ -131,22 +142,13 @@ var addInvitedToGeneral = function(userId, header, seneca) {
  * @param {Object} result The final result to be returned, contains the result of the update statement
  * @param {Function} done The done formats and sends the response
  */
-var sendResponse = function(result, done) {
-    // if any document was modified or created, send success response
-    if (!lodash.isEmpty(result)) {
-        done(null, { statusCode: 200, content: outputFormatter.format(true, 2050, null, 'Password') });
-    } else {
-        done(null, {
-            statusCode: 200,
-            content: outputFormatter.format(true, 1000, null, 'Something went wrong.' +
-                ' Please Try again.')
-        });
-    }
+var sendResponse = function(done) {
+    done(null, { statusCode: 200, content: outputFormatter.format(true, 2050, null, 'Password') });
 };
 
 /**
  * This is a PUT action for the Authentication microservice
- * Used to change or reset the user password
+ * Used to change or reset the user's password
  * @param {Object} options  Variables needed for database connection and microservices related details
  */
 module.exports = function(options) {
@@ -154,7 +156,9 @@ module.exports = function(options) {
     var dbConnection = options.dbConnection;
     return function(args, done) {
 
-        // load waterline models
+        console.log("Change/Reset password called ------ ");
+
+        // load database models
         User = User || dbConnection.models.users;
         Token = Token || dbConnection.models.tokens;
         Email = Email || dbConnection.models.emails;
@@ -183,17 +187,18 @@ module.exports = function(options) {
                 return changePassword(decodedToken, args.body, action);
             })
             .then(function(updateResponse) {
-                // console.log("Updated response ---- ", updateResponse);
+                console.log("Updated response ---- ", updateResponse);
                 // if new user is created, remove invitation and add invited user to general
-                if (updateResponse && updateResponse.upserted && updateResponse.upserted[0] && updateResponse.upserted[0]) {
+                if (updateResponse === true) {
                     // create a token to send to API in microservice calls containing organization Id
                     var header = utils.createMsJWT({ orgId: decodedToken.orgId, isMicroservice: true });
+                    console.log("Removing invitation token ---- ");
                     removeInvitation(decodedToken.emailId, header, seneca);
 
                     // TODO: Uncomment on adding ugrp
                     // addInvitedToGeneral(updateResponse.upserted[0]._id, header, seneca);
                 }
-                sendResponse(updateResponse, done);
+                sendResponse(done);
             })
             .catch(function(err) {
                 console.log("Error in changePassword ---- ", err);

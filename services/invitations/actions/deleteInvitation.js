@@ -27,21 +27,15 @@ var schema = Joi.object().keys({
  * the error message
  */
 function deleteInvitation(email) {
-    return new Promise(function (resolve, reject) {
-        
-        // remove the invitation corresponding to the email address
-        Invitation.destroy({ email: email })
-            .then(function (removeResponse) {
-                if (lodash.isEmpty(removeResponse)) {
-                    reject({ id: 400, msg: 'Invitation not found' });
-                } else {
-                    resolve(removeResponse);
-                }
-            })
-            .catch(function (err) {
-                reject({ id: 400, msg: err });
-            });
-    });
+    // remove the invitation corresponding to the email address
+    return Invitation.findOne({ where: { email: email } })
+        .then(function(invitation) {
+            if (lodash.isEmpty(invitation)) {
+                return Promise.reject({ id: 400, msg: 'Invitation not found' });
+            } else {
+                return invitation.destroy();
+            }
+        });
 }
 
 
@@ -51,19 +45,11 @@ function deleteInvitation(email) {
  * @param {Object} result The final result to be returned, contains the token created
  * @param {Function} done The done formats and sends the response
  */
-function sendResponse(result, done) {
-    if (result !== null) {
-        done(null, {
-            statusCode: 200,
-            content: outputFormatter.format(true, 2050, result, 'Invitation')
-        });
-    } else {
-        //else return error
-        done(null, {
-            statusCode: 200,
-            content: outputFormatter.format(false, 102)
-        });
-    }
+function sendResponse(done) {
+    done(null, {
+        statusCode: 200,
+        content: outputFormatter.format(true, 2050, null, 'Invitation')
+    });
 }
 
 /**
@@ -73,28 +59,28 @@ function sendResponse(result, done) {
  */
 module.exports = function(options) {
     var seneca = options.seneca;
-    var ontology = options.wInstance;
+    var dbConnection = options.dbConnection;
     return function(args, done) {
-        
-        // load waterline model for invitations
-        Invitation = Invitation || ontology.collections.invitations;
-        
+
+        // load database model for invitations
+        Invitation = Invitation || dbConnection.models.invitations;
+
         // check if input parameters are according to schema
         utils.checkInputParameters(args.body, schema)
             .then(function() {
                 // delete the invitation
                 return deleteInvitation(args.body.email)
             })
-            .then(function(response) {
+            .then(function() {
                 // send the response if no error occurred
-                return sendResponse(response, done);
+                return sendResponse(done);
             })
-            .catch(function (err) {
+            .catch(function(err) {
                 console.log("Error in deleteInvitation ---- ", err);
 
                 // in case of error, print the error and send as response
                 utils.senecaLog(seneca, 'error', __filename.split('/').pop(), err);
-                
+
                 // if the error message is formatted, send it as reply, else format it and then send
                 done(null, {
                     statusCode: 200,

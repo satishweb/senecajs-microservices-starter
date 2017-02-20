@@ -57,12 +57,8 @@ if [[ ! -f $(which docker-compose) ]]
 if [[ ! -f $(which envsubst) ]]
 	then
 	echo "| ERR: On MacOSX, please install envsubst command using below commands (non root shell/terminal/iterm):"
-	echo "| 	wget http://ftp.gnu.org/gnu/gettext/gettext-0.18.2.tar.gz"
-	echo "| 	tar -zxvf gettext-0.18.2.tar.gz"
-	echo "| 	cd gettext-0.18.2"
-	echo "| 	./configure"
-	echo "| 	make"
-	echo "| 	sudo make install"
+	echo "| 	wget http://ftp.gnu.org/gnu/gettext/gettext-0.18.2.tar.gz; tar -zxvf gettext-0.18.2.tar.gz; cd gettext-0.18.2; "
+	echo "| 	./configure; make -j8; sudo make install"
 	exit 2
 fi
 
