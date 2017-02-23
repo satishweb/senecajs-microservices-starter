@@ -60,7 +60,7 @@ function fetchOrganization(args) {
  * @returns {Promise} Promise containing the formatted result if resolved successfully or the error if rejected.
  */
 
-function getOrganizationList(seneca, input) {
+function getOrganizationList(seneca, input, dbConnection) {
     var config;
     // create the configuration object for grid
     var collection = {
@@ -76,8 +76,24 @@ function getOrganizationList(seneca, input) {
             "search": true
         },
         "ownerId": {
+            "databaseName": "$users.userId$",
             "displayName": "Owner Id",
-            "filter": true
+            "filter": true,
+            "join": {
+                model: "users",
+                as: "owner",
+                fields: ['userId', 'firstName', 'lastName']
+            }
+        },
+        "userId": {
+            "databaseName": "$users.userId$",
+            "displayName": "Users",
+            "filter": true,
+            "join": {
+                model: "users",
+                fields: ['userId', 'firstName', 'lastName'],
+                exclude: ['join_userorgs']
+            }
         },
         "name": {
             "displayName": "Department Name",
@@ -110,7 +126,7 @@ function getOrganizationList(seneca, input) {
     }
 
     // create instance of composite grid from config object created
-    var compositeGrid = InitCompositeGrid.initFromConfigObject(input, 'listOrganization', Organization, seneca, config);
+    var compositeGrid = InitCompositeGrid.initFromConfigObject(input, 'listOrganization', dbConnection, seneca, config);
 
     // fetch the result using instance
     return compositeGrid.fetch();
@@ -221,7 +237,7 @@ module.exports = function(options) {
                         return fetchOrganization(args.body); // if action is 'fqdn' or 'id', call fetchOrganization
                         break;
                     case 'list':
-                        return getOrganizationList(options, args.body); // if action is 'list', call getOrganizationList
+                        return getOrganizationList(options, args.body, dbConnection); // if action is 'list', call getOrganizationList
                 }
             })
             .then(function(result) {

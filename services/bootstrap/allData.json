@@ -13,7 +13,8 @@
         "lastName": null,
         "firstName": "Admin",
         "contact": "1234567890",
-        "isDeleted": false
+        "isDeleted": false,
+        "registrationStep": 3
     }, {
         "userId": 2,
         "passwordStatus": "passwordSet",
@@ -27,7 +28,8 @@
         "lastName": "User",
         "firstName": "Postman",
         "contact": "1234567890",
-        "isDeleted": false
+        "isDeleted": false,
+        "registrationStep": 3
     }, {
         "userId": 3,
         "passwordStatus": "passwordSet",
@@ -79,6 +81,16 @@
         "domain": "example1.com",
         "subDomain": "key-app-example1-dev",
         "name": "Example1"
+    }, {
+        "orgId": 3,
+        "ownerId": 2,
+        "isDeleted": false,
+        "website": "www.example2.com",
+        "description": "Example2",
+        "fqdn": "key-app-example2-dev.example.com",
+        "domain": "example2.com",
+        "subDomain": "key-app-example2-dev",
+        "name": "Example2"
     }]
 }, {
     "collection": "emails",

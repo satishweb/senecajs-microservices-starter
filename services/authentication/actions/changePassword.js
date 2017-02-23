@@ -12,6 +12,7 @@ var User = null;
 var Token = null;
 var Email = null;
 var Organization = null;
+var Invitation = null;
 
 /**
  * @module changePassword
@@ -70,10 +71,11 @@ var changePassword = function(decodedToken, input, action) {
                                 return newUser.addOrganization(decodedToken.orgId);
                             }
                         })
-                        /*.then(function (addOrg) {
+                        .then(function (addOrg) {
                             console.log("After adding organization --- ", addOrg);
+                            // return true to indicate new user has been created
                             return Promise.resolve(true);
-                        })*/
+                        })
                 } else {
                     // if user is not found and action is change password, return error
                     return Promise.reject({ id: 400, msg: "Updating password failed. User not found." });
@@ -121,8 +123,26 @@ function removeTokenFromDB(action, token) {
  * @param {Object} header JWT token containing the organization Id and isMicroservice flag
  * @param {Seneca} seneca Seneca instance to call microservice
  */
-var removeInvitation = function(email, header, seneca) {
-    utils.microServiceCall(seneca, 'invitations', 'deleteInvitation', { email: email }, header, null);
+/*var removeInvitation = function (email, header, seneca) {
+    // utils.microServiceCall(seneca, 'invitations', 'deleteInvitation', { email: email }, header, null);
+};*/
+
+
+/**
+ * Delete invitation document from database if invited user is setting password for the first time
+ * @method removeInvitation
+ * @param {String} email Contains the user's email decoded from the token
+ * @param {Number} orgId The Id of the organization whose invitation is to be deleted
+ */
+var removeInvitation = function (email, orgId) {
+    Invitation.findOne({ where: { email: email, orgId: orgId } })
+        .then(function(invitation) {
+            if (lodash.isEmpty(invitation)) {
+                console.log({ id: 400, msg: 'Invitation not found' });
+            } else {
+                invitation.destroy();
+            }
+        });
 };
 
 /**
@@ -163,6 +183,7 @@ module.exports = function(options) {
         Token = Token || dbConnection.models.tokens;
         Email = Email || dbConnection.models.emails;
         Organization = Organization || dbConnection.models.organizations;
+        Invitation = Invitation || dbConnection.models.invitations;
 
         var action = 'resetPassword'; // stores if password is being reset or changed, default - reset
         var decodedToken = null;
@@ -190,10 +211,12 @@ module.exports = function(options) {
                 console.log("Updated response ---- ", updateResponse);
                 // if new user is created, remove invitation and add invited user to general
                 if (updateResponse === true) {
+
                     // create a token to send to API in microservice calls containing organization Id
-                    var header = utils.createMsJWT({ orgId: decodedToken.orgId, isMicroservice: true });
+                    // var header = utils.createMsJWT({ orgId: decodedToken.orgId, isMicroservice: true });
+                    
                     console.log("Removing invitation token ---- ");
-                    removeInvitation(decodedToken.emailId, header, seneca);
+                    removeInvitation(decodedToken.emailId, decodedToken.orgId);
 
                     // TODO: Uncomment on adding ugrp
                     // addInvitedToGeneral(updateResponse.upserted[0]._id, header, seneca);

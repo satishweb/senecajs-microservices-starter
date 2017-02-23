@@ -57,7 +57,7 @@ function getUser(userId, orgId) {
  * @param {Object} orgId The Id of the organization for which the users are to be fetched
  * @returns {Promise} Promise containing the result returned by Grid library
  */
-function listUsers(input, orgId) {
+function listUsers(input, orgId, dbConnection) {
     var compositeGrid;
     var collection = {
         "userId": {
@@ -77,14 +77,36 @@ function listUsers(input, orgId) {
             "search": true
         },
         "email": {
+            "databaseName": "$emails.email$",
             "displayName": "Email",
             "filter": true,
             "search": true,
-            "sort": true
+            "sort": true,
+            "join": {
+                model: 'emails',
+                as: 'emails',
+                fields: ['email']
+            }
+        },
+        "ownedOrg": {
+            "databaseName": "$ownedOrgs.orgId$",
+            "filter": true,
+            "displayName": "Owned Orgs",
+            "join": {
+                model: 'organizations',
+                as: 'ownedOrgs',
+                fields: ['orgId', 'name', 'subDomain']
+            }
         },
         "orgId": {
+            "databaseName": "$organizations.orgId$",
             "displayName": "Org Id",
-            "filter": true
+            "filter": true,
+            "join": {
+                model: 'organizations',
+                fields: ['orgId', 'name', 'subDomain'],
+                exclude: ['join_userorgs']
+            }
         },
         "isDeleted": {
             "show": false,
@@ -102,7 +124,7 @@ function listUsers(input, orgId) {
         input.filter = {};
     }
     input.filter.isDeleted = false;
-    compositeGrid = InitCompositeGrid.initFromConfigObject(input, 'listUsers', User, null, config);
+    compositeGrid = InitCompositeGrid.initFromConfigObject(input, 'listUsers', dbConnection, null, config);
     return compositeGrid.fetch()
 };
 
@@ -149,7 +171,7 @@ module.exports = function(options) {
             .then(function(decoded) {
                 switch (args.body.action) {
                     case 'list':
-                        return listUsers(args.body, decoded.orgId);
+                        return listUsers(args.body, decoded.orgId, dbConnection);
                         break;
                     case 'id':
                         return getUser(args.body.userId, decoded.orgId);

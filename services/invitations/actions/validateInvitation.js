@@ -88,20 +88,6 @@ function addUserToOrg(user, invitation, decodedToken, header, seneca) {
 }
 
 /**
- * Add user to organization by calling add Organization
- * @method callAddOrg
- * @param {Number} userId The Id of the user to be added to the organization
- * @param {Number} orgId The Id of the organization be added to
- * @param {Object} header The microservice header
- * @param {Seneca} seneca Seneca instance
- * @returns {Promise} Promise containing fetched invitation document if successful, else containing the error message
- */
-function callAddOrg(userId, orgId, header, seneca) {
-    // add user to the organization
-    return utils.microServiceCallPromise(seneca, 'ugrp', 'addOrganization', { orgId: orgId, userId: userId }, header, true);
-}
-
-/**
  * If invitation is valid and found in database, create a reset password token by calling forgot password
  * @method callForgotPassword
  * @param {Object} decodedToken The decoded token used to get the email Id and the organization Id

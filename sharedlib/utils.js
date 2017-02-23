@@ -153,17 +153,24 @@ module.exports.verifyTokenAndDecode = function(token, errorMsg) {
  * Check if user is authorized
  * @method checkIfAuthorized
  * @param {String} decodedToken The decoded JWT token from the header
+ * @param {Boolean} subDomainsOnly Flag for whether orgId is needed in token
  * @returns {Promise} Resolved Promise if successful, else containing the error message
  */
-module.exports.checkIfAuthorized = function(decodedToken) {
-    return new Promise(function(resolve, reject) {
+module.exports.checkIfAuthorized = function(decodedToken, subDomainsOnly) {
         if (decodedToken && (decodedToken.isMicroservice || decodedToken.isOwner)) {    // if the decoded token belongs to an owner, resolve the
             // decoded token
-            resolve();
+            if (subDomainsOnly === true) {
+                if (decodedToken.orgId) {
+                    return Promise.resolve();                    
+                } else {
+                    return Promise.reject({ id: 400, msg: "This action can only be performed from a sub-domain."});
+                }
+            } else {
+                return Promise.resolve();
+            }
         } else {    // else return unauthorized message
-            reject({ id: 400, msg: "You are not authorized to perform this action." });
+            return Promise.reject({ id: 400, msg: "You are not authorized to perform this action." });
         }
-    });
 }
 
 /**

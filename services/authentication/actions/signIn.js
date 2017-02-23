@@ -69,9 +69,10 @@ function checkOrganizationStatus(orgDetails) {
 }
 
 /**
+ * Checks if organization is deployed, if yes then checks if user belongs to organization and if user is the owner of the organization
  * @method checkIfUserMemberInOrganization
- * @param {Object} orgDetails used to get organization details
- * @param {Object} user the user instance
+ * @param {Object} orgDetails The organization details
+ * @param {Object} user The user instance
  * @returns {Promise} Promise containing the true details if successful, else containing the error message
  */
 function checkIfUserMemberInOrganization(orgDetails, user, protocol) {
@@ -86,6 +87,15 @@ function checkIfUserMemberInOrganization(orgDetails, user, protocol) {
         });
 }
 
+/**
+ * Fetches organizations that the user belongs to and the user's owned organizations. If the user does not belong to the organization, error is returned.
+ * @method fetchAllOrganizations
+ * @param {Object} user The user instance
+ * @param {String} protocol The website protocol used
+ * @param {Number} orgId (Optional) The Id of the organization, if present checks if the user belongs to this organization by orgId
+ * @param {String} fqdn (Optional) The organization's FQDN, if present checks if the user belongs to this organization by fqdn
+ * @returns 
+ */
 function fetchAllOrganizations(user, protocol, orgId, fqdn) {
     var orgs = {};
     orgs[protocol + '://' + process.env.APP_URL] = { orgId: null, isOwner: user.registrationStep != null };
@@ -128,9 +138,6 @@ function fetchAllOrganizations(user, protocol, orgId, fqdn) {
 }
 
 
-/**
- * TODO: fetch all organizations
- */
 function fetchOrganization(user, header, protocol) {
     header = url.parse(header.origin);
     header = header.host;

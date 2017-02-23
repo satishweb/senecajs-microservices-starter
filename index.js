@@ -19,7 +19,6 @@ function dbInit(options) {
     seneca.log.info('[ ' + process.env.SRV_NAME + ' ]', 'DB HOST: ', process.env.DB_HOST);
     seneca.log.info('[ ' + process.env.SRV_NAME + ' ]', 'DB NAME: ', process.env.DB_NAME);
 
-    // loadModels(waterline);
     if (process.env.DB_TYPE === 'mongodb') {
         var sailsMongoAdapter = require('sails-mongo');
 

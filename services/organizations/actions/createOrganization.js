@@ -10,6 +10,7 @@ var Promise = require('bluebird');
 var microtime = require('microtime');
 var Organization = null;
 var Session = null;
+var User = null;
 var subDomain = null;
 var route53 = null;
 var AWS = require('aws-sdk');
@@ -205,15 +206,14 @@ function createGenDept(header, seneca) {
     utils.microServiceCall(seneca, 'ugrp', 'createDepartment', { name: 'general' }, header, null);
 }
 
+
 /**
- * Give microservice call to update user
- * @method updateUser
- * @param {String} userId userId
- * @param {Object} header input header
- * @param {Seneca} seneca seneca instance
+ * Updates the 
+ * @method updateUserRegistration
+ * @param {Number} userId 
  */
-function updateUser(userId, header, seneca) {
-    utils.microServiceCall(seneca, 'ugrp', 'updateUser', { userId: userId, registrationStep: 3 }, header, null);
+function updateUserRegistration(userId) {
+    User.update({ registrationStep: 3 }, { where: { userId: userId } })
 }
 
 /**
@@ -246,6 +246,7 @@ module.exports = function(options) {
         // load database models for organization and session
         Organization = Organization || dbConnection.models.organizations;
         Session = Session || dbConnection.models.sessions;
+        User = User || dbConnection.models.users;
 
         if (args.body.name) { //check if name is present
             args.body.name = args.body.name.toLowerCase();
@@ -278,16 +279,10 @@ module.exports = function(options) {
             })
             .then(function(response) {
                 response.registrationStep = 3;
-                var data = { //data to be stored in JWT token
-                    isMicroservice: true,
-                    orgId: response.orgId,
-                    isOwner: true
-                };
-                var header = utils.createMsJWT(data);
 
                 // TODO: Uncomment on adding groups functionality
                 // createGenGroup(header, seneca);
-                updateUser(args.credentials.userId, header, seneca);
+                updateUserRegistration(args.credentials.userId);
                 return sendResponse(response, done);
             })
             .catch(function(err) {

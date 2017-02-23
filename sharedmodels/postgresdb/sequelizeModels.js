@@ -76,5 +76,6 @@ module.exports = function(sequelize) {
     User.belongsToMany(Organization, { through: 'join_userorgs', foreignKey: 'userId', otherKey: 'orgId' });
     Organization.belongsToMany(User, { through: 'join_userorgs', foreignKey: 'orgId', otherKey: 'userId' });
     User.hasMany(Organization, { as: 'ownedOrgs', foreignKey: 'ownerId' });
+    Organization.belongsTo(User, { as: 'owner', foreignKey: 'ownerId' });
     // User.hasOne(Session, { foreignKey: 'userId'})
 };

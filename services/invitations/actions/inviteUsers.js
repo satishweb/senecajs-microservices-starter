@@ -33,7 +33,7 @@ var saveInvitedUsersSchema = Joi.object().keys({
  * @returns {Promise} Promise resolved with object containing all the input email Ids and the pending invitations if
  * successful, else rejected with the error if unsuccessful
  */
-var fetchMatchingPendingInvitations = function fetchMatchingPendingInvitations(emailIds, orgId) {
+function fetchMatchingPendingInvitations(emailIds, orgId) {
     // fetch all invitations matching any of the email Id and sent for the same organization
     return Invitation.findAll({ where: { email: { $in: emailIds }, orgId: orgId }, raw: true })
         .then(function(invitationPending) {
@@ -47,13 +47,12 @@ var fetchMatchingPendingInvitations = function fetchMatchingPendingInvitations(e
 /**
  * Fetch already created users matching the input email Ids
  * @method fetchUsers
- * @param {Seneca} seneca The seneca instance
  * @param {String[]} emailIds The array of email Ids after removing the email Ids related to pending invitations
  * @param {String} orgId The organization Id whose users are to be searched
  * @returns {Promise} The Promise resolved with object containing the uninvited emails and the existing users
  * matching the email Ids if successful, else rejected with the error if unsuccessful
  */
-var fetchUsers = function fetchUsers(seneca, emailIds, orgId) {
+function fetchUsers(emailIds, orgId) {
 
     // microservice call to getUsers to fetch existing users matching the email Ids and organization
     // the input body tells the output should be a list of users whose email Ids match the given ones and they are a part of the same organization
@@ -91,7 +90,7 @@ var fetchUsers = function fetchUsers(seneca, emailIds, orgId) {
  * @param {String[]} pendingInvitations The array of email Ids corresponding to pending invitations
  * @param {String} url The The redirect URL sent in the email, depends on the sub domain
  */
-var sendInvitations = function sendInvitations(seneca, orgId, input, newUsers, pendingInvitations, url) {
+function sendInvitations(seneca, orgId, input, newUsers, pendingInvitations, url) {
 
     // complete the redirect URL by adding the invitations end point to the origin
     url += '/#/invitation?inviteToken=';
@@ -198,12 +197,17 @@ module.exports = function(options) {
 
         // validate if input is according to Joi schema
         utils.checkInputParameters(args.body, saveInvitedUsersSchema)
-            .then(function() {
+            .then(function () {
+                return utils.checkIfAuthorized(args.credentials, true);
+            })    
+            .then(function () {
                 orgId = args.credentials.orgId; // set the organization Id from the decoded token
+
+                input = lodash.filter(args.body.users, function (user) { return lodash.indexOf(args.credentials.emailId, user.email) === -1; });
 
                 // format the input array to an object with email Ids as key for easier access (removes duplicates
                 // in the process)
-                input = lodash.keyBy(args.body.users, 'email');
+                input = lodash.keyBy(input, 'email');
                 var emailIds = lodash.keys(input); // get an array of input email Ids
 
 
@@ -223,7 +227,7 @@ module.exports = function(options) {
 
                 console.log("Uninvited ---- ", uninvited);
                 //fetch already registered users matching the uninvited email Ids
-                return fetchUsers(seneca, uninvited, orgId);
+                return fetchUsers(uninvited, orgId);
             })
             .then(function(response) {
                 // array of email Ids belonging to already registered users to remove from uninvited email Ids
