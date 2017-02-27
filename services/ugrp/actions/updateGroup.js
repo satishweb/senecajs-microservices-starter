@@ -70,22 +70,22 @@ function sendResponse(result, done) {
 
 function addUserToGroupCalls(options, args, done) {
     var seneca = options.seneca;
-    var orgId = null;
+    var teamId = null;
     var isMicroservice = false;
     utils.checkInputParameters(args.body, addGroupSchema)
         .then(function() {
             return groupsLib.verifyTokenAndDecode(args);
         })
         .then(function(response) {
-            orgId = response.orgId;
+            teamId = response.teamId;
             isMicroservice = response.isMicroservice;
-            User = mongoose.model('DynamicUser', User.schema, orgId + '_users');
-            Group = mongoose.model('DynamicGroup', Group.schema, orgId + '_groups');
+            User = mongoose.model('DynamicUser', User.schema, teamId + '_users');
+            Group = mongoose.model('DynamicGroup', Group.schema, teamId + '_groups');
             // console.log('response----------- ', response);
             if (response.isMicroservice) {
                 // console.log('isMicroservice----------- ');
                 if (args.body.groupId === 'general') {
-                    return groupsLib.fetchGeneralGroup(Group, orgId)
+                    return groupsLib.fetchGeneralGroup(Group, teamId)
                 } else {
                     return new Promise(function(resolve) {
                         resolve(true);
@@ -102,7 +102,7 @@ function addUserToGroupCalls(options, args, done) {
             }
             console.log("Group id ----- ", args.body.groupId);
             groupsLib.addGroupInUser(User, args.body.groupId, args.body.userIds);
-            return groupsLib.addUsers(Group, args.body.groupId, args.body.userIds, orgId, seneca)
+            return groupsLib.addUsers(Group, args.body.groupId, args.body.userIds, teamId, seneca)
         })
         .then(function(response) {
             delete mongoose.connection.models['DynamicGroup'];
@@ -180,16 +180,16 @@ function removeSendResponse(result, done) {
 function removeUsersFromGroupCalls(options, args, done) {
 
     var seneca = options.seneca;
-    var orgId = null;
+    var teamId = null;
 
     utils.checkInputParameters(args.body, removeGroupSchema)
         .then(function() {
             return groupsLib.verifyTokenAndDecode(args);
         })
         .then(function(response) {
-            orgId = response.orgId;
-            User = mongoose.model('DynamicUser', User.schema, orgId + '_users');
-            Group = mongoose.model('DynamicGroup', Group.schema, orgId + '_groups');
+            teamId = response.teamId;
+            User = mongoose.model('DynamicUser', User.schema, teamId + '_users');
+            Group = mongoose.model('DynamicGroup', Group.schema, teamId + '_groups');
             if (response.isMicroservice) {
                 return new Promise(function(resolve) {
                     resolve(true);
@@ -200,7 +200,7 @@ function removeUsersFromGroupCalls(options, args, done) {
         })
         .then(function() {
             groupsLib.removeGroupFromUser(User, args.body.groupId, args.body.userIds);
-            return groupsLib.removeUsers(Group, args.body.groupId, args.body.userIds, orgId, seneca);
+            return groupsLib.removeUsers(Group, args.body.groupId, args.body.userIds, teamId, seneca);
         })
         .then(function(response) {
             delete mongoose.connection.models['DynamicGroup'];
@@ -276,7 +276,7 @@ function updateGroupCalls(options, args, done) {
             return groupsLib.verifyTokenAndDecode(args);
         })
         .then(function(response) {
-            Group = mongoose.model('DynamicGroup', Group.schema, response.orgId + '_groups');
+            Group = mongoose.model('DynamicGroup', Group.schema, response.teamId + '_groups');
             // return fetchGroup(args.body.groupId, args.body.chatEnabled);
             return checkGroup(args.body.groupId);
         })

@@ -1,12 +1,11 @@
 'use strict';
 
-var utils = require(__base + '/sharedlib/utils');
-var groupsLib = require(__base + '/lib/groups');
-var Locale = require(__base + '/sharedlib/formatter');
+var utils = require(__base + 'sharedlib/utils');
+var groupsLib = require(__base + 'lib/groups');
+var Locale = require(__base + 'sharedlib/formatter');
 var outputFormatter = new Locale(__base);
 var Joi = require('joi');
 var lodash = require('lodash');
-var waterline = require('waterline');
 var Promise = require('bluebird');
 var microtime = require('microtime');
 var Group = null;
@@ -17,7 +16,7 @@ var User = null;
  */
 
 // Joi validation Schema for API call
-// User cannot create group named 'user', microservice creates that as default on creating organization
+// User cannot create group named 'user', microservice creates that as default on creating team
 var groupSchema = Joi.object().keys({
     name: Joi.string().trim().invalid('Users', 'users').required(),
     description: Joi.string().allow(''),
@@ -37,18 +36,18 @@ var microSchema = Joi.object().keys({
  * Create Group from input parameters
  * @method createGroup
  * @param {String} ownerId Id of the organisation owner
- * @param {String} orgId Id of organization
+ * @param {String} teamId Id of team
  * @param {Object} input input parameters
  * @returns {Promise} Promise containing the created Group details if successful, else containing the appropriate
  * error message
  */
-function createGroup(ownerId, orgId, input) {
+function createGroup(ownerId, teamId, input) {
     return new Promise(function(resolve, reject) {
 
         // create object containing fields to be added to group input object
         var data = {
             ownerId: ownerId,
-            orgId: orgId
+            teamId: teamId
         };
 
         // copying userIds into another variable and deleting it from input 
@@ -86,23 +85,23 @@ function createGroup(ownerId, orgId, input) {
 
 
 /**
- * Fetch Organization Details
- * @method fetchOrganizationDetails
- * @param {String} orgId Id of the organization
+ * Fetch Team Details
+ * @method fetchTeamDetails
+ * @param {String} teamId Id of the team
  * @param {String} token JWT token
  * @param {Seneca} seneca The Seneca instance
- * @returns {Promise} Promise containing the matching organization details if successful, else containing the
+ * @returns {Promise} Promise containing the matching team details if successful, else containing the
  * appropriate error message
  */
 
-function fetchOrganizationDetails(orgId, token, seneca) {
+function fetchTeamDetails(teamId, token, seneca) {
     return new Promise(function(resolve, reject) {
-        // fetch organization details based on the organization Id
-        utils.microServiceCall(seneca, 'organizations', 'getOrganization', {action: "id", orgId: orgId}, token,
+        // fetch team details based on the team Id
+        utils.microServiceCall(seneca, 'teams', 'getTeam', {action: "id", teamId: teamId}, token,
             function(err, result) {
             if (err || !result.content.success) {   // if error or unsuccessful, return error message
                 reject({ id: 400, msg: err || result.content.message.description });
-            } else {    // if successful, return the fetched organization
+            } else {    // if successful, return the fetched team
                 resolve(result.content.data);
             }
         })
@@ -147,7 +146,7 @@ module.exports = function(options) {
     var ontology = options.wInstance;
     return function(args, done) {
 
-        var orgId = null;   // stores the organization Id
+        var teamId = null;   // stores the team Id
         var groupId = null;
         var finalResponse = null;
 
@@ -160,19 +159,19 @@ module.exports = function(options) {
             args.body.name = args.body.name.toLowerCase()
         }*/
 
-        orgId = args.credentials.orgId; // store the organization Id for further use
+        teamId = args.credentials.teamId; // store the team Id for further use
 
         console.log("DecodedToken ---- ", args.credentials);
         utils.checkInputParameters(args.body, args.credentials.isMicroservice ? microSchema : groupSchema)
             .then(function () {
-                console.log("Input parameters verified ----- ", orgId);
-                // fetch organization details from organization Id
-                return fetchOrganizationDetails(orgId, args.header.authorization, seneca);
+                console.log("Input parameters verified ----- ", teamId);
+                // fetch team details from team Id
+                return fetchTeamDetails(teamId, args.header.authorization, seneca);
             })
             .then(function (response) {
-                console.log("Org details ---- ", response);
-                // create group from input details and organization details
-                return createGroup(args.credentials.userId, response.orgId, args.body);
+                console.log("Team details ---- ", response);
+                // create group from input details and team details
+                return createGroup(args.credentials.userId, response.teamId, args.body);
             })
             .then(function(response) {
                 console.log("Group details ---- ", response);

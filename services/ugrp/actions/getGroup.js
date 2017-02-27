@@ -28,8 +28,8 @@ function verifyTokenAndDecode(args) {
         jwt.verify(args.header.authorization, process.env.JWT_SECRET_KEY, function(err, decoded) {
             if (err) {
                 reject({ id: 404, msg: err });
-            } else if (!decoded.orgId) {
-                reject({ id: 400, msg: "Invalid token. Org Id not found in token." });
+            } else if (!decoded.teamId) {
+                reject({ id: 400, msg: "Invalid token. Team Id not found in token." });
             } else {
                 resolve(decoded);
             }
@@ -96,7 +96,7 @@ var sendResponse = function(result, done) {
 
 function getGroupCalls(options, args, done) {
     var seneca = options.seneca;
-    var orgId = null;
+    var teamId = null;
     var finalResponse = null;
     // console.log('fetch contact called-----------------', args.body);
     utils.checkInputParameters(args.body, getSchema)
@@ -104,8 +104,8 @@ function getGroupCalls(options, args, done) {
             return verifyTokenAndDecode(args);
         })
         .then(function(decoded) {
-            orgId = decoded.orgId;
-            Groups = mongoose.model('DynamicGroup', Groups.schema, orgId + '_groups');
+            teamId = decoded.teamId;
+            Groups = mongoose.model('DynamicGroup', Groups.schema, teamId + '_groups');
             return fetchGroup(args.body.groupId);
         })
         .then(function(response) {
@@ -180,8 +180,8 @@ function listGroupCalls(options, args, done) {
             "displayName": "User Ids",
             "filter": true
         },
-        "orgId": {
-            "displayName": "Organization Id",
+        "teamId": {
+            "displayName": "Team Id",
             "search": true
         },
         "ownerId": {
@@ -209,7 +209,7 @@ function listGroupCalls(options, args, done) {
                 args.body.filter.userIds = idArray;
             }
             config = { 'listGroups': { 'collections': {} } };
-            config.listGroups.collections[decoded.orgId + '_groups'] = collection;
+            config.listGroups.collections[decoded.teamId + '_groups'] = collection;
             var compositeGrid = InitCompositeGrid.initFromConfigObject(args.body, 'listGroups', mongoose.connection.db, seneca, config);
             return compositeGrid.fetch()
         })

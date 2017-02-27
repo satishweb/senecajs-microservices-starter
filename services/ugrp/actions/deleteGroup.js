@@ -22,7 +22,7 @@ var GroupSchema = Joi.object().keys({
 });
 
 /**
- * Verify token and return the decoded token if it belongs to organization owner
+ * Verify token and return the decoded token if it belongs to team owner
  * @method verifyTokenAndDecode
  * @param {Object} args Used to access the JWT in the header
  * @returns {Promise} Promise containing decoded token if successful, else containing the error message
@@ -33,8 +33,8 @@ var GroupSchema = Joi.object().keys({
         jwt.verify(args.header.authorization, process.env.JWT_SECRET_KEY, function(err, decoded) {
             if (err) {
                 reject({ id: 404, msg: err });
-            } else if (decoded && decoded.orgId && decoded.isOwner) { // check if token contains organization Id and
-                // belongs to an organization owner
+            } else if (decoded && decoded.teamId && decoded.isOwner) { // check if token contains team Id and
+                // belongs to an team owner
                 resolve(decoded);
             } else {
                 reject({ id: 400, msg: "You are not authorized to delete a Group." });
@@ -157,9 +157,9 @@ module.exports = function(options) {
                 return groupsLib.verifyTokenAndDecode(args);
             })
             .then(function(response) {
-                // create temporary models pointing to organization related collections
-                Group = mongoose.model('DynamicGroup', Group.schema, response.orgId + '_groups');
-                User = mongoose.model('DynamicUser', User.schema, response.orgId + '_users');
+                // create temporary models pointing to team related collections
+                Group = mongoose.model('DynamicGroup', Group.schema, response.teamId + '_groups');
+                User = mongoose.model('DynamicUser', User.schema, response.teamId + '_users');
                 // fetch group from input group Id
                 return fetchGroup(args.body.groupId, response.userId);
             })

@@ -15,7 +15,7 @@ module.exports.verifyTokenAndDecode = function(args) {
         jwt.verify(args.header.authorization, process.env.JWT_SECRET_KEY, function(err, decoded) {
             if (err) {
                 reject({ id: 404, msg: err });
-            } else if (decoded && decoded.orgId && (decoded.isOwner || decoded.isMicroservice)) {
+            } else if (decoded && decoded.teamId && (decoded.isOwner || decoded.isMicroservice)) {
                 resolve(decoded);
             } else {
                 reject({ id: 400, msg: "You are not authorized for this action." });
