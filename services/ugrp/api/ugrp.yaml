@@ -80,7 +80,7 @@ paths:
               - userId
             properties:
               userId:
-                type: string
+                type: integer
       responses:
         "200":
           description: "Ok"
@@ -140,6 +140,11 @@ paths:
           in: headers
           required: true
           type: string
+        - name: updateGroup
+          in: body
+          required: true
+          schema:
+            type: object
       responses:
         "200":
           description: "Ok"
@@ -249,5 +254,5 @@ definitions:
   deleteGroup:
     type: object
     properties:
-      deptId:
+      groupId:
         type: integer

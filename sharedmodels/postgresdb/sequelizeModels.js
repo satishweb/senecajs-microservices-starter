@@ -73,6 +73,11 @@ module.exports = function(sequelize) {
         description: { type: Sequelize.STRING },
         teamId: { type: Sequelize.INTEGER },
         ownerId: { type: Sequelize.INTEGER }
+    }, {
+        indexes: [{
+            unique: true,
+            fields: ['name', 'teamId']
+        }]
     });
 
     User.hasMany(Email, { as: 'emails', foreignKey: 'userId' });
@@ -85,5 +90,5 @@ module.exports = function(sequelize) {
     User.hasMany(Group, { as: 'ownedGroups', foreignKey: 'ownerId' });
     Group.belongsTo(User, { as: 'owner', foreignKey: 'ownerId' });
     Team.hasMany(Group, { as: 'groups', foreignKey: 'teamId' });
-    Group.belongsTo(User, { as: 'team', foreignKey: 'teamId' });
+    Group.belongsTo(Team, { as: 'team', foreignKey: 'teamId' });
 };

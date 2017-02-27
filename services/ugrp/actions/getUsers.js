@@ -76,9 +76,9 @@ function listUsers(input, teamId, dbConnection) {
             "displayName": "Last Name",
             "search": true
         },
-        "email": {
+        "emails": {
             "databaseName": "$emails.email$",
-            "displayName": "Email",
+            "displayName": "Emails",
             "filter": true,
             "search": true,
             "sort": true,
@@ -88,7 +88,7 @@ function listUsers(input, teamId, dbConnection) {
                 fields: ['email']
             }
         },
-        "ownedTeam": {
+        "ownedTeams": {
             "databaseName": "$ownedTeams.teamId$",
             "filter": true,
             "displayName": "Owned Teams",
@@ -98,9 +98,9 @@ function listUsers(input, teamId, dbConnection) {
                 fields: ['teamId', 'name', 'subDomain']
             }
         },
-        "teamId": {
+        "teams": {
             "databaseName": "$teams.teamId$",
-            "displayName": "Team Id",
+            "displayName": "Teams",
             "filter": true,
             "join": {
                 model: 'teams',
@@ -108,9 +108,9 @@ function listUsers(input, teamId, dbConnection) {
                 exclude: ['join_userteams']
             }
         },
-        "groupId": {
+        "groups": {
             "databaseName": "$groups.groupId$",
-            "displayName": "Group Id",
+            "displayName": "Groups",
             "filter": true,
             "join": {
                 model: 'groups',
@@ -128,11 +128,11 @@ function listUsers(input, teamId, dbConnection) {
     var config = { 'listUsers': { 'collections': {} }};
     config.listUsers.collections['users'] = collection;
     delete input.action;
-    if (teamId) {
-        input.teamId = teamId;
-    }
     if (lodash.isEmpty(input.filter)) {
         input.filter = {};
+    }
+    if (teamId) {
+        input.filter.teamId = teamId;
     }
     input.filter.isDeleted = false;
     compositeGrid = InitCompositeGrid.initFromConfigObject(input, 'listUsers', dbConnection, null, config);

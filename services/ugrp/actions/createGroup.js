@@ -1,7 +1,6 @@
 'use strict';
 
 var utils = require(__base + 'sharedlib/utils');
-var groupsLib = require(__base + 'lib/groups');
 var Locale = require(__base + 'sharedlib/formatter');
 var outputFormatter = new Locale(__base);
 var Joi = require('joi');
@@ -10,6 +9,7 @@ var Promise = require('bluebird');
 var microtime = require('microtime');
 var Group = null;
 var User = null;
+var Team = null;
 
 /**
  * @module createGroup
@@ -41,46 +41,49 @@ var microSchema = Joi.object().keys({
  * @returns {Promise} Promise containing the created Group details if successful, else containing the appropriate
  * error message
  */
-function createGroup(ownerId, teamId, input) {
-    return new Promise(function(resolve, reject) {
+function createGroup(ownerId, teamId, input, teamUsers) {
 
+    // remove input users that are not part of the team
+    var userIds = lodash.intersection(input.userIds, teamUsers);
+    // console.log("Intersecting user ids ---- ", userIds);
+    
+    if (userIds.length !== input.userIds.length) {
+        return Promise.reject({ id: 400, msg: "Invalid input. One or more users to be added to the group are not present in the team." });
+    } else {
+
+        // delete userIds from input
+        delete input.userIds;
+    
         // create object containing fields to be added to group input object
         var data = {
             ownerId: ownerId,
             teamId: teamId
         };
 
-        // copying userIds into another variable and deleting it from input 
-        var userIds = input.userIds;
-        delete input.userIds;
-
         // merge the created object and input
         data = lodash.assign(data, input);
-        
+
         // create new group
-        Group.create(data)
-        .then(function(createdGroup) {
-            console.log("Group after saving ---- ", createdGroup);
-            // if group saved successfully, add the users to the group
-            userIds.forEach(function (userId) {
-                createdGroup.userIds.add(userId);
-            })
-            return createdGroup.save();
-        })
-        .then(function (updatedGroup) {
-            console.log("Group after updating ---- ", updatedGroup);
-            resolve(updatedGroup);
-        })
-        .catch(function (err) {  // if error, check if error code represents duplicate index on unique field (name)
-            console.log("Error in create group ---- ", err);
-            if (err.code === 'E_VALIDATION') { // if error code is 11000, it means the name already exists
-                // reject with custom error message
-                reject({ id: 400, msg: "Group name already exists." });
-            } else {    // in case of other errors, reject received error
-                reject({ id: 400, msg: err.message });
+        var createPromise = Group.create(data);
+        return createPromise.then(function (createdGroup) {
+            if (!lodash.isEmpty(userIds)) {
+                return createdGroup.addUsers(userIds);
+            } else {
+                return Promise.resolve(createdGroup);
             }
         })
-    });
+            .then(function (addedUsers) {
+                return createPromise.value();
+            })
+            .catch(function (err) { // if error, check if error code represents duplicate index on unique field (name)
+                // console.log("Error in create group ---- ", err);
+                if (err.parent && err.parent.code == 23505) { // check if duplicate name is used to create a new group
+                    return Promise.reject({ id: 400, msg: "Group name already exists for this team." });
+                } else { // in case of other errors, reject received error
+                    return Promise.reject({ id: 400, msg: err.message });
+                }
+            })
+    }
 }
 
 
@@ -88,24 +91,27 @@ function createGroup(ownerId, teamId, input) {
  * Fetch Team Details
  * @method fetchTeamDetails
  * @param {String} teamId Id of the team
- * @param {String} token JWT token
- * @param {Seneca} seneca The Seneca instance
  * @returns {Promise} Promise containing the matching team details if successful, else containing the
  * appropriate error message
  */
 
-function fetchTeamDetails(teamId, token, seneca) {
-    return new Promise(function(resolve, reject) {
-        // fetch team details based on the team Id
-        utils.microServiceCall(seneca, 'teams', 'getTeam', {action: "id", teamId: teamId}, token,
-            function(err, result) {
-            if (err || !result.content.success) {   // if error or unsuccessful, return error message
-                reject({ id: 400, msg: err || result.content.message.description });
-            } else {    // if successful, return the fetched team
-                resolve(result.content.data);
+function fetchTeamDetails(teamId, userIds) {
+    return Team.findOne({
+        where: { teamId: teamId }, include: {
+            model: User, attributes: ['userId'], through: { attributes: [] } } })
+        .then(function(team) {
+            if (lodash.isEmpty(team)) {
+                return Promise.reject({ id: 400, msg: "Invalid teamId. Team not found." });
+            } else {
+                // console.log("Team fetched ---- ", team.users);
+                var teamUsers = lodash.map(team.users, lodash.property('userId'));
+                console.log("Team users ---- ", teamUsers);
+                return [team, teamUsers];
             }
         })
-    });
+        .catch(function(err) {
+            return Promise.reject({ id: 400, msg: err });
+        })
 }
 
 
@@ -143,52 +149,41 @@ function sendResponse(result, done) {
 
 module.exports = function(options) {
     var seneca = options.seneca;
-    var ontology = options.wInstance;
+    var dbConnection = options.dbConnection;
     return function(args, done) {
 
-        var teamId = null;   // stores the team Id
+        var teamId = null; // stores the team Id
         var groupId = null;
         var finalResponse = null;
 
-        // load mongoose models for Groups and Users
-        Group = Group || ontology.collections.groups;
-        User = User || ontology.collections.users;
+        // load database models for Groups and Users
+        Group = Group || dbConnection.models.groups;
+        User = User || dbConnection.models.users;
+        Team = Team || dbConnection.models.teams;
 
         // if group name is specified in input, convert it to lowercase (for sorting)
         /*if (args.body.name) {
             args.body.name = args.body.name.toLowerCase()
         }*/
 
-        teamId = args.credentials.teamId; // store the team Id for further use
-
-        console.log("DecodedToken ---- ", args.credentials);
+        // console.log("DecodedToken ---- ", args.credentials);
         utils.checkInputParameters(args.body, args.credentials.isMicroservice ? microSchema : groupSchema)
-            .then(function () {
-                console.log("Input parameters verified ----- ", teamId);
-                // fetch team details from team Id
-                return fetchTeamDetails(teamId, args.header.authorization, seneca);
-            })
-            .then(function (response) {
-                console.log("Team details ---- ", response);
-                // create group from input details and team details
-                return createGroup(args.credentials.userId, response.teamId, args.body);
-            })
-            .then(function(response) {
-                console.log("Group details ---- ", response);
-                // store the result of crete group for replying later
-                finalResponse = response;
-                groupId = response.groupId; // store the Id of the newly created group
-                
-                // if users to be added to group are sent in input, add group Id in users' documents
-                if (args.body.userIds) {
-                    groupsLib.addGroupInUser(User, groupId, args.body.userIds);
-                }
-                // add user Ids to group document
-                return groupsLib.addUsers(Group, groupId, args.body.userIds)
+            .then(function() {
+                return utils.checkIfAuthorized(args.credentials, true);
             })
             .then(function() {
-                // send stored response in reply
-                sendResponse(finalResponse, done);
+                teamId = args.credentials.teamId; // store the team Id for further use
+                // console.log("Input parameters verified ----- ", teamId);
+                // fetch team details from team Id
+                return fetchTeamDetails(teamId);
+            })
+            .spread(function(team, teamUsers) {
+                // create group from input details and team details
+                return createGroup(args.credentials.userId, team.teamId, args.body, teamUsers);
+            })
+            .then(function(response) {
+                // send reply
+                sendResponse(response, done);
             })
             .catch(function(err) {
                 console.log("Error in create Group ---- ", err);

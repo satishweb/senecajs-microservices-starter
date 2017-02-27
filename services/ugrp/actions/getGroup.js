@@ -1,146 +1,56 @@
 'use strict';
 
-var utils = require(__base + '/sharedlib/utils');
-var InitCompositeGrid = require(__base + '/sharedlib/grid/initCompositeGrid');
-var Locale = require(__base + '/sharedlib/formatter');
+var utils = require(__base + 'sharedlib/utils');
+var InitCompositeGrid = require(__base + 'sharedlib/grid/initCompositeGrid');
+var Locale = require(__base + 'sharedlib/formatter');
 var outputFormatter = new Locale(__base);
 var jwt = require('jsonwebtoken');
 var lodash = require('lodash');
 var Joi = require('joi');
-var mongoose = require('mongoose');
 var Promise = require('bluebird');
 var microtime = require('microtime');
-var Groups = null;
+var Group = null;
+var Email = null;
+var User = null;
 
-var getSchema = Joi.object().keys({
-    groupId: Joi.string().required()
-});
-
-
-/**
- * Verify token and return the decoded token
- * @method verifyTokenAndDecode
- * @param {Object} args Used to access the JWT in the header
- * @returns {Promise} Promise containing decoded token if successful, else containing the error message
- */
-function verifyTokenAndDecode(args) {
-    return new Promise(function(resolve, reject) {
-        jwt.verify(args.header.authorization, process.env.JWT_SECRET_KEY, function(err, decoded) {
-            if (err) {
-                reject({ id: 404, msg: err });
-            } else if (!decoded.teamId) {
-                reject({ id: 400, msg: "Invalid token. Team Id not found in token." });
-            } else {
-                resolve(decoded);
-            }
-        });
-    });
-}
+var groupGetSchema = Joi.object().keys({
+    action: Joi.string().trim().allow('list', 'id'),
+    groupId: Joi.any().when('action', { is: 'id', then: Joi.number().required(), otherwise: Joi.any().forbidden() }),
+    searchKeyword: Joi.any().when('action', { is: 'list', then: Joi.object(), otherwise: Joi.any().forbidden() }),
+    filter: Joi.any().when('action', { is: 'list', then: Joi.object(), otherwise: Joi.any().forbidden() }),
+    sort: Joi.any().when('action', { is: 'list', then: Joi.object(), otherwise: Joi.any().forbidden() }),
+    limit: Joi.any().when('action', { is: 'list', then: Joi.number(), otherwise: Joi.any().forbidden() }),
+    page: Joi.any().when('action', { is: 'list', then: Joi.number(), otherwise: Joi.any().forbidden() })
+}).without('groupId', ['searchKeyword', 'filter', 'sort', 'limit', 'page']);
 
 /**
  * Fetch Group details
  * @method fetchContacts
  * @returns {Promise} Promise containing the Contact details if resolved, else the error message
  */
-function fetchGroup(groupId) {
-    return new Promise(function(resolve, reject) {
-        Groups.findOne({ '_id': groupId }, function(err, fetchResponse) {
-            if (err) {
-                reject({ id: 400, msg: err.message });
-            } else {
-                // console.log('fetch Contact ---- ', fetchResponse);
-                if (lodash.isEmpty(fetchResponse)) {
-                    reject({ id: 400, msg: 'Group not found.' });
-                } else {
-                    fetchResponse = JSON.parse(JSON.stringify(fetchResponse));
-                    resolve(fetchResponse);
+function fetchGroup(groupId, teamId) {
+    return Group.findOne({
+            where: { groupId: groupId, teamId: teamId },
+            include: {
+                model: User,
+                attributes: ['userId', 'firstName'],
+                include: { model: Email, as: 'emails', attributes: ['email'] },
+                through: {
+                    attributes: []
                 }
             }
         })
-    })
-}
-
-
-/**
- * Fetch Users
- * @method fetchUserDetails
- * @returns {Promise} Promise
- */
-function fetchUserDetails(groupId, header, options) {
-    return new Promise(function(resolve, reject) {
-        var getUser = require(__base + '/actions/getUsers.js')(options);
-        getUser({ body: { action: 'list', filter: { groupIds: [groupId] } }, header: header }, function(err, response) {
-            if (err) {
-                reject(err);
+        .then(function(group) {
+            if (lodash.isEmpty(group)) {
+                return Promise.reject({ id: 400, msg: 'Group not found.' });
             } else {
-                resolve(response.content.data);
+                return group;
             }
         })
-    });
-}
-
-
-/**
- * Formats the output response and returns the response.
- * @param result: The final result to return.
- * @param done: The done method that returns the response.
- */
-var sendResponse = function(result, done) {
-    if (result !== null) {
-        done(null, { statusCode: 200, content: outputFormatter.format(true, 2040, result, 'Group') });
-    } else {
-        var error = { id: 400, msg: 'Unexpected error' };
-        done(null, { statusCode: 200, content: response.error(error.id, error.msg, microtime.now()) });
-    }
-};
-
-function getGroupCalls(options, args, done) {
-    var seneca = options.seneca;
-    var teamId = null;
-    var finalResponse = null;
-    // console.log('fetch contact called-----------------', args.body);
-    utils.checkInputParameters(args.body, getSchema)
-        .then(function() {
-            return verifyTokenAndDecode(args);
-        })
-        .then(function(decoded) {
-            teamId = decoded.teamId;
-            Groups = mongoose.model('DynamicGroup', Groups.schema, teamId + '_groups');
-            return fetchGroup(args.body.groupId);
-        })
-        .then(function(response) {
-            finalResponse = response;
-            return fetchUserDetails(args.body.groupId, args.header, options);
-        })
-        .then(function(response) {
-            delete mongoose.connection.models['DynamicGroup'];
-            // console.log('response:--- ', JSON.stringify(response));
-            var output = {
-                content: finalResponse,
-                members: response.content,
-                permissions: {},
-                roles: []
-            };
-            sendResponse(output, done)
-        })
         .catch(function(err) {
-            delete mongoose.connection.models['DynamicGroup'];
-            console.log("Error in fetch Group --- ", err);
-            done(null, {
-                statusCode: 200,
-                content: response.error(err.id || 400, err.msg ? err.msg : 'Unexpected error', microtime.now())
-            });
-        });
+            return Promise.reject({ id: 400, msg: err });
+        })
 }
-
-//Joi validation Schema
-//TODO: MOVE
-var schemaList = Joi.object().keys({
-    filter: Joi.object(),
-    searchKeyword: Joi.object(),
-    sort: Joi.object(),
-    limit: Joi.number()
-});
 
 /**
  * Formats the output response and returns the response
@@ -148,14 +58,15 @@ var schemaList = Joi.object().keys({
  * @param {Object} result The updated user details to return
  * @param {Function} done The done formats and sends the response
  */
-function listSendResponse(result, done) {
+function sendResponse(result, done) {
     if (result !== null) {
-        if (result.data && result.data.configuration) {
-            delete result.data.configuration;
+        if (result.data) {
+            result = result.data;
+            delete result.configuration;
         }
         done(null, {
             statusCode: 200,
-            content: outputFormatter.format(true, 2040, result.data, 'Groups')
+            content: outputFormatter.format(true, 2040, result, 'Groups')
         });
     } else {
         //else return error
@@ -167,25 +78,43 @@ function listSendResponse(result, done) {
 }
 
 
-function listGroupCalls(options, args, done) {
-    var seneca = options.seneca;
+function listGroups(input, teamId, dbConnection) {
     var config = {};
     var collection = {
         "groupId": {
-            "databaseName": "_id",
+            "databaseName": "groupId",
             "displayName": "Group Id",
             "filter": true
         },
-        "userIds": {
-            "displayName": "User Ids",
-            "filter": true
+        "users": {
+            "databaseName": "$users.userId$",
+            "displayName": "Users",
+            "filter": true,
+            "join": {
+                model: 'users',
+                fields: ['userId', 'firstName'],
+                exclude: ['join_usergroups']
+            }
         },
-        "teamId": {
-            "displayName": "Team Id",
-            "search": true
+        "team": {
+            "databaseName": "$team.teamId$",
+            "displayName": "Team",
+            "filter": true,
+            "join": {
+                model: 'teams',
+                as: 'team',
+                fields: ['teamId', 'name', 'subDomain']
+            }
         },
-        "ownerId": {
-            "displayName": "Owner Id"
+        "owner": {
+            "databaseName": "$owner.userId$",
+            "displayName": "Owner",
+            "filter": true,
+            "join": {
+                model: 'users',
+                as: 'owner',
+                fields: ['userId', 'firstName']
+            }
         },
         "name": {
             "displayName": "Group Name",
@@ -196,56 +125,65 @@ function listGroupCalls(options, args, done) {
             "displayName": "Description"
         }
     };
-    utils.checkInputParameters(args.body, schemaList)
-        .then(function() {
-            return utils.verifyTokenAndDecode(args.header.authorization);
-        })
-        .then(function(decoded) {
-            if (args.body && args.body.filter && args.body.filter.userIds) {
-                var idArray = [];
-                args.body.filter.userIds.forEach(function(items) {
-                    idArray.push(mongoose.Types.ObjectId(items));
-                });
-                args.body.filter.userIds = idArray;
-            }
-            config = { 'listGroups': { 'collections': {} } };
-            config.listGroups.collections[decoded.teamId + '_groups'] = collection;
-            var compositeGrid = InitCompositeGrid.initFromConfigObject(args.body, 'listGroups', mongoose.connection.db, seneca, config);
-            return compositeGrid.fetch()
-        })
-        .then(function(result) {
-            listSendResponse(result, done);
-        })
-        .catch(function(err) {
-            console.log("Error in listGroups--- ", err);
-            done(null, {
-                statusCode: 200,
-                content: outputFormatter.format(false, 102)
-            });
-        });
-
+    config = { 'listGroups': { 'collections': {} } };
+    config.listGroups.collections['groups'] = collection;
+    if (lodash.isEmpty(input.filter)) {
+        input.filter = {};
+    }
+    if (teamId) {
+        input.filter.team = [teamId];
+    }
+    delete input.action;
+    var compositeGrid = InitCompositeGrid.initFromConfigObject(input, 'listGroups', dbConnection, null, config);
+    return compositeGrid.fetch()
 }
 
 
 module.exports = function(options) {
-    return function(args, done) {
-        Groups = Groups || mongoose.model('Groups');
+    var seneca = options.seneca;
+    var dbConnection = options.dbConnection;
 
-        switch (args.body.action) {
-            case 'id':
-                delete args.body.action;
-                getGroupCalls(options, args, done);
-                break;
-            case 'list':
-                delete args.body.action;
-                listGroupCalls(options, args, done);
-                break;
-            default:
+    return function(args, done) {
+
+        Group = Group || dbConnection.models.groups;
+        Email = Email || dbConnection.models.emails;
+        User = User || dbConnection.models.users;
+
+        utils.checkInputParameters(args.body, groupGetSchema)
+            .then(function() {
+                switch (args.body.action) {
+                    case 'list':
+                        return listGroups(args.body, args.credentials.teamId, dbConnection);
+                        break;
+                    case 'id':
+                        return fetchGroup(args.body.groupId, args.credentials.teamId);
+                        break;
+                    default:
+                        return new Promise(function(resolve, reject) {
+                            reject({ id: 400, msg: "Invalid input. \"action\" must be present and one of [\"id\", \"list\"]" });
+                        });
+                }
+            })
+            .then(function(result) {
+                sendResponse(result, done);
+            })
+            .catch(function(err) {
+                console.log("Error in getGroups ---- ", err);
+                var error;
+                if (err && 'success' in err) {
+                    error = err;
+                } else {
+                    error = err ? { id: err.id || 1000, msg: JSON.stringify(err.msg) || err.message || "Unexpected error" } : { id: 1000, msg: "Unexpected error" };
+                    error = outputFormatter.format(false, 1000, null, error.msg);
+                }
+
+                // in case of error, print the error and send as response
+                utils.senecaLog(seneca, 'error', __filename.split('/').pop(), error);
+
                 done(null, {
                     statusCode: 200,
-                    content: response.error(400, 'Enter a valid action', microtime.now())
+                    content: error
                 });
-                break;
-        }
+            });
     };
 };

@@ -47,7 +47,7 @@ module.exports = function(server, options, done) {
                                         $post: requestHandlerFactory('post', 'getGroup')
                                     },
                                     'update': {
-                                        $post: requestHandlerFactory('post', 'updateGroup')
+                                        $put: requestHandlerFactory('post', 'updateGroup')
                                     },
                                     'delete': {
                                         $delete: requestHandlerFactory('delete', 'deleteGroup')

@@ -1,7 +1,6 @@
 'use strict';
 
 var utils = require(__base + 'sharedlib/utils');
-var groupsLib = require(__base + 'lib/groups');
 var Locale = require(__base + 'sharedlib/formatter');
 var outputFormatter = new Locale(__base);
 var Joi = require('joi');
