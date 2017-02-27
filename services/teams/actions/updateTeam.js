@@ -7,16 +7,16 @@ var Joi = require('joi');
 var lodash = require('lodash');
 var Promise = require('bluebird');
 var microtime = require('microtime');
-var Organization = null;
+var Team = null;
 
 /**
- * @module updateOrganization
+ * @module updateTeam
  */
 
 //Joi validation Schema
 //TODO: MOVE
-var OrganizationSchema = Joi.object().keys({
-    orgId: Joi.number().required(),
+var TeamSchema = Joi.object().keys({
+    teamId: Joi.number().required(),
     name: Joi.string(),
     description: Joi.string().allow(''),
     ownerId: Joi.number(),
@@ -24,37 +24,37 @@ var OrganizationSchema = Joi.object().keys({
 });
 
 /**
- * Update Organization details
- * @method updateOrganization
+ * Update Team details
+ * @method updateTeam
  * @param {Object} input Input parameters
- * @returns {Promise} Promise containing the created Organization details if successful, else containing the appropriate
+ * @returns {Promise} Promise containing the created Team details if successful, else containing the appropriate
  * error message
  */
-function updateOrganization(input, userId) {
+function updateTeam(input, userId) {
     return new Promise(function(resolve, reject) {
 
         // remove null and empty objects from input and store in separate variable
         var updateData = lodash.omitBy(input, function(value) {
             return value === null || value === {};
         });
-        // remove organization Id from update object
-        delete updateData.orgId;
+        // remove team Id from update object
+        delete updateData.teamId;
 
-        // update the organization details, find organization to update by Id and check if the requesting user is
-        // the owner of the organization and update with input details
+        // update the team details, find team to update by Id and check if the requesting user is
+        // the owner of the team and update with input details
         // returning: true - returns the updated document
-        Organization.update(updateData, { where: { orgId: input.orgId, ownerId: userId, isDeleted: false }, returning: true, plain: true })
+        Team.update(updateData, { where: { teamId: input.teamId, ownerId: userId, isDeleted: false }, returning: true, plain: true })
             .then(function(updateResponse) {
-                // if no error, check if organization is returned
-                if (lodash.isEmpty(updateResponse)) { // if no organization is returned, return error
-                    reject({ id: 400, msg: 'Invalid Organization Id or not authorized to update the organization.' });
-                } else { // if organization is returned, transform the object and return it
+                // if no error, check if team is returned
+                if (lodash.isEmpty(updateResponse)) { // if no team is returned, return error
+                    reject({ id: 400, msg: 'Invalid Team Id or not authorized to update the team.' });
+                } else { // if team is returned, transform the object and return it
                     resolve(updateResponse[1].toJSON());
                 }
             })
             .catch(function(err) {
                 { // for any other error, return the error message
-                    reject({ id: 400, msg: 'Invalid Organization Id or not authorized to update the organization.' });
+                    reject({ id: 400, msg: 'Invalid Team Id or not authorized to update the team.' });
                 }
             });
     });
@@ -63,14 +63,14 @@ function updateOrganization(input, userId) {
 /**
  * Formats the output response and returns the response
  * @method sendResponse
- * @param {Object} result The updated Organization details to return
+ * @param {Object} result The updated Team details to return
  * @param {Function} done The done formats and sends the response
  */
 function sendResponse(result, done) {
     if (result !== null) {
         done(null, {
             statusCode: 200,
-            content: outputFormatter.format(true, 2050, result, 'Organization')
+            content: outputFormatter.format(true, 2050, result, 'Team')
         });
     } else {
         //else return error
@@ -82,9 +82,9 @@ function sendResponse(result, done) {
 }
 
 /**
- * This is a PUT action for the Organizations microservice
- * It checks if the requester is the owner of the organization and then updates the organization specified by the
- * organization Id with the input.
+ * This is a PUT action for the Teams microservice
+ * It checks if the requester is the owner of the team and then updates the team specified by the
+ * team Id with the input.
  * @param {Object} options Contains the seneca instance
  */
 
@@ -93,8 +93,8 @@ module.exports = function(options) {
     var dbConnection = options.dbConnection;
     return function(args, done) {
 
-        // load the mongoose model for Organizations
-        Organization = Organization || dbConnection.models.organizations;
+        // load the mongoose model for Teams
+        Team = Team || dbConnection.models.teams;
 
         // if input contains field name, convert it to lowercase
         if (args.body.name) {
@@ -102,21 +102,21 @@ module.exports = function(options) {
         }
 
         // validate input against Joi schema
-        utils.checkInputParameters(args.body, OrganizationSchema)
+        utils.checkInputParameters(args.body, TeamSchema)
             .then(function() {
                 // check if owner
                 return utils.checkIfAuthorized(args.credentials);
             })
             .then(function() {
-                // update organization by Id if it belongs to user
-                return updateOrganization(args.body, args.credentials.userId);
+                // update team by Id if it belongs to user
+                return updateTeam(args.body, args.credentials.userId);
             })
             .then(function(response) {
                 sendResponse(response, done);
             })
             .catch(function(err) {
 
-                console.log("Error in update organization --- ", err);
+                console.log("Error in update team --- ", err);
                 // in case of error, print the error and send as response
                 utils.senecaLog(seneca, 'error', __filename.split('/').pop(), err);
 

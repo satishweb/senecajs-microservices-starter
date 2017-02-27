@@ -45,7 +45,7 @@ module.exports.createJWT = function(userDetails, requestHeaders) {
         var sessionData = { // Extract user details that need to be stored in the JWT token
             firstName: userDetails.firstName,
             lastName: userDetails.lastName,
-            // orgId: userDetails.orgId,
+            // teamId: userDetails.teamId,
             avatar: userDetails.avatar,
             userId: userDetails.userId,
             emailId: userDetails.emails,
@@ -66,47 +66,47 @@ module.exports.createJWT = function(userDetails, requestHeaders) {
 };
 
 /**
- * Get the organization by matching the request header's origin to organization sub-domain.
- * If request is from Postman, returns the sample organization from bootstrap.
- * If the fqdn doesn't match with any organization's, null is returned.
- * If the corresponding organization has been deleted, error message is returned.
- * @method fetchOrganisationId
- * @param {String|Boolean} orgId The value of organization Id or fromSignUp flag
+ * Get the team by matching the request header's origin to team sub-domain.
+ * If request is from Postman, returns the sample team from bootstrap.
+ * If the fqdn doesn't match with any team's, null is returned.
+ * If the corresponding team has been deleted, error message is returned.
+ * @method fetchTeamanisationId
+ * @param {String|Boolean} teamId The value of team Id or fromSignUp flag
  * @param {Object} header The input headers to get the request origin
  * @param {Seneca} seneca The Seneca instance to call microservice
- * @returns {Promise} Resolved promise containing the organization details if the request origin matches a non deleted
- * organization or null if no match is found or rejected promise containing the error message.
+ * @returns {Promise} Resolved promise containing the team details if the request origin matches a non deleted
+ * team or null if no match is found or rejected promise containing the error message.
  */
-module.exports.fetchOrganizationId = function(orgId, header, seneca) {
+module.exports.fetchTeamId = function(teamId, header, seneca) {
     var that = this;
     return new Promise(function(resolve, reject) {
 
-        // if orgId is absent and origin is present
-        if (!orgId && header && header.origin) {
+        // if teamId is absent and origin is present
+        if (!teamId && header && header.origin) {
             header = url.parse(header.origin);
             header = header.host;
             var urlComp = header.split(':'); // remove the trailing port for localhost
 
-            // find the organization corresponding to the sub-domain by calling getOrganization of organizations
+            // find the team corresponding to the sub-domain by calling getTeam of teams
             // microservice
-            that.microServiceCall(seneca, 'organizations', 'getOrganization', { action: 'fqdn', fqdn: urlComp[0] }, null,
+            that.microServiceCall(seneca, 'teams', 'getTeam', { action: 'fqdn', fqdn: urlComp[0] }, null,
                 function(err, orgResult) {
                     if (err) {
                         resolve(err);
                     } else if (orgResult.content && lodash.isEmpty(orgResult.content.data)) { // if data
-                        // returned is empty, organization was not found
+                        // returned is empty, team was not found
                         resolve(null);
                     } else if (orgResult.content &&
                         orgResult.content.data &&
                         orgResult.content.data.isDeleted ==
                         false) {
-                        // if organization details are returned, check if the organization has not been deleted and
+                        // if team details are returned, check if the team has not been deleted and
                         // return the details
                         resolve(orgResult.content.data);
-                    } else { // if organization has been deleted, return error message
+                    } else { // if team has been deleted, return error message
                         reject({
                             id: 400,
-                            msg: 'This Organization is currently disabled. Please contact Organization Admin.'
+                            msg: 'This Team is currently disabled. Please contact Team Admin.'
                         });
                     }
                 });
@@ -153,14 +153,14 @@ module.exports.verifyTokenAndDecode = function(token, errorMsg) {
  * Check if user is authorized
  * @method checkIfAuthorized
  * @param {String} decodedToken The decoded JWT token from the header
- * @param {Boolean} subDomainsOnly Flag for whether orgId is needed in token
+ * @param {Boolean} subDomainsOnly Flag for whether teamId is needed in token
  * @returns {Promise} Resolved Promise if successful, else containing the error message
  */
 module.exports.checkIfAuthorized = function(decodedToken, subDomainsOnly) {
         if (decodedToken && (decodedToken.isMicroservice || decodedToken.isOwner)) {    // if the decoded token belongs to an owner, resolve the
             // decoded token
             if (subDomainsOnly === true) {
-                if (decodedToken.orgId) {
+                if (decodedToken.teamId) {
                     return Promise.resolve();                    
                 } else {
                     return Promise.reject({ id: 400, msg: "This action can only be performed from a sub-domain."});

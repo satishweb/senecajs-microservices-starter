@@ -8,7 +8,7 @@ var lodash = require('lodash');
 var Joi = require('joi');
 var Promise = require('bluebird');
 var microtime = require('microtime');
-var Organization = null;
+var Team = null;
 var Session = null;
 var User = null;
 var subDomain = null;
@@ -22,7 +22,7 @@ AWS.config.update({
 
 
 /**
- * @module createOrganization
+ * @module createTeam
  */
 
 //Joi validation Schema
@@ -159,19 +159,19 @@ function createRoute53ResourceRecordSet(input, cloudFrontResponse) {
 }
 
 /**
- * Save Organization details in database
- * @method createOrganization
+ * Save Team details in database
+ * @method createTeam
  * @param {Object} input Used to get input parameters
  * @param {String} ownerId Used to get Id of user
  * @param {Object} amazonResponse Used to get result from amazon Route53 and cloud front
  * @param {Seneca} seneca seneca instance
- * @returns {Promise} Promise containing created Organization document if successful, else containing
+ * @returns {Promise} Promise containing created Team document if successful, else containing
  * the error message
  */
-function createOrganization(ownerId, input, amazonResponse, seneca) {
+function createTeam(ownerId, input, amazonResponse, seneca) {
     return new Promise(function(resolve, reject) {
 
-        // create organization data using fields not present in input
+        // create team data using fields not present in input
         var data = {
             ownerId: ownerId,
             fqdn: subDomain,
@@ -182,12 +182,12 @@ function createOrganization(ownerId, input, amazonResponse, seneca) {
         data = lodash.assign(data, input);
 
         // save data to database        
-        Organization.create(data)
+        Team.create(data)
             .then(function(saveResponse) {
                 resolve(saveResponse);
             })
             .catch(function(err) {
-                if (err.parent && err.parent.code == 23505) { // check if duplicate sub domain is used to create a new organization
+                if (err.parent && err.parent.code == 23505) { // check if duplicate sub domain is used to create a new team
                     reject({ id: 400, msg: "Sub Domain already exists." });
                 } else {
                     reject({ id: 400, msg: err.errors ? err.errors[0].message : err.message || err });
@@ -226,7 +226,7 @@ function sendResponse(result, done) {
     if (result !== null) {
         done(null, {
             statusCode: 200,
-            content: outputFormatter.format(true, 2030, result, 'Organization')
+            content: outputFormatter.format(true, 2030, result, 'Team')
         });
     } else {
         //else return error
@@ -243,8 +243,8 @@ module.exports = function(options) {
     var dbConnection = options.dbConnection;
     return function(args, done) {
 
-        // load database models for organization and session
-        Organization = Organization || dbConnection.models.organizations;
+        // load database models for team and session
+        Team = Team || dbConnection.models.teams;
         Session = Session || dbConnection.models.sessions;
         User = User || dbConnection.models.users;
 
@@ -275,7 +275,7 @@ module.exports = function(options) {
                 }
             })
             .then(function(response) {
-                return createOrganization(args.credentials.userId, args.body, response, seneca);
+                return createTeam(args.credentials.userId, args.body, response, seneca);
             })
             .then(function(response) {
                 response.registrationStep = 3;

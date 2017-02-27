@@ -100,6 +100,7 @@ CollectionGrid.prototype.executeQuery = function() {
                 if (join.as) {
                     temp.as = join.as;
                 }
+                temp.duplicating = false;
                 // console.log("temp --- ", temp, "\nfield ---- ", field);
                 if (gridObject.Query.sort[field]) {
                     var sortTemp = lodash.concat(temp, gridObject.Query.sort[field]);
@@ -117,6 +118,7 @@ CollectionGrid.prototype.executeQuery = function() {
         // console.log("Query after joining ----- ", JSON.stringify(findObject), associations, "sort ----- ", sort, gridObject.Query.sort, gridObject.Query.pagination.limit, gridObject.Query.pagination.skip);
         //first find count of document matched and then fetch result set using pagination
         gridObject.database.models[gridObject.collectionName].findAndCount({
+
           distinct: true,
           where: findObject,
           include: associations,

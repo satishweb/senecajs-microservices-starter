@@ -11,7 +11,7 @@ var Promise = require('bluebird');
 var microtime = require('microtime');
 var url = require('url');
 var User = null;
-var Organization = null;
+var Team = null;
 var Session = null;
 var Email = null;
 /**
@@ -44,93 +44,93 @@ var signInSchema = Joi.object().keys({
 // if email is present, the other fields should not be present
 
 /**
- * Check if organization is deployed and is not deleted
- * @method checkOrganizationStatus
- * @param {Object} orgDetails used to get organization details
- * @returns {Promise} Promise containing the organization details if successful, else containing the error message
+ * Check if team is deployed and is not deleted
+ * @method checkTeamStatus
+ * @param {Object} orgDetails used to get team details
+ * @returns {Promise} Promise containing the team details if successful, else containing the error message
  */
-function checkOrganizationStatus(orgDetails) {
+function checkTeamStatus(orgDetails) {
     return new Promise(function(resolve, reject) {
-        // console.log("Org details in checkOrg ---- ", orgDetails);
-        if (!lodash.isEmpty(orgDetails)) { //check if organization details are present
+        // console.log("Team details in checkTeam ---- ", orgDetails);
+        if (!lodash.isEmpty(orgDetails)) { //check if team details are present
             if (orgDetails.isUpdated == true && orgDetails.isDeleted == false) {
                 resolve(orgDetails);
             } else {
                 if (orgDetails.isDeleted == true) {
-                    reject({ id: 400, msg: 'This Organization is currently disabled. Please contact Organization Admin.' });
+                    reject({ id: 400, msg: 'This Team is currently disabled. Please contact Team Admin.' });
                 } else {
-                    reject({ id: 400, msg: 'This Organization is not deployed' });
+                    reject({ id: 400, msg: 'This Team is not deployed' });
                 }
             }
         } else {
-            reject({ id: 400, msg: 'Invalid Organization/Sub-Domain' });
+            reject({ id: 400, msg: 'Invalid Team/Sub-Domain' });
         }
     })
 }
 
 /**
- * Checks if organization is deployed, if yes then checks if user belongs to organization and if user is the owner of the organization
- * @method checkIfUserMemberInOrganization
- * @param {Object} orgDetails The organization details
+ * Checks if team is deployed, if yes then checks if user belongs to team and if user is the owner of the team
+ * @method checkIfUserMemberInTeam
+ * @param {Object} orgDetails The team details
  * @param {Object} user The user instance
  * @returns {Promise} Promise containing the true details if successful, else containing the error message
  */
-function checkIfUserMemberInOrganization(orgDetails, user, protocol) {
-    return checkOrganizationStatus(orgDetails)
+function checkIfUserMemberInTeam(orgDetails, user, protocol) {
+    return checkTeamStatus(orgDetails)
         .then(function(response) {
-            // console.log("------- ", userDetails, response, orgDetails.orgId);
-            if (response.ownerId == user.userId) { //check if userId is same as ownerId of organization
-                return fetchAllOrganizations(user, protocol, null, null);
+            // console.log("------- ", userDetails, response, orgDetails.teamId);
+            if (response.ownerId == user.userId) { //check if userId is same as ownerId of team
+                return fetchAllTeams(user, protocol, null, null);
             } else {
-                return fetchAllOrganizations(user, protocol, orgDetails.orgId, null);
+                return fetchAllTeams(user, protocol, orgDetails.teamId, null);
             }
         });
 }
 
 /**
- * Fetches organizations that the user belongs to and the user's owned organizations. If the user does not belong to the organization, error is returned.
- * @method fetchAllOrganizations
+ * Fetches teams that the user belongs to and the user's owned teams. If the user does not belong to the team, error is returned.
+ * @method fetchAllTeams
  * @param {Object} user The user instance
  * @param {String} protocol The website protocol used
- * @param {Number} orgId (Optional) The Id of the organization, if present checks if the user belongs to this organization by orgId
- * @param {String} fqdn (Optional) The organization's FQDN, if present checks if the user belongs to this organization by fqdn
+ * @param {Number} teamId (Optional) The Id of the team, if present checks if the user belongs to this team by teamId
+ * @param {String} fqdn (Optional) The team's FQDN, if present checks if the user belongs to this team by fqdn
  * @returns 
  */
-function fetchAllOrganizations(user, protocol, orgId, fqdn) {
+function fetchAllTeams(user, protocol, teamId, fqdn) {
     var orgs = {};
-    orgs[protocol + '://' + process.env.APP_URL] = { orgId: null, isOwner: user.registrationStep != null };
+    orgs[protocol + '://' + process.env.APP_URL] = { teamId: null, isOwner: user.registrationStep != null };
     var userId = user.userId;
-    var inOrg = false;
-    return user.getOrganizations({ where: { isDeleted: false }, attributes: ['orgId', 'ownerId', 'fqdn'] })
-        .then(function(fetchedOrgs) {
-            console.log("orgs ---- ", fetchedOrgs);
-            if (!lodash.isEmpty(fetchedOrgs)) {
-                fetchedOrgs.forEach(function(org) {
-                    orgs[protocol + '://' + org.fqdn] = { orgId: org.orgId, isOwner: org.ownerId == userId }
-                    if (orgId && !inOrg && org.orgId == orgId) {
-                        inOrg = true;
-                    } else if (fqdn && !inOrg && org.fqdn == fqdn) {
-                        inOrg = true;
+    var inTeam = false;
+    return user.getTeams({ where: { isDeleted: false }, attributes: ['teamId', 'ownerId', 'fqdn'] })
+        .then(function(fetchedTeams) {
+            console.log("orgs ---- ", fetchedTeams);
+            if (!lodash.isEmpty(fetchedTeams)) {
+                fetchedTeams.forEach(function(org) {
+                    orgs[protocol + '://' + org.fqdn] = { teamId: org.teamId, isOwner: org.ownerId == userId }
+                    if (teamId && !inTeam && org.teamId == teamId) {
+                        inTeam = true;
+                    } else if (fqdn && !inTeam && org.fqdn == fqdn) {
+                        inTeam = true;
                     }
                 });
-                console.log("orgs after for each ---- ", orgs, inOrg);
+                console.log("orgs after for each ---- ", orgs, inTeam);
             }
-            if (orgId && !inOrg) {
-                return Promise.reject({ id: 400, msg: 'User does not belong to this organization.' });
+            if (teamId && !inTeam) {
+                return Promise.reject({ id: 400, msg: 'User does not belong to this team.' });
             }
-            return user.getOwnedOrgs({ where: { isDeleted: false }, attributes: ['orgId', 'ownerId', 'fqdn'] })
+            return user.getOwnedTeams({ where: { isDeleted: false }, attributes: ['teamId', 'ownerId', 'fqdn'] })
         })
-        .then(function(fetchedOrgs) {
-            if (fetchedOrgs) {
-                fetchedOrgs.forEach(function(org) {
-                    orgs[protocol + '://' + org.fqdn] = { orgId: org.orgId, isOwner: org.ownerId == userId };
-                    if (fqdn && !inOrg && org.fqdn == fqdn) {
-                        inOrg = true;
+        .then(function(fetchedTeams) {
+            if (fetchedTeams) {
+                fetchedTeams.forEach(function(org) {
+                    orgs[protocol + '://' + org.fqdn] = { teamId: org.teamId, isOwner: org.ownerId == userId };
+                    if (fqdn && !inTeam && org.fqdn == fqdn) {
+                        inTeam = true;
                     }
                 });
             }
-            if (fqdn && !inOrg) {
-                return Promise.reject({ id: 400, msg: 'User does not belong to this organization.' });
+            if (fqdn && !inTeam) {
+                return Promise.reject({ id: 400, msg: 'User does not belong to this team.' });
             }
             console.log("After merging ---- ", orgs);
             return orgs;
@@ -138,16 +138,16 @@ function fetchAllOrganizations(user, protocol, orgId, fqdn) {
 }
 
 
-function fetchOrganization(user, header, protocol) {
+function fetchTeam(user, header, protocol) {
     header = url.parse(header.origin);
     header = header.host;
     var urlComp = header.split(':'); // remove the trailing port for localhost
 
-    // if main site, no need to check if user exists in the organization    
+    // if main site, no need to check if user exists in the team    
     if (urlComp[0] == process.env.APP_URL) {
-        return fetchAllOrganizations(user, protocol, null, null);
-    } else { // for any other sub domain, need to check if the organization exists and user belongs to it
-        return fetchAllOrganizations(user, protocol, null, urlComp[0]);
+        return fetchAllTeams(user, protocol, null, null);
+    } else { // for any other sub domain, need to check if the team exists and user belongs to it
+        return fetchAllTeams(user, protocol, null, urlComp[0]);
     }
 }
 
@@ -186,12 +186,12 @@ module.exports = function(options) {
         var user = null;
         var emails = null;
         var orgs = {};
-        var orgId = null;
+        var teamId = null;
         var isOwner = false;
 
         // load database models
         User = User || dbConnection.models.users;
-        Organization = Organization || dbConnection.models.organizations;
+        Team = Team || dbConnection.models.teams;
         Email = Email || dbConnection.models.emails;
         Session = Session || dbConnection.models.sessions;
 
@@ -217,7 +217,7 @@ module.exports = function(options) {
                 emails = lodash.keys(lodash.keyBy(response.toJSON().emails, 'email'));
                 var header = utils.createMsJWT({ isMicroservice: true });
                 if (args.body.subDomain) {
-                    return utils.microServiceCallPromise(seneca, 'organizations', 'checkStatus', { subDomain: args.body.subDomain }, header, true)
+                    return utils.microServiceCallPromise(seneca, 'teams', 'checkStatus', { subDomain: args.body.subDomain }, header, true)
                 } else {
                     return new Promise(function(resolve) {
                         resolve(true);
@@ -232,25 +232,25 @@ module.exports = function(options) {
                     appUrl = process.env.APP_URL + ':' + port[port.length - 1];
                 }
                 if (args.body.subDomain) {
-                    return checkIfUserMemberInOrganization(response.content.data, user, args.header.origin.split('://')[0]);
+                    return checkIfUserMemberInTeam(response.content.data, user, args.header.origin.split('://')[0]);
                 } else {
-                    return fetchOrganization(user, args.header, args.header.origin.split('://')[0]);
+                    return fetchTeam(user, args.header, args.header.origin.split('://')[0]);
                 }
             })
             .then(function(org) {
                 var fqdn = null;
                 orgs = org;
                 if (orgs[args.header.origin]) {
-                    orgId = orgs[args.header.origin].orgId;
+                    teamId = orgs[args.header.origin].teamId;
                     isOwner = orgs[args.header.origin].isOwner;
                 }
-                console.log("Org ----- ", org);
-                // console.log("Response of checkMember/fetchOrg ---- ", orgDetails);
+                console.log("Team ----- ", org);
+                // console.log("Response of checkMember/fetchTeam ---- ", orgDetails);
                 return signIn.updateLoginTime(User, user);
             })
             .then(function (userDetails) {
                 delete userDetails.password;
-                userDetails.orgId = orgId;
+                userDetails.teamId = teamId;
                 userDetails.isOwner = isOwner;
                 userDetails.emails = emails;
                 userDetails.origin = orgs;

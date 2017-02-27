@@ -101,10 +101,10 @@ module.exports = function(options) {
                 response = response.toJSON();
                 delete response.password;
                 response.emails = lodash.keys(lodash.keyBy(response.emails, 'email'));
-                response.isOwner = true; // only organization owner's can sign up, so set isOwner to true in response
-                response.orgId = null;
+                response.isOwner = true; // only team owner's can sign up, so set isOwner to true in response
+                response.teamId = null;
                 var orgs = {};
-                orgs[args.header.origin.split('://')[0] + '://' + process.env.APP_URL] = { orgId: null, isOwner: true };
+                orgs[args.header.origin.split('://')[0] + '://' + process.env.APP_URL] = { teamId: null, isOwner: true };
                 response.origin = orgs;
                 // create a session token for the signed up user
                 return utils.createJWT(response, args.header);

@@ -7,39 +7,39 @@ var Joi = require('joi');
 var lodash = require('lodash');
 var Promise = require('bluebird');
 var microtime = require('microtime');
-var Organization = null;
+var Team = null;
 
 /**
- * @module deleteOrganization
+ * @module deleteTeam
  */
 
 //Joi validation Schema
-var OrganizationSchema = Joi.object().keys({
-    orgId: Joi.number().required()
+var TeamSchema = Joi.object().keys({
+    teamId: Joi.number().required()
 });
 
 /**
- * Soft delete the organization by updating isDeleted to true
- * @method deleteOrganization
- * @param {String} orgId Organization Id of the organization to delete
+ * Soft delete the team by updating isDeleted to true
+ * @method deleteTeam
+ * @param {String} teamId Team Id of the team to delete
  ** @param {String} ownerId User Id of the user
- * @returns {Promise} Promise containing the response Organization details if successful, else containing the
+ * @returns {Promise} Promise containing the response Team details if successful, else containing the
  * appropriate error message
  */
-function deleteOrganization(ownerId, orgId) {
+function deleteTeam(ownerId, teamId) {
     return new Promise(function(resolve, reject) {
 
-        // update the organization to isDeleted true by the orgId and return the updated document
-        Organization.update({ 'isDeleted': true }, { where: { orgId: orgId, ownerId: ownerId, isDeleted: false }, returning: true, plain: true })
+        // update the team to isDeleted true by the teamId and return the updated document
+        Team.update({ 'isDeleted': true }, { where: { teamId: teamId, ownerId: ownerId, isDeleted: false }, returning: true, plain: true })
             .then(function (updateResponse) {
                 if (lodash.isEmpty(updateResponse[1])) {  // if error or empty, reject with the error message
-                    reject({ id: 400, msg: "Invalid organization Id or not authorized to delete organization." });
+                    reject({ id: 400, msg: "Invalid team Id or not authorized to delete team." });
                 } else {
                     resolve();
                 }
             })
             .catch(function (err) {
-                reject({ id: 400, msg: "Invalid organization Id or not authorized to delete organization." });
+                reject({ id: 400, msg: "Invalid team Id or not authorized to delete team." });
             })
     });
 }
@@ -48,14 +48,14 @@ function deleteOrganization(ownerId, orgId) {
 /**
  * Formats the output response and returns the response
  * @method sendResponse
- * @param {Object} result The updated Organization details to return
+ * @param {Object} result The updated Team details to return
  * @param {Function} done The done formats and sends the response
  */
 function sendResponse(result, done) {
     if (result !== null) {
         done(null, {
             statusCode: 200,
-            content: outputFormatter.format(true, 2060, null, 'Organization')
+            content: outputFormatter.format(true, 2060, null, 'Team')
         });
     } else {
         //else return error
@@ -67,8 +67,8 @@ function sendResponse(result, done) {
 }
 
 /**
- * This is a DELETE action for the Organizations microservice
- * It soft deletes an organization by the organization Id.
+ * This is a DELETE action for the Teams microservice
+ * It soft deletes an team by the team Id.
  * @param {Object} options Contains the seneca instance
  */
 
@@ -77,18 +77,18 @@ module.exports = function(options) {
     var dbConnection = options.dbConnection;
     return function(args, done) {
         
-        // load the mongoose model for organization
-        Organization = Organization || dbConnection.models.organizations;
+        // load the mongoose model for team
+        Team = Team || dbConnection.models.teams;
 
         // validate input against Joi schema
-        utils.checkInputParameters(args.body, OrganizationSchema)
+        utils.checkInputParameters(args.body, TeamSchema)
             .then(function() {
                 // check if owner
                 return utils.checkIfAuthorized(args.credentials);
             })
             .then(function() {
-                // soft delete the organization
-                return deleteOrganization(args.credentials.userId, args.body.orgId);
+                // soft delete the team
+                return deleteTeam(args.credentials.userId, args.body.teamId);
             })
             .then(function(response) {
                 sendResponse(response, done);

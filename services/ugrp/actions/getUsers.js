@@ -32,7 +32,7 @@ var userGetSchema = Joi.object().keys({
  * @param {Number} userId The id of the user whose details are to be fetched
  * @returns {Promise} Promise containing the user details if successful or the error message if unsuccessful
  */
-function getUser(userId, orgId) {
+function getUser(userId, teamId) {
     return new Promise(function (resolve, reject) {
         
         //TODO: Confirm if there is supposed to be a org check when fetching users
@@ -54,10 +54,10 @@ function getUser(userId, orgId) {
 /**
  * Fetches the paginated list of users who match the search/filter criteria.
  * @param {Object} input The input containing the search, filter, sort, page and limit fields
- * @param {Object} orgId The Id of the organization for which the users are to be fetched
+ * @param {Object} teamId The Id of the team for which the users are to be fetched
  * @returns {Promise} Promise containing the result returned by Grid library
  */
-function listUsers(input, orgId, dbConnection) {
+function listUsers(input, teamId, dbConnection) {
     var compositeGrid;
     var collection = {
         "userId": {
@@ -88,24 +88,35 @@ function listUsers(input, orgId, dbConnection) {
                 fields: ['email']
             }
         },
-        "ownedOrg": {
-            "databaseName": "$ownedOrgs.orgId$",
+        "ownedTeam": {
+            "databaseName": "$ownedTeams.teamId$",
             "filter": true,
-            "displayName": "Owned Orgs",
+            "displayName": "Owned Teams",
             "join": {
-                model: 'organizations',
-                as: 'ownedOrgs',
-                fields: ['orgId', 'name', 'subDomain']
+                model: 'teams',
+                as: 'ownedTeams',
+                fields: ['teamId', 'name', 'subDomain']
             }
         },
-        "orgId": {
-            "databaseName": "$organizations.orgId$",
-            "displayName": "Org Id",
+        "teamId": {
+            "databaseName": "$teams.teamId$",
+            "displayName": "Team Id",
             "filter": true,
             "join": {
-                model: 'organizations',
-                fields: ['orgId', 'name', 'subDomain'],
-                exclude: ['join_userorgs']
+                model: 'teams',
+                fields: ['teamId', 'name', 'subDomain'],
+                exclude: ['join_userteams']
+            }
+        },
+        "groupId": {
+            "databaseName": "$groups.groupId$",
+            "displayName": "Group Id",
+            "filter": true,
+            "join": {
+                model: 'groups',
+                as: '',
+                fields: ['groupId', 'name'],
+                exclude: ['join_usergroups']
             }
         },
         "isDeleted": {
@@ -117,8 +128,8 @@ function listUsers(input, orgId, dbConnection) {
     var config = { 'listUsers': { 'collections': {} }};
     config.listUsers.collections['users'] = collection;
     delete input.action;
-    if (orgId) {
-        input.orgId = orgId;
+    if (teamId) {
+        input.teamId = teamId;
     }
     if (lodash.isEmpty(input.filter)) {
         input.filter = {};
@@ -171,10 +182,10 @@ module.exports = function(options) {
             .then(function(decoded) {
                 switch (args.body.action) {
                     case 'list':
-                        return listUsers(args.body, decoded.orgId, dbConnection);
+                        return listUsers(args.body, decoded.teamId, dbConnection);
                         break;
                     case 'id':
-                        return getUser(args.body.userId, decoded.orgId);
+                        return getUser(args.body.userId, decoded.teamId);
                         break;
                     default:
                         return new Promise(function(resolve, reject) {

@@ -38,16 +38,16 @@ function deleteUser(input, userId) {
                 if (lodash.isEmpty(user)) {
                     reject({ id: 400, msg: 'User not found.' });
                 }
-                return user.removeOrganization(input.orgId);
+                return user.removeTeam(input.teamId);
             })    
             .then(function (removeResponse) {
                 console.log("Remove response ---- ", removeResponse);
-                // if no user is deleted, user id was not found or user does not belong to requester's organization
+                // if no user is deleted, user id was not found or user does not belong to requester's team
                 if (lodash.isEmpty(removeResponse)) {
-                    reject({ id: 400, msg: 'Deleting user from the organization failed.' });
+                    reject({ id: 400, msg: 'Deleting user from the team failed.' });
                 } else {
                     // TODO: uncomment after using groups
-                    // removeFromGroups(input.userId, input.orgId); // remove Id of user from all groups, does not wait for response
+                    // removeFromGroups(input.userId, input.teamId); // remove Id of user from all groups, does not wait for response
                     resolve(true);
                 }
             })
@@ -58,18 +58,18 @@ function deleteUser(input, userId) {
 }
 
 /**
- * Removes the Id of the deleted user from all groups in the organization. Does not affect rest of the action. If it
+ * Removes the Id of the deleted user from all groups in the team. Does not affect rest of the action. If it
  * fails, the rest of the action continues.
  * @method removeFromGroups
  * @param {String} userId The Id of the deleted user
- * @param {String} orgId The Id of the organization to which the user belongs
+ * @param {String} teamId The Id of the team to which the user belongs
  */
-function removeFromGroups(userId, orgId) {
+function removeFromGroups(userId, teamId) {
     // Update group documents by removing deleted user Id from all groups
-    Group.update({ userIds: [userId], orgId: orgId }, { $pull: { userIds: { $in: [userId] } } }, { multi: true },
+    Group.update({ userIds: [userId], teamId: teamId }, { $pull: { userIds: { $in: [userId] } } }, { multi: true },
         function(err, updateResponse) {
             if (err) { // if error in update query, print it
-                console.log("Error in deleting user Id from organization groups: ", err);
+                console.log("Error in deleting user Id from team groups: ", err);
             }
         })
 }
@@ -114,12 +114,12 @@ module.exports = function(options) {
         // validate the input according to Joi schema
         utils.checkInputParameters(args.body, userSchema)
             .then(function() {
-                // verify and decode the input token and check if owner of organization
+                // verify and decode the input token and check if owner of team
                 return groupsLib.verifyTokenAndDecode(args);
             })
             .then(function(decoded) {
 
-                args.body.orgId = decoded.orgId;                
+                args.body.teamId = decoded.teamId;                
                 // soft delete the user by updating user document
                 return deleteUser(args.body);
             })

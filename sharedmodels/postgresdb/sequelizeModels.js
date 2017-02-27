@@ -5,7 +5,7 @@ module.exports = function(sequelize) {
 
     var Email = sequelize.define('emails', {
         email: { type: Sequelize.STRING(255), primaryKey: true, notNull: true, unique: true },
-    })
+    });
 
     var User = sequelize.define('users', {
         userId: { type: Sequelize.INTEGER, primaryKey: true, autoIncrement: true },
@@ -27,8 +27,8 @@ module.exports = function(sequelize) {
         registrationStep: Sequelize.INTEGER,
     });
 
-    var Organization = sequelize.define('organizations', {
-        orgId: { type: Sequelize.INTEGER, primaryKey: true, autoIncrement: true },
+    var Team = sequelize.define('teams', {
+        teamId: { type: Sequelize.INTEGER, primaryKey: true, autoIncrement: true },
         name: { type: Sequelize.STRING },
         route53Response: { type: Sequelize.JSON },
         subDomain: { type: Sequelize.STRING, unique: true },
@@ -43,7 +43,7 @@ module.exports = function(sequelize) {
     var Session = sequelize.define('sessions', {
         sessionId: { type: Sequelize.INTEGER, primaryKey: true, autoIncrement: true },
         JWT: { type: Sequelize.TEXT },
-        orgId: { type: Sequelize.INTEGER },
+        teamId: { type: Sequelize.INTEGER },
         firstName: { type: Sequelize.STRING },
         lastName: { type: Sequelize.STRING },
         avatar: { type: Sequelize.STRING },
@@ -53,29 +53,37 @@ module.exports = function(sequelize) {
     });
 
     var Token = sequelize.define('tokens', {
-        orgId: { type: Sequelize.INTEGER, primaryKey: true, defaultValue: 0 },
+        teamId: { type: Sequelize.INTEGER, primaryKey: true, defaultValue: 0 },
         email: { type: Sequelize.STRING, primaryKey: true },
         tokenValidTillTimestamp: { type: Sequelize.STRING },
         token: { type: Sequelize.STRING }
-    })
+    });
 
     var Invitation = sequelize.define('invitations', {
-        email: {type: Sequelize.STRING, notNull: true},
+        email: { type: Sequelize.STRING, notNull: true },
         firstName: { type: Sequelize.STRING },
         lastName: { type: Sequelize.STRING },
-        orgId: { type: Sequelize.INTEGER },
+        teamId: { type: Sequelize.INTEGER },
         token: { type: Sequelize.STRING }
-    })
+    });
 
-    // User.belongsToMany(Organization, { as: 'users', through: 'join_userorgs', foreignKey: 'userId', otherKey: 'orgId' });
-    // Organization.belongsToMany(User, { as: 'orgs', through: 'join_userorgs', foreignKey: 'orgId', otherKey: 'userId' });
-    // User.hasMany(Organization, { as: 'owner', foreignKey: 'ownerId' });
-    // User.hasOne(Session, { foreignKey: 'userId' });
+    var Group = sequelize.define('groups', {
+        groupId: { type: Sequelize.INTEGER, primaryKey: true, autoIncrement: true },
+        name: { type: Sequelize.STRING },
+        description: { type: Sequelize.STRING },
+        teamId: { type: Sequelize.INTEGER },
+        ownerId: { type: Sequelize.INTEGER }
+    });
 
-    User.hasMany(Email, { as: 'emails', foreignKey: 'userId' });    
-    User.belongsToMany(Organization, { through: 'join_userorgs', foreignKey: 'userId', otherKey: 'orgId' });
-    Organization.belongsToMany(User, { through: 'join_userorgs', foreignKey: 'orgId', otherKey: 'userId' });
-    User.hasMany(Organization, { as: 'ownedOrgs', foreignKey: 'ownerId' });
-    Organization.belongsTo(User, { as: 'owner', foreignKey: 'ownerId' });
-    // User.hasOne(Session, { foreignKey: 'userId'})
+    User.hasMany(Email, { as: 'emails', foreignKey: 'userId' });
+    User.belongsToMany(Team, { through: 'join_userteams', foreignKey: 'userId', otherKey: 'teamId' });
+    Team.belongsToMany(User, { through: 'join_userteams', foreignKey: 'teamId', otherKey: 'userId' });
+    User.belongsToMany(Group, { through: 'join_usergroups', foreignKey: 'userId', otherKey: 'groupId' });
+    Group.belongsToMany(User, { through: 'join_usergroups', foreignKey: 'groupId', otherKey: 'userId' });
+    User.hasMany(Team, { as: 'ownedTeams', foreignKey: 'ownerId' });
+    Team.belongsTo(User, { as: 'owner', foreignKey: 'ownerId' });
+    User.hasMany(Group, { as: 'ownedGroups', foreignKey: 'ownerId' });
+    Group.belongsTo(User, { as: 'owner', foreignKey: 'ownerId' });
+    Team.hasMany(Group, { as: 'groups', foreignKey: 'teamId' });
+    Group.belongsTo(User, { as: 'team', foreignKey: 'teamId' });
 };

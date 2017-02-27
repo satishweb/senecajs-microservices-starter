@@ -505,8 +505,14 @@ FieldConfig.prototype.prepareSort = function(inputObject) {
         if (inputObject.hasOwnProperty(field)) {
             var temp = {};
             var validateResponse = this.validateSort(inputObject[field], field);
+            var joinField = null;
             if (validateResponse.status === true) {
-                temp[field] = inputObject[field];
+                if (this.configurations[field].join) {
+                    joinField = this.configurations[field].databaseName.replace(/\$/g, '').split('.').pop();
+                } else {
+                    joinField = this.configurations[field].databaseName;
+                }
+                temp[joinField] = inputObject[field];
                 sort.value.push(temp);
             } else {
                 sort.status = false;
@@ -514,7 +520,7 @@ FieldConfig.prototype.prepareSort = function(inputObject) {
             }
         }
     }
-    console.log("Sort after prepare sort ---- ", sort);
+    // console.log("Sort after prepare sort ---- ", sort);
     return sort;
 };
 

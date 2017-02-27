@@ -43,15 +43,15 @@ var convertObjectIds = function() {
                         item.password = hash;
                     }
 
-                    // if organizations array is not empty, iterate over the Ids and convert the organization ids to
+                    // if teams array is not empty, iterate over the Ids and convert the team ids to
                     // ObjectIds
-                    /*if (!lodash.isEmpty(item.orgIds)) {
-                        var convertedOrgIds = [];
-                        item.orgIds.forEach(function(orgId) { // iterate the organization array
-                            var Id = new mongodb.ObjectID(orgId);   // convert id to ObjectId
-                            convertedOrgIds.push(Id);   // push into new array
+                    /*if (!lodash.isEmpty(item.teamIds)) {
+                        var convertedTeamIds = [];
+                        item.teamIds.forEach(function(teamId) { // iterate the team array
+                            var Id = new mongodb.ObjectID(teamId);   // convert id to ObjectId
+                            convertedTeamIds.push(Id);   // push into new array
                         });
-                        item.orgIds = convertedOrgIds;
+                        item.teamIds = convertedTeamIds;
                     }*/
                     // if avatar of user is set, complete it by prefixing it with data URL
                     /*if (item.avatar) {
@@ -60,9 +60,9 @@ var convertObjectIds = function() {
                     }*/
                 }
 
-                /*if (items.collection === 'organizations') { // check if collection is user collection
+                /*if (items.collection === 'teams') { // check if collection is user collection
 
-                    // if organizations contains owner Id, convert the owner Id to ObjectId
+                    // if teams contains owner Id, convert the owner Id to ObjectId
                     if (item.ownerId) {
                         item.ownerId = new mongodb.ObjectID(item.ownerId);   // convert owner id to ObjectId
                     }
@@ -136,7 +136,7 @@ var insertDocuments = function(dbConnection) {
                     // .then(function() {
 
                         // joins on users using ownerId
-                        /*return dbConnection.models['organizations'].findAll({
+                        /*return dbConnection.models['teams'].findAll({
                             include: [{
                                 model: dbConnection.models.users,
                                 through: {
@@ -147,13 +147,13 @@ var insertDocuments = function(dbConnection) {
                         })*/
 
                         // joins on users using join_userorgs                        
-                        /*return dbConnection.models['organizations'].findAll({
+                        /*return dbConnection.models['teams'].findAll({
                             include: [{
                                 model: dbConnection.models.users
                             }]
                         })*/
 
-                    //     return dbConnection.models['organizations'].findAll()
+                    //     return dbConnection.models['teams'].findAll()
                     // })
                     .then(function (orgs) {
                         // orgs.forEach(function(org) {

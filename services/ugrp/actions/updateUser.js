@@ -9,7 +9,7 @@ var lodash = require('lodash');
 var Promise = require('bluebird');
 var microtime = require('microtime');
 var User = null;
-var Organization = null;
+var Team = null;
 
 /**
  * @module updateUser
@@ -36,7 +36,7 @@ var userSchema = Joi.object().keys({
 });
 
 /**
- * Checks if the decoded token belongs to the user whose profile is being updated. If the token doesn't belong to the same user or the owner of the organization, return error.
+ * Checks if the decoded token belongs to the user whose profile is being updated. If the token doesn't belong to the same user or the owner of the team, return error.
  * @method verifyTokenBelongsToUser
  * @param {String} userId UserId provided in the input, Id of the user whose profile is to be updated
  * @param {Object} decodedToken The token received in header after decoding
@@ -44,8 +44,8 @@ var userSchema = Joi.object().keys({
  */
 function verifyTokenBelongsToUser(userId, decodedToken) {
     return new Promise(function(resolve, reject) {
-        // check if the token belongs to the user, or if the token belongs to the owner of the user's organization and the token contains the Id of the organization
-        if (userId == decodedToken.userId || (decodedToken.isOwner && decodedToken.orgId)) {
+        // check if the token belongs to the user, or if the token belongs to the owner of the user's team and the token contains the Id of the team
+        if (userId == decodedToken.userId || (decodedToken.isOwner && decodedToken.teamId)) {
             resolve();
         } else {
             reject({ id: 400, msg: "You are not authorized to update this user's profile." });
@@ -72,7 +72,7 @@ function updateUser(input, decodedToken) {
         // create find query to find user by userId and return the updated row
         var find = { where: { userId: input.userId } };
 
-        // if organization is known, check if to be updated user belongs to that organization       
+        // if team is known, check if to be updated user belongs to that team       
 
         // update user using created find query and input details 
         User.findOne(find)
@@ -87,15 +87,15 @@ function updateUser(input, decodedToken) {
                     }
                     return new Promise(function(resolve, reject) { resolve(user) });
                 } else {
-                    // console.log("Changing employee's profile...", input.orgId);
+                    // console.log("Changing employee's profile...", input.teamId);
                     userInstance = user;
-                    return user.getOrganizations({ where: { orgId: input.orgId } });
+                    return user.getTeams({ where: { teamId: input.teamId } });
                 }
             })
             .then(function (org) {
                 if (lodash.isEmpty(org)) {
                     // console.log("User not found in org ---- ", org);
-                    return new Promise(function(resolve, reject) { reject('User does not belong to organization.') });
+                    return new Promise(function(resolve, reject) { reject('User does not belong to team.') });
                 } else {
                     // console.log("User found in org ---- ", org);
                     // remove userId from input
@@ -148,7 +148,7 @@ module.exports = function(options) {
     return function(args, done) {
         // load the database models
         User = User || dbConnection.models.users;
-        Organization = Organization || dbConnection.models.organizations;
+        Team = Team || dbConnection.models.teams;
 
         utils.checkInputParameters(args.body, userSchema)
             .then(function() {
@@ -156,9 +156,9 @@ module.exports = function(options) {
             })
             .then(function() {
 
-                // if orgId is present in the token, add it to input
-                if (args.credentials.orgId) {
-                    args.body.orgId = args.credentials.orgId;
+                // if teamId is present in the token, add it to input
+                if (args.credentials.teamId) {
+                    args.body.teamId = args.credentials.teamId;
                 }
                 return updateUser(args.body, args.credentials);
             })

@@ -8,21 +8,21 @@ var lodash = require('lodash');
 var Joi = require('joi');
 var Promise = require('bluebird');
 var microtime = require('microtime');
-var Organization = null;
+var Team = null;
 
 /**
- * @module getOrganization
+ * @module getTeam
  */
 
 
 /**
- * Fetch Organization details by fqdn or organization Id
- * @method fetchOrganization
+ * Fetch Team details by fqdn or team Id
+ * @method fetchTeam
  * @param {Object} args Used to get input parameters
- * @returns {Promise} Promise containing matching Organization document if successful, else containing
+ * @returns {Promise} Promise containing matching Team document if successful, else containing
  * the error message
  */
-function fetchOrganization(args) {
+function fetchTeam(args) {
     return new Promise(function(resolve, reject) {
         var find = null;
 
@@ -30,42 +30,42 @@ function fetchOrganization(args) {
         if (args.fqdn) {
             find = { where: {fqdn: args.fqdn, isDeleted: false}}
         }
-        // if input has organization Id in input, create find query using organization Id
-        if (args.orgId) {
-            find = { where: {orgId: args.orgId, isDeleted: false}}
+        // if input has team Id in input, create find query using team Id
+        if (args.teamId) {
+            find = { where: {teamId: args.teamId, isDeleted: false}}
         }
 
-        // Find the organization using find query created
-        Organization.findOne(find)
+        // Find the team using find query created
+        Team.findOne(find)
             .then(function(findResponse) {
-                // if error or organization is not found, reject with error message
+                // if error or team is not found, reject with error message
                 if (lodash.isEmpty(findResponse)) {
-                    reject({ id: 400, msg: 'Invalid organization.' });
-                } else { // else return organization document fetched
+                    reject({ id: 400, msg: 'Invalid team.' });
+                } else { // else return team document fetched
                     resolve(findResponse.toJSON());
                 }
             })
             .catch(function(err) {
-                console.log("Error in fetchOrganization ---- ", err);
-                reject({ id: 400, msg: err || 'Invalid organization.' });
+                console.log("Error in fetchTeam ---- ", err);
+                reject({ id: 400, msg: err || 'Invalid team.' });
             })
     });
 }
 
 /**
- * Fetch list of organizations using grid library for searching, filtering, sorting and pagination
- * @method getOrganizationList
+ * Fetch list of teams using grid library for searching, filtering, sorting and pagination
+ * @method getTeamList
  * @param {Seneca} seneca The seneca instance used for microservice calls in grid library
  * @param {Object} input The input
  * @returns {Promise} Promise containing the formatted result if resolved successfully or the error if rejected.
  */
 
-function getOrganizationList(seneca, input, dbConnection) {
+function getTeamList(seneca, input, dbConnection) {
     var config;
     // create the configuration object for grid
     var collection = {
-        "orgId": {
-            "displayName": "Organization Id",
+        "teamId": {
+            "displayName": "Team Id",
             "filter": true
         },
         "domain": {
@@ -76,9 +76,21 @@ function getOrganizationList(seneca, input, dbConnection) {
             "search": true
         },
         "ownerId": {
-            "databaseName": "$users.userId$",
+            "databaseName": "$owner.userId$",
             "displayName": "Owner Id",
             "filter": true,
+            "sort": true, 
+            "join": {
+                model: "users",
+                as: "owner",
+                fields: ['userId', 'firstName', 'lastName']
+            }
+        },
+        "ownerName": {
+            "databaseName": "$owner.firstName$",
+            "displayName": "Owner's First Name",
+            "search": true,
+            "sort": true, 
             "join": {
                 model: "users",
                 as: "owner",
@@ -112,10 +124,10 @@ function getOrganizationList(seneca, input, dbConnection) {
             "show": false
         }
     };
-    config = { 'listOrganization': { 'collections': {} } };
-    config.listOrganization.collections['organizations'] = collection;
+    config = { 'listTeam': { 'collections': {} } };
+    config.listTeam.collections['teams'] = collection;
 
-    // add filter to always return only non deleted organizations
+    // add filter to always return only non deleted teams
     // if filter is present in input, add it to filter
     if (input.filter) {
         input.filter.isDeleted = false;
@@ -126,7 +138,7 @@ function getOrganizationList(seneca, input, dbConnection) {
     }
 
     // create instance of composite grid from config object created
-    var compositeGrid = InitCompositeGrid.initFromConfigObject(input, 'listOrganization', dbConnection, seneca, config);
+    var compositeGrid = InitCompositeGrid.initFromConfigObject(input, 'listTeam', dbConnection, seneca, config);
 
     // fetch the result using instance
     return compositeGrid.fetch();
@@ -151,7 +163,7 @@ function sendResponse(result, done) {
     } else if (!lodash.isEmpty(result)) { // else format the output
         done(null, {
             statusCode: 200,
-            content: outputFormatter.format(true, 2040, result, 'Organization')
+            content: outputFormatter.format(true, 2040, result, 'Team')
         });
     } else { //else return error
         done(null, {
@@ -176,12 +188,12 @@ function createSchema(input) {
             // if action is either 'id' or 'fqdn', create same schema
             case 'id':
             case 'fqdn':
-                //Joi validation Schema for action fqdn or orgId
+                //Joi validation Schema for action fqdn or teamId
                 //TODO: MOVE
                 joiSchema = Joi.object().keys({
                     fqdn: Joi.string(),
-                    orgId: Joi.number()
-                }).without('fqdn', 'orgId').without('orgId', 'fqdn'); // input should have either fqdn or orgId
+                    teamId: Joi.number()
+                }).without('fqdn', 'teamId').without('teamId', 'fqdn'); // input should have either fqdn or teamId
                 resolve(joiSchema);
                 break;
             case 'list':
@@ -203,8 +215,8 @@ function createSchema(input) {
 }
 
 /**
- * This is a POST action for the Organizations microservice
- * It fetches a single organization if input action is 'id' or 'fqdn', or a list of organizations if input action is
+ * This is a POST action for the Teams microservice
+ * It fetches a single team if input action is 'id' or 'fqdn', or a list of teams if input action is
  * 'list'. If action doesn't match the above actions or no action provided, it returns an error message.
  * @param {Object} options Contains the seneca instance
  */
@@ -215,8 +227,8 @@ module.exports = function(options) {
     return function(args, done) {
         var action = null;
 
-        // load the mongoose model for Organizations
-        Organization = Organization || dbConnection.models.organizations;
+        // load the mongoose model for Teams
+        Team = Team || dbConnection.models.teams;
 
         // create appropriate schema depending on input action
         createSchema(args.body)
@@ -234,17 +246,17 @@ module.exports = function(options) {
                 switch (action) {
                     case 'id':
                     case 'fqdn':
-                        return fetchOrganization(args.body); // if action is 'fqdn' or 'id', call fetchOrganization
+                        return fetchTeam(args.body); // if action is 'fqdn' or 'id', call fetchTeam
                         break;
                     case 'list':
-                        return getOrganizationList(options, args.body, dbConnection); // if action is 'list', call getOrganizationList
+                        return getTeamList(options, args.body, dbConnection); // if action is 'list', call getTeamList
                 }
             })
             .then(function(result) {
                 sendResponse(result, done);
             })
             .catch(function (err) {
-                console.log("Error in getOrg ---- ", err);
+                console.log("Error in getTeam ---- ", err);
 
                 // in case of error, print the error and send as response
                 utils.senecaLog(seneca, 'error', __filename.split('/').pop(), err);

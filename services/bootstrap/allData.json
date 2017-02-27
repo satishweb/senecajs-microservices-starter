@@ -60,9 +60,9 @@
         "isDeleted": false
     }]
 }, {
-    "collection": "organizations",
+    "collection": "teams",
     "data": [{
-        "orgId": 1,
+        "teamId": 1,
         "ownerId": 1,
         "isDeleted": false,
         "website": "www.example.com",
@@ -72,7 +72,7 @@
         "subDomain": "key-app-example-dev",
         "name": "Example"
     }, {
-        "orgId": 2,
+        "teamId": 2,
         "ownerId": 1,
         "isDeleted": false,
         "website": "www.example1.com",
@@ -82,7 +82,7 @@
         "subDomain": "key-app-example1-dev",
         "name": "Example1"
     }, {
-        "orgId": 3,
+        "teamId": 3,
         "ownerId": 2,
         "isDeleted": false,
         "website": "www.example2.com",
@@ -108,24 +108,51 @@
         "userId": 4
     }]
 }, {
+    "collection": "groups",
+    "data": [{
+        "groupId": 1,
+        "name": "General",
+        "description": "General Group",
+        "teamId": 1,
+        "ownerId": 1
+    }, {
+        "groupId": 2,
+        "name": "First Group",
+        "description": "Group 1 for Team 1",
+        "teamId": 1,
+        "ownerId": 1
+    }]
+}, {
     "collection": "tokens",
     "data": []
 }, {
     "collection": "invitations",
     "data": []
 }, {
-    "collection": "join_userorgs",
+    "collection": "join_userteams",
     "data": [{
         "userId": 3,
-        "orgId": 1
+        "teamId": 1
     }, {
         "userId": 4,
-        "orgId": 1
+        "teamId": 1
     }, {
         "userId": 3,
-        "orgId": 2 
+        "teamId": 2 
     }]
 }, {
+    "collection": "join_usergroups",
+    "data": [{
+        "userId": 3,
+        "groupId": 1
+    }, {
+        "userId": 4,
+        "groupId": 1
+    }, {
+        "userId": 3,
+        "groupId": 2
+    }]
+},{
     "collection": "sessions",
     "data": [{
         "sessionId": 1,

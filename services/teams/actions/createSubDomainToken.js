@@ -8,30 +8,30 @@ var lodash = require('lodash');
 var Joi = require('joi');
 var Promise = require('bluebird');
 var microtime = require('microtime');
-var Organization = null;
+var Team = null;
 var Session = null;
 
 //Joi validation Schema
 var schema = Joi.object().keys({
-    orgId: Joi.string().required()
+    teamId: Joi.string().required()
 });
 
 /**
- * Fetch organization from organization Id
- * @method fetchOrganization
- * @param {String} orgId organization Id
- * @returns {Promise} Resolved promise containing the fetched organization if successful or rejected promise with appropriate error message in case of error
+ * Fetch team from team Id
+ * @method fetchTeam
+ * @param {String} teamId team Id
+ * @returns {Promise} Resolved promise containing the fetched team if successful or rejected promise with appropriate error message in case of error
  */
-function fetchOrganization(orgId, userId) {
+function fetchTeam(teamId, userId) {
     return new Promise(function(resolve, reject) {
-        Organization.findOne({ where: { orgId: orgId } })
+        Team.findOne({ where: { teamId: teamId } })
             .then(function(org) {
                 if (lodash.isEmpty(org)) {
-                    reject({ id: 400, msg: "Invalid organization Id" });
+                    reject({ id: 400, msg: "Invalid team Id" });
                 } else if (org.ownerId == userId) {
                     resolve(org)
                 } else {
-                    reject({ id: 400, msg: "Only organization owner can fetch sub domain token." });
+                    reject({ id: 400, msg: "Only team owner can fetch sub domain token." });
                 }
             })
             .catch(function(err) {
@@ -67,7 +67,7 @@ module.exports = function(options) {
     var dbConnection = options.dbConnection;
     return function(args, done) {
 
-        Organization = Organization || dbConnection.models.organizations;
+        Team = Team || dbConnection.models.teams;
         Session = Session || dbConnection.models.sessions;
 
         var decodedHeader = null;
@@ -75,7 +75,7 @@ module.exports = function(options) {
         utils.checkInputParameters(args.body, schema)
             .then(function() {
                 decodedHeader = args.credentials;
-                return fetchOrganization(args.body.orgId, decodedHeader.userId);
+                return fetchTeam(args.body.teamId, decodedHeader.userId);
             })
             .then(function (response) {
                 output = response.toJSON();
@@ -85,7 +85,7 @@ module.exports = function(options) {
                     args.header.origin = args.header.origin + ':' + port[port.length - 1]; //add port number where project is
                     // deployed
                 }
-                decodedHeader.origin[args.header.origin] = { orgId: response.orgId, isOwner: true };
+                decodedHeader.origin[args.header.origin] = { teamId: response.teamId, isOwner: true };
                 decodedHeader.emails = decodedHeader.emailId;
                 utils.createJWT(decodedHeader, args.header)
                     .then(function(result) {

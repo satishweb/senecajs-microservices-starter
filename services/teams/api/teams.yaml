@@ -3,7 +3,7 @@ info:
   title: "KEY API"
   version: "1.0.0"
 host: 'key-local-api.example.com'
-basePath: /organization
+basePath: /team
 schemes:
   - https
 produces:
@@ -14,11 +14,11 @@ paths:
   "/v1/create":
     post:
       parameters:
-        - name: createOrganization
+        - name: createTeam
           in: body
           required: true
           schema:
-            $ref: "#/definitions/createOrganization"
+            $ref: "#/definitions/createTeam"
       responses:
         "200":
           description: "Ok"
@@ -33,11 +33,11 @@ paths:
   "/v1/update":
     put:
       parameters:
-        - name: updateOrganization
+        - name: updateTeam
           in: body
           required: true
           schema:
-            $ref: "#/definitions/updateOrganization"
+            $ref: "#/definitions/updateTeam"
       responses:
         "200":
           description: "Ok"
@@ -52,11 +52,11 @@ paths:
   "/v1/delete":
     delete:
       parameters:
-        - name: deleteOrganization
+        - name: deleteTeam
           in: body
           required: true
           schema:
-            $ref: "#/definitions/deleteOrganization"
+            $ref: "#/definitions/deleteTeam"
       responses:
         "200":
           description: "Ok"
@@ -71,7 +71,7 @@ paths:
   "/v1/get":
     post:
       parameters:
-        - name: getOrganization
+        - name: getTeam
           in: body
           required: true
           schema:
@@ -121,12 +121,12 @@ paths:
           schema:
             type: object
             properties:
-              orgId:
+              teamId:
                 type: string
-                description: "The Id of the organization to be validated"
+                description: "The Id of the team to be validated"
               subDomain:
                 type: string
-                description: "The sub-domain of the organization to be validated"
+                description: "The sub-domain of the team to be validated"
       responses:
         "200":
           description: "Ok"
@@ -191,7 +191,7 @@ definitions:
       message:
         description: "Error message"
         type: string
-  createOrganization:
+  createTeam:
     type: object
     properties:
       subDomain:
@@ -202,7 +202,7 @@ definitions:
         type: string
       website:
         type: string
-  updateOrganization:
+  updateTeam:
     type: object
     properties:
       description:
@@ -213,10 +213,10 @@ definitions:
         type: string
       ownerId:
         type: integer
-      orgId:
+      teamId:
         type: integer
-  deleteOrganization:
+  deleteTeam:
     type: object
     properties:
-      orgId:
+      teamId:
         type: integer

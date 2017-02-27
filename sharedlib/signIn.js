@@ -120,10 +120,10 @@ module.exports.findUser = function(User, Email, input, header, seneca) {
                     }
                 } else { // if (input.type !== 'email') {
                     /*var user = lodash.filter(result, function(user) {
-                        if (input.orgId) {
-                            return (user.userId == ownerId || lodash.indexOf(user.orgIds, input.orgId) != -1)
+                        if (input.teamId) {
+                            return (user.userId == ownerId || lodash.indexOf(user.teamIds, input.teamId) != -1)
                         } else {
-                            return (!lodash.isEmpty(user.ownedOrgIds));
+                            return (!lodash.isEmpty(user.ownedTeamIds));
                         }
                     });
                     user = user[0];*/

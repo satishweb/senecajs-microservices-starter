@@ -11,7 +11,7 @@ var microtime = require('microtime');
 var Invitation = null;
 var User = null;
 var Email = null;
-var Organization = null;
+var Team = null;
 
 //Joi validation Schema
 //TODO: MOVE
@@ -29,13 +29,13 @@ var saveInvitedUsersSchema = Joi.object().keys({
  * Fetches the pending invitations matching the input email Ids
  * @method fetchMatchingPendingInvitations
  * @param {String[]} emailIds The input email Ids to search for pending invitations
- * @param {String} orgId The Id of the organization to search invitations for
+ * @param {String} teamId The Id of the team to search invitations for
  * @returns {Promise} Promise resolved with object containing all the input email Ids and the pending invitations if
  * successful, else rejected with the error if unsuccessful
  */
-function fetchMatchingPendingInvitations(emailIds, orgId) {
-    // fetch all invitations matching any of the email Id and sent for the same organization
-    return Invitation.findAll({ where: { email: { $in: emailIds }, orgId: orgId }, raw: true })
+function fetchMatchingPendingInvitations(emailIds, teamId) {
+    // fetch all invitations matching any of the email Id and sent for the same team
+    return Invitation.findAll({ where: { email: { $in: emailIds }, teamId: teamId }, raw: true })
         .then(function(invitationPending) {
             console.log("Invitations ---- ", invitationPending);
             // if pending invitations are successfully fetched, return them along with all the
@@ -48,17 +48,17 @@ function fetchMatchingPendingInvitations(emailIds, orgId) {
  * Fetch already created users matching the input email Ids
  * @method fetchUsers
  * @param {String[]} emailIds The array of email Ids after removing the email Ids related to pending invitations
- * @param {String} orgId The organization Id whose users are to be searched
+ * @param {String} teamId The team Id whose users are to be searched
  * @returns {Promise} The Promise resolved with object containing the uninvited emails and the existing users
  * matching the email Ids if successful, else rejected with the error if unsuccessful
  */
-function fetchUsers(emailIds, orgId) {
+function fetchUsers(emailIds, teamId) {
 
-    // microservice call to getUsers to fetch existing users matching the email Ids and organization
-    // the input body tells the output should be a list of users whose email Ids match the given ones and they are a part of the same organization
-    // creating a JWT token containing the organization Id and isMicroservice flag
+    // microservice call to getUsers to fetch existing users matching the email Ids and team
+    // the input body tells the output should be a list of users whose email Ids match the given ones and they are a part of the same team
+    // creating a JWT token containing the team Id and isMicroservice flag
     /*utils.microServiceCall(seneca, 'ugrp', 'getUsers', { action: "list", filter: { email: emailIds } },
-        utils.createMsJWT({ orgId: orgId, isMicroservice: true }),
+        utils.createMsJWT({ teamId: teamId, isMicroservice: true }),
         function(err, response) {*/
     return User.findAll({
             include: [{
@@ -67,9 +67,9 @@ function fetchUsers(emailIds, orgId) {
                 where: { email: { $in: emailIds } },
                 attributes: ['email']
             }, {
-                model: Organization,
-                where: { orgId: orgId },
-                attributes: ['orgId']
+                model: Team,
+                where: { teamId: teamId },
+                attributes: ['teamId']
             }],
             raw: true
         })
@@ -84,13 +84,13 @@ function fetchUsers(emailIds, orgId) {
  * Create new invitations and send them to new invitees and resend the pending invitations matching the input email Ids
  * @method sendInvitations
  * @param {Seneca} seneca The seneca instance to call microservice
- * @param {String} orgId The organization Id, used to create invitation
+ * @param {String} teamId The team Id, used to create invitation
  * @param {Object} input The input user details keyed by email Ids to fetch names
  * @param {String[]} newUsers The array of email Ids corresponding to new invitees
  * @param {String[]} pendingInvitations The array of email Ids corresponding to pending invitations
  * @param {String} url The The redirect URL sent in the email, depends on the sub domain
  */
-function sendInvitations(seneca, orgId, input, newUsers, pendingInvitations, url) {
+function sendInvitations(seneca, teamId, input, newUsers, pendingInvitations, url) {
 
     // complete the redirect URL by adding the invitations end point to the origin
     url += '/#/invitation?inviteToken=';
@@ -101,7 +101,7 @@ function sendInvitations(seneca, orgId, input, newUsers, pendingInvitations, url
         newUsers.forEach(function(email) {
 
             // create the input data to be stored in the JWT token
-            var data = { email: email, firstName: input[email].firstName, lastName: input[email].lastName, orgId: orgId };
+            var data = { email: email, firstName: input[email].firstName, lastName: input[email].lastName, teamId: teamId };
             var jwt = createJwt(data); // create invitation JWT token with created data
             data.token = jwt; // add token to data to save in database
 
@@ -189,9 +189,9 @@ module.exports = function(options) {
         Invitation = Invitation || dbConnection.models.invitations;
         User = User || dbConnection.models.users;
         Email = Email || dbConnection.models.emails;
-        Organization = Organization || dbConnection.models.organizations;
+        Team = Team || dbConnection.models.teams;
 
-        var orgId = null; // the organization Id to be set from the input token
+        var teamId = null; // the team Id to be set from the input token
         var input = null; // stores the input details formatted by email Ids
         var pendingInvitations = null; // to store the array of pending invitations
 
@@ -201,7 +201,7 @@ module.exports = function(options) {
                 return utils.checkIfAuthorized(args.credentials, true);
             })    
             .then(function () {
-                orgId = args.credentials.orgId; // set the organization Id from the decoded token
+                teamId = args.credentials.teamId; // set the team Id from the decoded token
 
                 input = lodash.filter(args.body.users, function (user) { return lodash.indexOf(args.credentials.emailId, user.email) === -1; });
 
@@ -213,7 +213,7 @@ module.exports = function(options) {
 
                 console.log("Emails --- ", emailIds);
                 // fetch all pending invitations matching the input emails
-                return fetchMatchingPendingInvitations(emailIds, orgId);
+                return fetchMatchingPendingInvitations(emailIds, teamId);
             })
             .then(function(response) {
                 pendingInvitations = response.pending; // store the pending invitations that match the input email Ids
@@ -227,7 +227,7 @@ module.exports = function(options) {
 
                 console.log("Uninvited ---- ", uninvited);
                 //fetch already registered users matching the uninvited email Ids
-                return fetchUsers(uninvited, orgId);
+                return fetchUsers(uninvited, teamId);
             })
             .then(function(response) {
                 // array of email Ids belonging to already registered users to remove from uninvited email Ids
@@ -239,7 +239,7 @@ module.exports = function(options) {
 
                 console.log("new Users --- ", newUsers);
                 // create, save and send invitations to new users and send pending invitations to pending users
-                sendInvitations(seneca, orgId, input, newUsers, pendingInvitations, args.header.origin || ('https://' + process.env.APP_URL));
+                sendInvitations(seneca, teamId, input, newUsers, pendingInvitations, args.header.origin || ('https://' + process.env.APP_URL));
                 // return reply without waiting for the response of sendInvitations
                 sendResponse(done);
             })

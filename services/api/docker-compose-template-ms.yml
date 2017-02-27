@@ -19,7 +19,7 @@ services:
       - ./services/authentication/api:/src/${MICROSERVICE}/api/authentication
       - ./services/ugrp/api:/src/${MICROSERVICE}/api/ugrp
       - ./services/invitations/api:/src/${MICROSERVICE}/api/invitations
-      - ./services/organizations/api:/src/${MICROSERVICE}/api/organizations
+      - ./services/teams/api:/src/${MICROSERVICE}/api/teams
     env_file:
       - ./${SYSENV}.env
     environment:

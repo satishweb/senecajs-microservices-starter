@@ -27,16 +27,16 @@ module.exports = function(server, options, done) {
                         handlers: {
                             'v1': {
                                 'create': {
-                                    $post: requestHandlerFactory('post', 'createOrganization')
+                                    $post: requestHandlerFactory('post', 'createTeam')
                                 },
                                 'get': {
-                                    $post: requestHandlerFactory('post', 'getOrganization')
+                                    $post: requestHandlerFactory('post', 'getTeam')
                                 },
                                 'update': {
-                                    $put: requestHandlerFactory('put', 'updateOrganization')
+                                    $put: requestHandlerFactory('put', 'updateTeam')
                                 },
                                 'delete': {
-                                    $delete: requestHandlerFactory('delete', 'deleteOrganization')
+                                    $delete: requestHandlerFactory('delete', 'deleteTeam')
                                 },
                                 'validate': {
                                     $post: requestHandlerFactory('post', 'checkSubDomain')

@@ -25,7 +25,7 @@ module.exports = function(options) {
         Session = Session || dbConnection.models.sessions;
         try {
             // delete the users sessions from DB
-            session.deleteSessions(Session, args.credentials.userId, args.credentials.orgId, null);
+            session.deleteSessions(Session, args.credentials.userId, args.credentials.teamId, null);
             done(null, {
                 statusCode: 200,
                 content   : outputFormatter.format(true, 2020)

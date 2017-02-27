@@ -11,7 +11,7 @@ var microtime = require('microtime');
 var User = null;
 var Token = null;
 var Email = null;
-var Organization = null;
+var Team = null;
 var Invitation = null;
 
 /**
@@ -26,7 +26,7 @@ var changePasswordSchema = Joi.object().keys({
 /**
  * Update user's password to new password.
  * If user is not found in DB, create user with first name and last name from token and hashed input password,
- * and add user to organization received in token (for reset password links sent in invitation emails)
+ * and add user to team received in token (for reset password links sent in invitation emails)
  * Otherwise update existing user with new password.
  * @method changePassword
  * @param {Object} decodedToken Contains the user's email, firstName and lastName decoded from the token
@@ -67,12 +67,12 @@ var changePassword = function(decodedToken, input, action) {
                             if (lodash.isEmpty(newUser)) {
                                 return Promise.reject({ id: 400, msg: "Updating password failed." });
                             } else {
-                                // if user created successfully, add user to organization
-                                return newUser.addOrganization(decodedToken.orgId);
+                                // if user created successfully, add user to team
+                                return newUser.addTeam(decodedToken.teamId);
                             }
                         })
-                        .then(function (addOrg) {
-                            console.log("After adding organization --- ", addOrg);
+                        .then(function (addTeam) {
+                            console.log("After adding team --- ", addTeam);
                             // return true to indicate new user has been created
                             return Promise.resolve(true);
                         })
@@ -120,7 +120,7 @@ function removeTokenFromDB(action, token) {
  * Delete invitation document from database if invited user is setting password for the first time
  * @method removeInvitation
  * @param {String} email Contains the user's email decoded from the token
- * @param {Object} header JWT token containing the organization Id and isMicroservice flag
+ * @param {Object} header JWT token containing the team Id and isMicroservice flag
  * @param {Seneca} seneca Seneca instance to call microservice
  */
 /*var removeInvitation = function (email, header, seneca) {
@@ -132,10 +132,10 @@ function removeTokenFromDB(action, token) {
  * Delete invitation document from database if invited user is setting password for the first time
  * @method removeInvitation
  * @param {String} email Contains the user's email decoded from the token
- * @param {Number} orgId The Id of the organization whose invitation is to be deleted
+ * @param {Number} teamId The Id of the team whose invitation is to be deleted
  */
-var removeInvitation = function (email, orgId) {
-    Invitation.findOne({ where: { email: email, orgId: orgId } })
+var removeInvitation = function (email, teamId) {
+    Invitation.findOne({ where: { email: email, teamId: teamId } })
         .then(function(invitation) {
             if (lodash.isEmpty(invitation)) {
                 console.log({ id: 400, msg: 'Invitation not found' });
@@ -148,8 +148,8 @@ var removeInvitation = function (email, orgId) {
 /**
  * Add the user to the general department
  * @method removeInvitation
- * @param {String} userId The Id of the user to be added to the general department of the organization
- * @param {Object} header JWT token containing the organization Id and isMicroservice flag
+ * @param {String} userId The Id of the user to be added to the general department of the team
+ * @param {Object} header JWT token containing the team Id and isMicroservice flag
  * @param {Seneca} seneca Seneca instance to call microservice
  */
 var addInvitedToGeneral = function(userId, header, seneca) {
@@ -182,7 +182,7 @@ module.exports = function(options) {
         User = User || dbConnection.models.users;
         Token = Token || dbConnection.models.tokens;
         Email = Email || dbConnection.models.emails;
-        Organization = Organization || dbConnection.models.organizations;
+        Team = Team || dbConnection.models.teams;
         Invitation = Invitation || dbConnection.models.invitations;
 
         var action = 'resetPassword'; // stores if password is being reset or changed, default - reset
@@ -212,11 +212,11 @@ module.exports = function(options) {
                 // if new user is created, remove invitation and add invited user to general
                 if (updateResponse === true) {
 
-                    // create a token to send to API in microservice calls containing organization Id
-                    // var header = utils.createMsJWT({ orgId: decodedToken.orgId, isMicroservice: true });
+                    // create a token to send to API in microservice calls containing team Id
+                    // var header = utils.createMsJWT({ teamId: decodedToken.teamId, isMicroservice: true });
                     
                     console.log("Removing invitation token ---- ");
-                    removeInvitation(decodedToken.emailId, decodedToken.orgId);
+                    removeInvitation(decodedToken.emailId, decodedToken.teamId);
 
                     // TODO: Uncomment on adding ugrp
                     // addInvitedToGeneral(updateResponse.upserted[0]._id, header, seneca);

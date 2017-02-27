@@ -7,7 +7,7 @@ var lodash = require('lodash');
 var Joi = require('joi');
 var Promise = require('bluebird');
 var microtime = require('microtime');
-var Organization = null;
+var Team = null;
 
 /**
  * @module checkSubDomain
@@ -27,7 +27,7 @@ var schema = Joi.object().keys({
  */
 function checkIfSubDomainPresent(subDomain) {
     return new Promise(function(resolve, reject) {
-        Organization.findOne({ where: { subDomain: subDomain } })
+        Team.findOne({ where: { subDomain: subDomain } })
             .then(function(findResponse) {
                 if (lodash.isEmpty(findResponse)) {
                     resolve({ present: false })
@@ -67,7 +67,7 @@ module.exports = function(options) {
     var seneca = options.seneca;
     var dbConnection = options.dbConnection;
     return function(args, done) {
-        Organization = Organization || dbConnection.models. organizations;
+        Team = Team || dbConnection.models.teams;
 
         utils.checkInputParameters(args.body, schema)
             .then(function() {

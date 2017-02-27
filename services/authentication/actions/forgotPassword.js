@@ -10,7 +10,7 @@ var jwt = require('jsonwebtoken');
 var microtime = require('microtime');
 var url = require('url');
 var User = null;
-var Organization = null;
+var Team = null;
 var Token = null;
 var Email = null;
 var expireTime = process.env.RESET_PASS_EXPIRY_TIME || '2d'; // expiry time of token sent in redirect URL
@@ -23,7 +23,7 @@ var expireTime = process.env.RESET_PASS_EXPIRY_TIME || '2d'; // expiry time of t
 var forgotPasswordSchema = Joi.object().keys(
     {
     email: Joi.string().regex(/^\s*[\w\-\+​_]+(\.[\w\-\+_​]+)*\@[\w\-\+​_]+\.[\w\-\+_​]+(\.[\w\-\+_]+)*\s*$/).required(),
-    orgId: Joi.number(),
+    teamId: Joi.number(),
     fromInvitation: Joi.boolean()
 });
 
@@ -39,8 +39,8 @@ function checkEmailPresent(input) {
     if (!input.fromInvitation) {
         var find = {};
         find.include = [{ model: Email, as: 'emails', where: { email: input.email } }];
-        /*if (input.orgId) {
-            find.include.push({ model: Organization, where: { orgId: input.orgId } }); 
+        /*if (input.teamId) {
+            find.include.push({ model: Team, where: { teamId: input.teamId } }); 
         }*/
         // find if email exists in database
         return User.findOne(find)
@@ -86,16 +86,16 @@ function verifyTokenAndDecode(args) {
  * Create token for reset password URL and save details in database
  * @method createTokenAndSaveDetails
  * @param {Object} args Used to get the input parameter (email)
- * @param {String} orgId
+ * @param {String} teamId
  * @param {Object} invitedUserDetails
  * @returns {Promise} Promise containing the created token and fetched user document if successful, else containing
  * the error message
  */
-function createTokenAndSaveDetails(args, orgId, invitedUserDetails) {
+function createTokenAndSaveDetails(args, teamId, invitedUserDetails) {
     return new Promise(function(resolve, reject) {
         var key = process.env.JWT_SECRET_KEY; // get JWT secret key to create JWT token
         var timestamp = (microtime.now() + 3600000000 * 48); // add expiry time to current timestamp to get expiry timestamp
-        var data = { emailId: args.body.email, orgId: orgId }; // data to be stored in JWT token
+        var data = { emailId: args.body.email, teamId: teamId }; // data to be stored in JWT token
         if (invitedUserDetails) { // if user details found, copy the user details into token data
             data.firstName = invitedUserDetails.firstName;
             data.lastName = invitedUserDetails.lastName;
@@ -105,7 +105,7 @@ function createTokenAndSaveDetails(args, orgId, invitedUserDetails) {
 
         // TODO: Replace with model instance static method
         // add the expiry timestamp and token to user document and return the updated document
-        Token.upsert({ tokenValidTillTimestamp: timestamp, token: token, email: args.body.email, orgId: orgId }, { where: { email: args.body.email, orgId: orgId } })
+        Token.upsert({ tokenValidTillTimestamp: timestamp, token: token, email: args.body.email, teamId: teamId }, { where: { email: args.body.email, teamId: teamId } })
             .then(function (upsertResult) {
                 resolve({token: token, userDetails: upsertResult});
             })
@@ -176,11 +176,11 @@ module.exports = function(options) {
         User = User || dbConnection.models.users;
         Email = Email || dbConnection.models.emails;
         Token = Token || dbConnection.models.tokens;
-        Organization = Organization || dbConnection.models.organizations;
+        Team = Team || dbConnection.models.teams;
         
         var resetURL = null;    // stores the reset URL depending on the incoming request URL
         var token = null;   // stores the reset token created
-        var orgId = null;   // stores the organization fetched using the sub-domain
+        var teamId = null;   // stores the team fetched using the sub-domain
         var userDetails = null; // stores the user details fetched
         
         utils.checkInputParameters(args.body, forgotPasswordSchema)
@@ -188,14 +188,14 @@ module.exports = function(options) {
                 // set the reset password URL
                 resetURL = args.header ? args.header.origin || 'https://' + process.env.APP_URL : 'https://' + process.env.APP_URL;
                 resetURL = resetURL + '/#/reset-password?token=';
-                return utils.fetchOrganizationId(args.body.orgId, args.header, seneca); // fetch user
-                // organization
+                return utils.fetchTeamId(args.body.teamId, args.header, seneca); // fetch user
+                // team
             })
             .then(function (response) {
-                console.log("Response of fetchOrg --- ", response);
-                orgId = response ? (args.body.orgId || response.orgId) : args.body.orgId;
-                if (orgId) {
-                    args.body.orgId = orgId;
+                console.log("Response of fetchTeam --- ", response);
+                teamId = response ? (args.body.teamId || response.teamId) : args.body.teamId;
+                if (teamId) {
+                    args.body.teamId = teamId;
                 }
                 return checkEmailPresent(args.body);
             })
@@ -205,7 +205,7 @@ module.exports = function(options) {
                 return verifyTokenAndDecode(args);
             })
             .then(function(response) {
-                return createTokenAndSaveDetails(args, orgId, response);
+                return createTokenAndSaveDetails(args, teamId, response);
             })
             .then(function(result) {
                 resetURL = resetURL + result.token; // add created token to reset password URL

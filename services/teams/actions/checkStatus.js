@@ -7,7 +7,7 @@ var lodash = require('lodash');
 var Joi = require('joi');
 var Promise = require('bluebird');
 var microtime = require('microtime');
-var Organization = null;
+var Team = null;
 var AWS = require('aws-sdk');
 
 /**
@@ -16,28 +16,28 @@ var AWS = require('aws-sdk');
 
 //Joi validation Schema
 var schema = Joi.object().keys({
-    orgId: Joi.string(),
+    teamId: Joi.string(),
     subDomain: Joi.string()
-}).xor('orgId', 'subDomain');
+}).xor('teamId', 'subDomain');
 
 /**
- * Fetch organization details by organization Id
- * @method fetchOrganization
+ * Fetch team details by team Id
+ * @method fetchTeam
  * @param {String} input Contains the input parameters
- * @returns {Promise} Promise containing organization details if successful, else containing the error message
+ * @returns {Promise} Promise containing team details if successful, else containing the error message
  */
-function fetchOrganization(input) {
+function fetchTeam(input) {
     return new Promise(function(resolve, reject) {
         var find = { where: {} };
-        if (input.orgId) {
-            find.where.orgId = input.orgId;
+        if (input.teamId) {
+            find.where.teamId = input.teamId;
         } else if (input.subDomain) {
             find.where.subDomain = input.subDomain;
         }
-        Organization.findOne(find)
+        Team.findOne(find)
             .then(function(findResult) {
                 if (lodash.isEmpty(findResult)) {
-                    reject({ id: 400, msg: 'Organization not found' });
+                    reject({ id: 400, msg: 'Team not found' });
                 } else {
                     resolve(findResult);
                 }
@@ -49,16 +49,16 @@ function fetchOrganization(input) {
 }
 
 /**
- * @method updateOrganization
- * @param {String} orgId organization Id
+ * @method updateTeam
+ * @param {String} teamId team Id
  * @param {Object} update data to be updated
  */
-function updateOrganization(org, update) {
+function updateTeam(org, update) {
     org.update(update)
         .then(function(updateResponse) {})
         .catch(function(err) {
             if (err) {
-                console.log("error updating organization status", err);
+                console.log("error updating team status", err);
             }
         })
 }
@@ -66,7 +66,7 @@ function updateOrganization(org, update) {
 /**
  * Check the status of Cloud front distribution on Amazon Cloud Front
  * @method checkCloudFrontStatus
- * @param {Object} orgDetails organization details fetched
+ * @param {Object} orgDetails team details fetched
  */
 function checkCloudFrontStatus(orgDetails) {
   return new Promise(function (resolve, reject) {
@@ -90,7 +90,7 @@ function checkCloudFrontStatus(orgDetails) {
           reject({id: 400, msg: err.message});
         } else {
           // console.log('data checkCloudFrontStatus:-----', JSON.stringify(data));
-          updateOrganization(orgDetails.orgId, {'cloudFrontResponse.Distribution.Status': data.Distribution.Status});
+          updateTeam(orgDetails.teamId, {'cloudFrontResponse.Distribution.Status': data.Distribution.Status});
           if (data.Distribution.Status == 'Deployed') {
             resolve({isUpdated: true})
           } else {
@@ -107,7 +107,7 @@ function checkCloudFrontStatus(orgDetails) {
 /**
  * Check if sub-domain has been deployed on amazon or not
  * @method checkDeploymentStatus
- * @param {Object} orgDetails use to get organization details
+ * @param {Object} orgDetails use to get team details
  */
 function checkDeploymentStatus(orgDetails) {
     return new Promise(function(resolve, reject) {
@@ -140,7 +140,7 @@ function checkDeploymentStatus(orgDetails) {
 /**
  * Check the status of Resource Record on Amazon Route53
  * @method checkResourceRecordSetStatus
- * @param {Object} orgDetails organization details fetched
+ * @param {Object} orgDetails team details fetched
  */
 function checkResourceRecordSetStatus(orgDetails) {
     return new Promise(function(resolve, reject) {
@@ -155,7 +155,7 @@ function checkResourceRecordSetStatus(orgDetails) {
                 if (err) {
                     reject({ id: 400, msg: err.message });
                 } else {
-                    updateOrganization(orgDetails, { 'route53Response.ChangeInfo.Status': data.ChangeInfo.Status });
+                    updateTeam(orgDetails, { 'route53Response.ChangeInfo.Status': data.ChangeInfo.Status });
                     if (data.ChangeInfo.Status == 'INSYNC') {
                         resolve({ isUpdated: true })
                     } else {
@@ -179,7 +179,7 @@ function sendResponse(result, done) {
     if (result !== null) {
         done(null, {
             statusCode: 200,
-            content: outputFormatter.format(true, 2000, result, 'Organization Deployment Status')
+            content: outputFormatter.format(true, 2000, result, 'Team Deployment Status')
         });
     } else {
         //else return error
@@ -195,7 +195,7 @@ module.exports = function(options) {
     var seneca = options.seneca;
     var dbConnection = options.dbConnection;
     return function(args, done) {
-        Organization = Organization || dbConnection.models.organizations;
+        Team = Team || dbConnection.models.teams;
         AWS.config.update({
             accessKeyId: process.env.R53_ACCESS_ID,
             secretAccessKey: process.env.R53_SECRET_KEY,
@@ -207,10 +207,10 @@ module.exports = function(options) {
                 return utils.checkIfAuthorized(args.credentials);
             })
             .then(function() {
-                return fetchOrganization(args.body);
+                return fetchTeam(args.body);
             })
             .then(function (response) {
-                console.log("Response of fetchOrg --- ", response);
+                console.log("Response of fetchTeam --- ", response);
                 orgDetails = response;
                 return checkDeploymentStatus(response);
             })

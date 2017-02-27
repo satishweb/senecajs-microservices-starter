@@ -3,7 +3,7 @@ var Promise = require('bluebird');
 var microtime = require('microtime');
 
 /**
- * Create a new Session and delete all previous sessions of the user for that organization
+ * Create a new Session and delete all previous sessions of the user for that team
  * @method createSession
  * @param {Object} Session Session waterline model
  * @param {String} token The generated token specific to the session
@@ -19,8 +19,8 @@ module.exports.createSession = function(Session, token, sessionData) {
         // insert document into collection
         Session.create(sessionData)
             .then(function(createdSession) {
-                // if session is saved successfully, delete all previous sessions of user for this organization
-                that.deleteSessions(Session, createdSession.userId, createdSession.orgId, createdSession.sessionId);
+                // if session is saved successfully, delete all previous sessions of user for this team
+                that.deleteSessions(Session, createdSession.userId, createdSession.teamId, createdSession.sessionId);
                 resolve(sessionData);
             })
             .catch(function (err) {
@@ -31,16 +31,16 @@ module.exports.createSession = function(Session, token, sessionData) {
 };
 
 /**
- * Delete all previous sessions of a user related to a organization excluding session with Id sessionId
+ * Delete all previous sessions of a user related to a team excluding session with Id sessionId
  * @method deleteSessions
  * @param {Object} Session Session waterline model
  * @param {String} userId The the user whose sessions are being deleted
- * @param {String} orgId The organization whose sessions are to be deleted
+ * @param {String} teamId The team whose sessions are to be deleted
  * @param {String} sessionId Optional, Current session Id if current session is not to be deleted
  */
 
-module.exports.deleteSessions = function deleteSessions(Session, userId, orgId, sessionId) {
-    var find = { where: { 'userId': userId, 'orgId': orgId } }; // create find query
+module.exports.deleteSessions = function deleteSessions(Session, userId, teamId, sessionId) {
+    var find = { where: { 'userId': userId, 'teamId': teamId } }; // create find query
     if (sessionId) { // if sessionId is present, exclude it from remove
         find.where.sessionId = { '$ne': sessionId };
     }
@@ -67,7 +67,7 @@ module.exports.validateSession = function(decodedToken, requestHeaders) {
         // compare received header properties with those stored in token
         if (decodedToken && decodedToken.userAgent === requestHeaders['user-agent'] && decodedToken.origin && !lodash.isEmpty(decodedToken.origin[requestHeaders.origin]) &&
             decodedToken.hostIp === requestHeaders['x-forwarded-for'] && decodedToken.host === requestHeaders.host) {
-            decodedToken.orgId = decodedToken.origin[requestHeaders.origin].orgId;
+            decodedToken.teamId = decodedToken.origin[requestHeaders.origin].teamId;
             decodedToken.isOwner = decodedToken.origin[requestHeaders.origin].isOwner;
             resolve(decodedToken);
         } else {
