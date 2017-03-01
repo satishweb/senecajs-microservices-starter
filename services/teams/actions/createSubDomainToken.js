@@ -79,13 +79,7 @@ module.exports = function(options) {
             })
             .then(function (response) {
                 output = response.toJSON();
-                var port = args.header.origin.split(":");
-                args.header.origin = args.header.origin.split("://")[0] + '://' + response.fqdn;
-                if (process.env.SYSENV == 'local' && args.header['user-agent'] != 'Postman') { //check if SYSENV is local
-                    args.header.origin = args.header.origin + ':' + port[port.length - 1]; //add port number where project is
-                    // deployed
-                }
-                decodedHeader.origin[args.header.origin] = { teamId: response.teamId, isOwner: true };
+                decodedHeader.origin[response.fqdn] = { teamId: response.teamId, isOwner: true };
                 decodedHeader.emails = decodedHeader.emailId;
                 utils.createJWT(decodedHeader, args.header)
                     .then(function(result) {

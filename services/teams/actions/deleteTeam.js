@@ -84,7 +84,7 @@ module.exports = function(options) {
         utils.checkInputParameters(args.body, TeamSchema)
             .then(function() {
                 // check if owner
-                return utils.checkIfAuthorized(args.credentials);
+                return utils.checkIfAuthorized(args.credentials, false, true);
             })
             .then(function() {
                 // soft delete the team

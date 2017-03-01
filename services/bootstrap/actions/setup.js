@@ -182,8 +182,15 @@ module.exports = function(options) {
         if (args.header && args.header.bootstraptoken && token != null && args.header.bootstraptoken === token) {
             data = JSON.parse(fs.readFileSync(__base + 'allData.json'));
             insertDocuments(dbConnection)
-                .then(function() {
+                .then(function () {
                     token = null;
+                    // altering the sequences to start after the bootstrap data
+                    Promise.all([dbConnection.query('ALTER SEQUENCE "sessions_sessionId_seq" RESTART WITH 2'),
+                    dbConnection.query('ALTER SEQUENCE "groups_groupId_seq" RESTART WITH 3'),
+                    dbConnection.query('ALTER SEQUENCE "teams_teamId_seq" RESTART WITH 4'),
+                    dbConnection.query('ALTER SEQUENCE "users_userId_seq" RESTART WITH 5')]);
+                })
+                .then(function () {
                     done(null, {
                         statusCode: 200,
                         content: utils.success(200, "Bootstrap data inserted successfully.", microtime.now())

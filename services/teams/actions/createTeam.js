@@ -9,7 +9,7 @@ var Joi = require('joi');
 var Promise = require('bluebird');
 var microtime = require('microtime');
 var Team = null;
-var Session = null;
+var Group = null;
 var User = null;
 var subDomain = null;
 var route53 = null;
@@ -175,14 +175,23 @@ function createTeam(ownerId, input, amazonResponse, seneca) {
         var data = {
             ownerId: ownerId,
             fqdn: subDomain,
-            route53Response: amazonResponse.route53Response
+            route53Response: amazonResponse.route53Response,
+            groups: [{
+                name: 'Users',
+                description: 'Default Users group',
+                ownerId: ownerId
+            }, {
+                name: 'Admins',
+                description: 'Default Admins group',
+                ownerId: ownerId
+            }]
         };
 
         // merge with input fields
         data = lodash.assign(data, input);
 
         // save data to database        
-        Team.create(data)
+        Team.create(data, { include: [{ model: Group, as: 'groups' }] })
             .then(function(saveResponse) {
                 resolve(saveResponse);
             })
@@ -194,16 +203,6 @@ function createTeam(ownerId, input, amazonResponse, seneca) {
                 }
             })
     });
-}
-
-/**
- * Give microservice call to create general department
- * @method createGenDept
- * @param {Object} header input header
- * @param {Seneca} seneca seneca instance
- */
-function createGenDept(header, seneca) {
-    utils.microServiceCall(seneca, 'ugrp', 'createDepartment', { name: 'general' }, header, null);
 }
 
 
@@ -245,8 +244,8 @@ module.exports = function(options) {
 
         // load database models for team and session
         Team = Team || dbConnection.models.teams;
-        Session = Session || dbConnection.models.sessions;
         User = User || dbConnection.models.users;
+        Group = Group || dbConnection.models.groups;
 
         if (args.body.name) { //check if name is present
             args.body.name = args.body.name.toLowerCase();
@@ -254,7 +253,7 @@ module.exports = function(options) {
         var decodedHeader = null;
         utils.checkInputParameters(args.body, schema)
             .then(function() {
-                return utils.checkIfAuthorized(args.credentials);
+                return utils.checkIfAuthorized(args.credentials, false, false);
             })
             .then(function() {
                 decodedHeader = args.credentials;
@@ -279,9 +278,6 @@ module.exports = function(options) {
             })
             .then(function(response) {
                 response.registrationStep = 3;
-
-                // TODO: Uncomment on adding groups functionality
-                // createGenGroup(header, seneca);
                 updateUserRegistration(args.credentials.userId);
                 return sendResponse(response, done);
             })

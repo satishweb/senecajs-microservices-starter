@@ -46,6 +46,9 @@ module.exports = function(server, options, done) {
                                 },
                                 'createToken': {
                                     $post: requestHandlerFactory('post', 'createSubDomainToken')
+                                },
+                                'createApiKey': {
+                                    $post: requestHandlerFactory('post', 'createApiAccessKey')
                                 }
                             }
                         }

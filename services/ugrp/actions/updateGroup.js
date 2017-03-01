@@ -47,10 +47,10 @@ function checkInputParameters(input) {
                 return utils.checkInputParameters(input, updateGroupSchema);
                 break;
             default:
-                return Promise.reject({ id: 400, msg: 'Enter a valid action.' });
+                return Promise.reject({ id: 400, msg: "Invalid input. \"action\" is required and must be one of [\"addUsers\", \"removeUsers\", \"update\"]" });
         }
     } else {
-        return Promise.reject({ id: 400, msg: "\"action\" is required." });
+        return Promise.reject({ id: 400, msg: "Invalid input. \"action\" is required and must be one of [\"addUsers\", \"removeUsers\", \"update\"]" });
     }
 }
 
@@ -172,7 +172,7 @@ module.exports = function(options) {
             .then(function() {
                 action = args.body.action;
                 delete args.body.action;
-                return utils.checkIfAuthorized(args.credentials, true);
+                return utils.checkIfAuthorized(args.credentials, false, true);
             })
             .then(function() {
                 teamId = args.credentials.teamId;
@@ -203,7 +203,7 @@ module.exports = function(options) {
                     default:
                         done(null, {
                             statusCode: 200,
-                            content: utils.error(400, 'Enter a valid action.', microtime.now())
+                            content: utils.error(400, "Invalid input. \"action\" is required and must be one of [\"addUsers\", \"removeUsers\", \"update\"]", microtime.now())
                         });
                 }
             })

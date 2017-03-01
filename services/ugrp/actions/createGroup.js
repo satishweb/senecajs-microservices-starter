@@ -169,7 +169,7 @@ module.exports = function(options) {
         // console.log("DecodedToken ---- ", args.credentials);
         utils.checkInputParameters(args.body, args.credentials.isMicroservice ? microSchema : groupSchema)
             .then(function() {
-                return utils.checkIfAuthorized(args.credentials, true);
+                return utils.checkIfAuthorized(args.credentials, false, true);
             })
             .then(function() {
                 teamId = args.credentials.teamId; // store the team Id for further use

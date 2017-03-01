@@ -53,7 +53,7 @@ module.exports = function(sequelize) {
     });
 
     var Token = sequelize.define('tokens', {
-        teamId: { type: Sequelize.INTEGER, primaryKey: true, defaultValue: 0 },
+        teamId: { type: Sequelize.INTEGER, primaryKey: true },
         email: { type: Sequelize.STRING, primaryKey: true },
         tokenValidTillTimestamp: { type: Sequelize.STRING },
         token: { type: Sequelize.STRING }
@@ -80,7 +80,14 @@ module.exports = function(sequelize) {
         }]
     });
 
-    User.hasMany(Email, { as: 'emails', foreignKey: 'userId' });
+    var ApiKey = sequelize.define('apikeys', {
+        apikeyId: { type: Sequelize.INTEGER, primaryKey: true, autoIncrement: true },
+        teamId: { type: Sequelize.INTEGER },
+        origin: { type: Sequelize.STRING },
+        apiKey: { type: Sequelize.STRING }
+    });
+
+    User.hasMany(Email, { foreignKey: 'userId' });
     User.belongsToMany(Team, { through: 'join_userteams', foreignKey: 'userId', otherKey: 'teamId' });
     Team.belongsToMany(User, { through: 'join_userteams', foreignKey: 'teamId', otherKey: 'userId' });
     User.belongsToMany(Group, { through: 'join_usergroups', foreignKey: 'userId', otherKey: 'groupId' });
@@ -89,6 +96,8 @@ module.exports = function(sequelize) {
     Team.belongsTo(User, { as: 'owner', foreignKey: 'ownerId' });
     User.hasMany(Group, { as: 'ownedGroups', foreignKey: 'ownerId' });
     Group.belongsTo(User, { as: 'owner', foreignKey: 'ownerId' });
-    Team.hasMany(Group, { as: 'groups', foreignKey: 'teamId' });
-    Group.belongsTo(Team, { as: 'team', foreignKey: 'teamId' });
+    Team.hasMany(Group, { foreignKey: 'teamId' });
+    Group.belongsTo(Team, { foreignKey: 'teamId' });
+    Team.hasMany(ApiKey, { foreignKey: 'teamId' });
+    ApiKey.belongsTo(Team, { foreignKey: 'teamId' });
 };

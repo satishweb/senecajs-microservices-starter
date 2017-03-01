@@ -71,7 +71,7 @@ module.exports = function(options) {
 
         utils.checkInputParameters(args.body, schema)
             .then(function() {
-                return utils.checkIfAuthorized(args.credentials);
+                return utils.checkIfAuthorized(args.credentials, false, false);
             })
             .then(function() {
                 return checkIfSubDomainPresent(args.body.subDomain);

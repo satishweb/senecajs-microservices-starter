@@ -1,5 +1,6 @@
 var lodash = require('lodash');
 var Promise = require('bluebird');
+var url = require('url');
 var microtime = require('microtime');
 
 /**
@@ -65,10 +66,12 @@ module.exports.validateSession = function(decodedToken, requestHeaders) {
         //     decodedToken.userAgent === requestHeaders['user-agent'],
         //     decodedToken.hostIp === requestHeaders['x-forwarded-for'], decodedToken.host === requestHeaders.host);
         // compare received header properties with those stored in token
-        if (decodedToken && decodedToken.userAgent === requestHeaders['user-agent'] && decodedToken.origin && !lodash.isEmpty(decodedToken.origin[requestHeaders.origin]) &&
+        var hostName = url.parse(requestHeaders.origin).hostname;
+        if (decodedToken && decodedToken.userAgent === requestHeaders['user-agent'] && decodedToken.origin && !lodash.isEmpty(decodedToken.origin[hostName]) &&
             decodedToken.hostIp === requestHeaders['x-forwarded-for'] && decodedToken.host === requestHeaders.host) {
-            decodedToken.teamId = decodedToken.origin[requestHeaders.origin].teamId;
-            decodedToken.isOwner = decodedToken.origin[requestHeaders.origin].isOwner;
+            decodedToken.teamId = decodedToken.origin[hostName].teamId;
+            decodedToken.isOwner = decodedToken.origin[hostName].isOwner;
+            console.log(decodedToken.origin[hostName].teamId, decodedToken.origin[hostName].isOwner);
             resolve(decodedToken);
         } else {
             reject({id: '501', msg: "Token-header mismatch. Please log in again."});

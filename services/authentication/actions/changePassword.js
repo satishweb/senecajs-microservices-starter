@@ -11,8 +11,9 @@ var microtime = require('microtime');
 var User = null;
 var Token = null;
 var Email = null;
-var Team = null;
+// var Team = null;
 var Invitation = null;
+var Group = null;
 
 /**
  * @module changePassword
@@ -34,7 +35,8 @@ var changePasswordSchema = Joi.object().keys({
  * @param {Object} action The action being performed. Decided by the route hit, either changePassword or resetPassword.
  * @returns {Promise} Promise containing the update response if successful, else the appropriate error message
  */
-var changePassword = function(decodedToken, input, action) {
+var changePassword = function (decodedToken, input, action) {
+    var userId = null;
     // create find object for user by using email from token
     // add where condition to join
     var find = { include: [{ model: Email, as: 'emails', where: { email: decodedToken.emailId } }] };
@@ -62,7 +64,8 @@ var changePassword = function(decodedToken, input, action) {
                     update.emails = [{ email: decodedToken.emailId }];
                     // create new user with update object
                     return User.create(update, { include: [{ model: Email, as: 'emails' }] })
-                        .then(function(newUser) {
+                        .then(function (newUser) {
+                            userId = newUser.userId;
                             // if the created user instance returned is empty, return failed error message 
                             if (lodash.isEmpty(newUser)) {
                                 return Promise.reject({ id: 400, msg: "Updating password failed." });
@@ -71,8 +74,11 @@ var changePassword = function(decodedToken, input, action) {
                                 return newUser.addTeam(decodedToken.teamId);
                             }
                         })
-                        .then(function (addTeam) {
-                            console.log("After adding team --- ", addTeam);
+                        .then(function () {
+                            return addInvitedToUserGroup(userId, decodedToken.teamId);
+                        })
+                        .then(function () {
+                            removeInvitation(decodedToken.emailId, decodedToken.teamId);
                             // return true to indicate new user has been created
                             return Promise.resolve(true);
                         })
@@ -116,17 +122,6 @@ function removeTokenFromDB(action, token) {
     }
 };
 
-/**
- * Delete invitation document from database if invited user is setting password for the first time
- * @method removeInvitation
- * @param {String} email Contains the user's email decoded from the token
- * @param {Object} header JWT token containing the team Id and isMicroservice flag
- * @param {Seneca} seneca Seneca instance to call microservice
- */
-/*var removeInvitation = function (email, header, seneca) {
-    // utils.microServiceCall(seneca, 'invitations', 'deleteInvitation', { email: email }, header, null);
-};*/
-
 
 /**
  * Delete invitation document from database if invited user is setting password for the first time
@@ -134,7 +129,7 @@ function removeTokenFromDB(action, token) {
  * @param {String} email Contains the user's email decoded from the token
  * @param {Number} teamId The Id of the team whose invitation is to be deleted
  */
-var removeInvitation = function (email, teamId) {
+var removeInvitation = function(email, teamId) {
     Invitation.findOne({ where: { email: email, teamId: teamId } })
         .then(function(invitation) {
             if (lodash.isEmpty(invitation)) {
@@ -146,14 +141,20 @@ var removeInvitation = function (email, teamId) {
 };
 
 /**
- * Add the user to the general department
- * @method removeInvitation
+ * Add the user to the users group
+ * @method addInvitedToUserGroup
  * @param {String} userId The Id of the user to be added to the general department of the team
- * @param {Object} header JWT token containing the team Id and isMicroservice flag
- * @param {Seneca} seneca Seneca instance to call microservice
+ * @param {Object} teamId The Id of the team the user is to be added to
  */
-var addInvitedToGeneral = function(userId, header, seneca) {
-    utils.microServiceCall(seneca, 'departments', 'updateDepartment', { action: 'addAgents', deptId: 'general', agentIds: [userId] }, header, null);
+var addInvitedToUserGroup = function (userId, teamId) {
+    return Group.findOne({ where: { name: 'Users', teamId: teamId } })
+        .then(function (group) {
+            if (lodash.isEmpty(group)) {
+                return Promise.resolve();
+            } else {
+                return group.addUser(userId);
+            }
+        });
 };
 
 /**
@@ -182,8 +183,9 @@ module.exports = function(options) {
         User = User || dbConnection.models.users;
         Token = Token || dbConnection.models.tokens;
         Email = Email || dbConnection.models.emails;
-        Team = Team || dbConnection.models.teams;
+        // Team = Team || dbConnection.models.teams;
         Invitation = Invitation || dbConnection.models.invitations;
+        Group = Group || dbConnection.models.groups; 
 
         var action = 'resetPassword'; // stores if password is being reset or changed, default - reset
         var decodedToken = null;
@@ -209,18 +211,6 @@ module.exports = function(options) {
             })
             .then(function(updateResponse) {
                 console.log("Updated response ---- ", updateResponse);
-                // if new user is created, remove invitation and add invited user to general
-                if (updateResponse === true) {
-
-                    // create a token to send to API in microservice calls containing team Id
-                    // var header = utils.createMsJWT({ teamId: decodedToken.teamId, isMicroservice: true });
-                    
-                    console.log("Removing invitation token ---- ");
-                    removeInvitation(decodedToken.emailId, decodedToken.teamId);
-
-                    // TODO: Uncomment on adding ugrp
-                    // addInvitedToGeneral(updateResponse.upserted[0]._id, header, seneca);
-                }
                 sendResponse(done);
             })
             .catch(function(err) {

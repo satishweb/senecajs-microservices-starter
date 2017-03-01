@@ -42,13 +42,10 @@ function fetchGroup(groupId, teamId) {
         })
         .then(function(group) {
             if (lodash.isEmpty(group)) {
-                return Promise.reject({ id: 400, msg: 'Group not found.' });
+                return Promise.reject({ id: 400, msg: 'Group not found in your team.' });
             } else {
                 return group;
             }
-        })
-        .catch(function(err) {
-            return Promise.reject({ id: 400, msg: err });
         })
 }
 
@@ -150,6 +147,9 @@ module.exports = function(options) {
         User = User || dbConnection.models.users;
 
         utils.checkInputParameters(args.body, groupGetSchema)
+            .then(function () {
+                return utils.checkIfAuthorized(args.credentials, true, true);
+            })    
             .then(function() {
                 switch (args.body.action) {
                     case 'list':
@@ -159,9 +159,7 @@ module.exports = function(options) {
                         return fetchGroup(args.body.groupId, args.credentials.teamId);
                         break;
                     default:
-                        return new Promise(function(resolve, reject) {
-                            reject({ id: 400, msg: "Invalid input. \"action\" must be present and one of [\"id\", \"list\"]" });
-                        });
+                        return Promise.reject({ id: 400, msg: "Invalid input. \"action\" must be present and one of [\"id\", \"list\"]" });
                 }
             })
             .then(function(result) {
@@ -173,7 +171,7 @@ module.exports = function(options) {
                 if (err && 'success' in err) {
                     error = err;
                 } else {
-                    error = err ? { id: err.id || 1000, msg: JSON.stringify(err.msg) || err.message || "Unexpected error" } : { id: 1000, msg: "Unexpected error" };
+                    error = err ? { id: err.id || 1000, msg: err.msg || err.message || "Unexpected error" } : { id: 1000, msg: "Unexpected error" };
                     error = outputFormatter.format(false, 1000, null, error.msg);
                 }
 

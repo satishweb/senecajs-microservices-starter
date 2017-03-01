@@ -78,8 +78,11 @@ module.exports = function(options) {
 
         flag = false; // used to determine if user is a new user or already registered user with other login type
         var finalResponse = null; // stores the user details to be sent in response
-
-        utils.checkInputParameters(args.body, signUpSchema)
+        
+        utils.checkIfAppUrl(args.header.origin)
+            .then(function() {
+                return utils.checkInputParameters(args.body, signUpSchema)
+            })
             .then(function() {
                 if (args.body.email) { // if email is present, convert email to lowercase
                     args.body.email = args.body.email.toLowerCase();
@@ -109,7 +112,7 @@ module.exports = function(options) {
                 // create a session token for the signed up user
                 return utils.createJWT(response, args.header);
             })
-            .then(function (response) {
+            .then(function(response) {
                 delete response.output.origin;
                 finalResponse = response; // store the final response for further use
                 finalResponse.sessionData.emailId = args.body.email;

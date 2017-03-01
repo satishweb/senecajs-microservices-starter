@@ -10,6 +10,7 @@ var outputFormatter = new Locale(__base);
 var Promise = require('bluebird');
 var microtime = require('microtime');
 var User = null;
+var Team = null;
 
 /**
  * @module getUsers
@@ -35,9 +36,7 @@ var userGetSchema = Joi.object().keys({
 function getUser(userId, teamId) {
     return new Promise(function (resolve, reject) {
         
-        //TODO: Confirm if there is supposed to be a org check when fetching users
-        
-        User.findOne({ where: { userId: userId, isDeleted: false }, attributes: { exclude: ['password'] } })
+        User.findOne({ where: { userId: userId, isDeleted: false }, attributes: { exclude: ['password'] }, include: { model: Team, where: { teamId: teamId } } })
             .then( function(result) {
                 if (lodash.isEmpty(result)) {
                     reject({ id: 400, msg: "User not found." });
@@ -132,7 +131,7 @@ function listUsers(input, teamId, dbConnection) {
         input.filter = {};
     }
     if (teamId) {
-        input.filter.teamId = teamId;
+        input.filter.teams = teamId;
     }
     input.filter.isDeleted = false;
     compositeGrid = InitCompositeGrid.initFromConfigObject(input, 'listUsers', dbConnection, null, config);
@@ -175,17 +174,18 @@ module.exports = function(options) {
     return function (args, done) {
         
         User = User || dbConnection.models.users;
+        Team = Team || dbConnection.models.teams;
         utils.checkInputParameters(args.body, userGetSchema)
             .then(function() {
-                return utils.verifyTokenAndDecode(args.header.authorization)
+                return utils.checkIfAuthorized(args.credentials, true, true)
             })
-            .then(function(decoded) {
+            .then(function() {
                 switch (args.body.action) {
                     case 'list':
-                        return listUsers(args.body, decoded.teamId, dbConnection);
+                        return listUsers(args.body, args.credentials.teamId, dbConnection);
                         break;
                     case 'id':
-                        return getUser(args.body.userId, decoded.teamId);
+                        return getUser(args.body.userId, args.credentials.teamId);
                         break;
                     default:
                         return new Promise(function(resolve, reject) {

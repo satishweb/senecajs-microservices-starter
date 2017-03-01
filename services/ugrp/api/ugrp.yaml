@@ -184,6 +184,10 @@ securityDefinitions:
     type: apiKey
     name: Authorization
     in: header
+  apiKey.secured:
+    type: apiKey
+    name: Authorization
+    in: header
 definitions:
   Message:
     type: object

@@ -204,7 +204,7 @@ module.exports = function(options) {
         var orgDetails = null;
         utils.checkInputParameters(args.body, schema)
             .then(function() {
-                return utils.checkIfAuthorized(args.credentials);
+                return utils.checkIfAuthorized(args.credentials, false, false);
             })
             .then(function() {
                 return fetchTeam(args.body);

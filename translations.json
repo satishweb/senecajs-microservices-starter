@@ -181,5 +181,8 @@
     },
     "2300": {
         "en": "Sorry, this $[1] already exists. Please sign in or try with another $[1]."
+    },
+    "2310": {
+        "en": "This action is only accessible from the main URl."
     }
 }

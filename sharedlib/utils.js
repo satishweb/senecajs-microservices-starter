@@ -7,6 +7,22 @@ var lodash = require('lodash');
 var Joi = require('joi');
 var url = require('url');
 
+
+/**
+ * Checks if the input request is received from the APP URL by using the origin received in the header
+ * @method checkIfAppUrl
+ * @param {String} origin The origin received in the header for the request 
+ * @returns {Promise} The Promise is resolved if the origin matches the APP URL, else it is rejected with error message.
+ */
+module.exports.checkIfAppUrl = function (origin) {
+    // console.log("origin ---- ", origin, " app_url ---- ", process.env.APP_URL);
+    if (url.parse(origin).host !== process.env.APP_URL) {
+        return Promise.reject({id: 2310, msg: "This action is only accessible from the main app URL."});
+    } else {
+        return Promise.resolve();
+    }
+}
+
 /**
  * Check input parameter using Joi
  * @method checkInputParameters
@@ -156,8 +172,9 @@ module.exports.verifyTokenAndDecode = function(token, errorMsg) {
  * @param {Boolean} subDomainsOnly Flag for whether teamId is needed in token
  * @returns {Promise} Resolved Promise if successful, else containing the error message
  */
-module.exports.checkIfAuthorized = function(decodedToken, subDomainsOnly) {
-        if (decodedToken && (decodedToken.isMicroservice || decodedToken.isOwner)) {    // if the decoded token belongs to an owner, resolve the
+module.exports.checkIfAuthorized = function (decodedToken, isApiKey, subDomainsOnly) {
+    console.log("DecodedToken ---- ", decodedToken);
+        if (decodedToken && (decodedToken.isMicroservice || decodedToken.isOwner || (isApiKey && decodedToken.isApiKey))) {    // if the decoded token belongs to an owner, resolve the
             // decoded token
             if (subDomainsOnly === true) {
                 if (decodedToken.teamId) {
@@ -209,7 +226,7 @@ module.exports.microServiceCall = function (seneca, role, cmd, body, header, cal
  * @param {Boolean} isRejected Flag to decide if error is to be resolved with null or rejected
  * @returns {Promise} The Promise containing the action response in case of success and null in case of failure
  */
-module.exports.microServiceCallPromise = function(seneca, role, cmd, body, header, isRejected) {
+module.exports.microServiceCallPromise = function(seneca, role, cmd, body, header, isRejected, credentials) {
     return new Promise(function(resolve, reject) {
         seneca.client({
             type: 'amqp',
@@ -219,6 +236,7 @@ module.exports.microServiceCallPromise = function(seneca, role, cmd, body, heade
             role: role,
             cmd: cmd,
             body: body,
+            credentials: credentials,
             header: header,
             fatal$: false // treat errors as non-fatal
         }, function(err, response) {

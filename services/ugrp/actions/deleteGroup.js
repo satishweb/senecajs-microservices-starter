@@ -60,7 +60,7 @@ module.exports = function(options) {
         utils.checkInputParameters(args.body, GroupSchema)
             .then(function() {
                 // verify, decode and check token
-                return utils.checkIfAuthorized(args.credentials);
+                return utils.checkIfAuthorized(args.credentials, false, true);
             })
             .then(function(response) {
                 // delete group document from database

@@ -75,14 +75,14 @@ function checkTeamStatus(orgDetails) {
  * @param {Object} user The user instance
  * @returns {Promise} Promise containing the true details if successful, else containing the error message
  */
-function checkIfUserMemberInTeam(orgDetails, user, protocol) {
+function checkIfUserMemberInTeam(orgDetails, user) {
     return checkTeamStatus(orgDetails)
         .then(function(response) {
             // console.log("------- ", userDetails, response, orgDetails.teamId);
             if (response.ownerId == user.userId) { //check if userId is same as ownerId of team
-                return fetchAllTeams(user, protocol, null, null);
+                return fetchAllTeams(user, null, null);
             } else {
-                return fetchAllTeams(user, protocol, orgDetails.teamId, null);
+                return fetchAllTeams(user, orgDetails.teamId, null);
             }
         });
 }
@@ -91,14 +91,13 @@ function checkIfUserMemberInTeam(orgDetails, user, protocol) {
  * Fetches teams that the user belongs to and the user's owned teams. If the user does not belong to the team, error is returned.
  * @method fetchAllTeams
  * @param {Object} user The user instance
- * @param {String} protocol The website protocol used
  * @param {Number} teamId (Optional) The Id of the team, if present checks if the user belongs to this team by teamId
  * @param {String} fqdn (Optional) The team's FQDN, if present checks if the user belongs to this team by fqdn
  * @returns 
  */
-function fetchAllTeams(user, protocol, teamId, fqdn) {
+function fetchAllTeams(user, teamId, fqdn) {
     var orgs = {};
-    orgs[protocol + '://' + process.env.APP_URL] = { teamId: null, isOwner: user.registrationStep != null };
+    orgs[url.parse(process.env.HTTPSCHEME + '://' + process.env.APP_URL).hostname] = { teamId: null, isOwner: user.registrationStep != null };
     var userId = user.userId;
     var inTeam = false;
     return user.getTeams({ where: { isDeleted: false }, attributes: ['teamId', 'ownerId', 'fqdn'] })
@@ -106,7 +105,7 @@ function fetchAllTeams(user, protocol, teamId, fqdn) {
             console.log("orgs ---- ", fetchedTeams);
             if (!lodash.isEmpty(fetchedTeams)) {
                 fetchedTeams.forEach(function(org) {
-                    orgs[protocol + '://' + org.fqdn] = { teamId: org.teamId, isOwner: org.ownerId == userId }
+                    orgs[org.fqdn] = { teamId: org.teamId, isOwner: org.ownerId == userId }
                     if (teamId && !inTeam && org.teamId == teamId) {
                         inTeam = true;
                     } else if (fqdn && !inTeam && org.fqdn == fqdn) {
@@ -123,7 +122,7 @@ function fetchAllTeams(user, protocol, teamId, fqdn) {
         .then(function(fetchedTeams) {
             if (fetchedTeams) {
                 fetchedTeams.forEach(function(org) {
-                    orgs[protocol + '://' + org.fqdn] = { teamId: org.teamId, isOwner: org.ownerId == userId };
+                    orgs[org.fqdn] = { teamId: org.teamId, isOwner: org.ownerId == userId };
                     if (fqdn && !inTeam && org.fqdn == fqdn) {
                         inTeam = true;
                     }
@@ -199,12 +198,15 @@ module.exports = function(options) {
             args.body.email = args.body.email.toLowerCase();
         }
         if (args.body.subDomain) { // if sub-domain is present
-            args.header.origin = args.header.origin.split('://')[0] + '://' + args.body.subDomain + '.' + process.env.DOMAIN; //manipulate the
+            args.header.origin = args.body.subDomain + '.' + process.env.DOMAIN; //manipulate the
             // header origin to sub-domain passed
             // args.header.host = args.body.subDomain +'.'+ process.env.DOMAIN;
         }
-
-        utils.checkInputParameters(args.body, signInSchema)
+        
+        utils.checkIfAppUrl(args.header.origin)
+            .then(function() {
+                return utils.checkInputParameters(args.body, signInSchema)
+            })
             .then(function() {
                 return signIn.findUser(User, Email, args.body, args.header, seneca);
             })
@@ -212,12 +214,10 @@ module.exports = function(options) {
                 return signIn.comparePasswords(args.body, userInstance);
             })
             .then(function(response) {
-                // console.log("Response of login ---- ", response);
                 user = response;
                 emails = lodash.keys(lodash.keyBy(response.toJSON().emails, 'email'));
-                var header = utils.createMsJWT({ isMicroservice: true });
                 if (args.body.subDomain) {
-                    return utils.microServiceCallPromise(seneca, 'teams', 'checkStatus', { subDomain: args.body.subDomain }, header, true)
+                    return utils.microServiceCallPromise(seneca, 'teams', 'checkStatus', { subDomain: args.body.subDomain }, null, true, { isMicroservice: true })
                 } else {
                     return new Promise(function(resolve) {
                         resolve(true);
@@ -225,30 +225,26 @@ module.exports = function(options) {
                 }
             })
             .then(function(response) {
-                // console.log("Response of checkStatus ---- ", response);
-                var appUrl = process.env.APP_URL;
-                var port = args.header.origin.split(":");
-                if (process.env.SYSENV == 'local') {
-                    appUrl = process.env.APP_URL + ':' + port[port.length - 1];
-                }
                 if (args.body.subDomain) {
-                    return checkIfUserMemberInTeam(response.content.data, user, args.header.origin.split('://')[0]);
+                    return checkIfUserMemberInTeam(response.content.data, user);
                 } else {
-                    return fetchTeam(user, args.header, args.header.origin.split('://')[0]);
+                    return fetchTeam(user, args.header);
                 }
             })
             .then(function(org) {
                 var fqdn = null;
                 orgs = org;
-                if (orgs[args.header.origin]) {
-                    teamId = orgs[args.header.origin].teamId;
-                    isOwner = orgs[args.header.origin].isOwner;
+                var hostName = args.body.subDomain ? args.header.origin : url.parse(args.header.origin).hostname;
+                console.log("hostname --- ", hostName);
+                if (orgs[hostName]) {
+                    teamId = orgs[hostName].teamId;
+                    isOwner = orgs[hostName].isOwner;
                 }
                 console.log("Team ----- ", org);
                 // console.log("Response of checkMember/fetchTeam ---- ", orgDetails);
                 return signIn.updateLoginTime(User, user);
             })
-            .then(function (userDetails) {
+            .then(function(userDetails) {
                 delete userDetails.password;
                 userDetails.teamId = teamId;
                 userDetails.isOwner = isOwner;
@@ -256,7 +252,7 @@ module.exports = function(options) {
                 userDetails.origin = orgs;
                 return utils.createJWT(userDetails, args.header);
             })
-            .then(function (response) {
+            .then(function(response) {
                 delete response.output.origin;
                 finalResponse = response.output;
                 response.sessionData.emailId = args.body.email;

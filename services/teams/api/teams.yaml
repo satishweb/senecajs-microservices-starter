@@ -157,8 +157,38 @@ paths:
             $ref: "#/definitions/Error"
       security:
         - jwt.secured: []
+  "/v1/createApiKey":
+    post:
+      parameters:
+        - name: createApiAccessToken
+          in: body
+          required: true
+          schema:
+            type: object
+            required:
+              - origin
+            properties:
+              origin:
+                type: string
+              apiKey:
+                type: string
+      responses:
+        "200":
+          description: "Ok"
+          schema:
+            $ref: "#/definitions/Output"
+        default:
+          description: Unexpected error
+          schema:
+            $ref: "#/definitions/Error"
+      security:
+        - jwt.secured: []
 securityDefinitions:
   jwt.secured:
+    type: apiKey
+    name: Authorization
+    in: header
+  apiKey.secured:
     type: apiKey
     name: Authorization
     in: header
@@ -193,6 +223,9 @@ definitions:
         type: string
   createTeam:
     type: object
+    required:
+      - subDomain
+      - name
     properties:
       subDomain:
         type: string
@@ -204,6 +237,8 @@ definitions:
         type: string
   updateTeam:
     type: object
+    required:
+      - teamId
     properties:
       description:
         type: string
@@ -217,6 +252,8 @@ definitions:
         type: integer
   deleteTeam:
     type: object
+    required:
+      - teamId
     properties:
       teamId:
         type: integer

@@ -1,6 +1,7 @@
 'use strict';
 var Boom = require('boom');
 var lodash = require('lodash');
+var Promise = require('bluebird');
 var session = require(__base + 'sharedlib/session.js');
 var utils = require(__base + 'sharedlib/utils.js');
 var Session = null;
@@ -30,8 +31,12 @@ function schema(server, options) {
             utils.verifyTokenAndDecode(authorization)
                 .then(function(response) {
                     decodedToken = response;
-                    return session.validateSession(response, req.headers); // check if headers match with
-                    // decoded token
+                    /*if (process.env.SYSENV === 'local') {
+                        return Promise.resolve();
+                    } else {*/
+                        return session.validateSession(response, req.headers); // check if headers match with
+                        // decoded token
+                    // } 
                 })
                 .then(function() {
                     return Session.findOne({ where: { JWT: authorization } }); // check if session for the token exists in DB

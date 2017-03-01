@@ -198,7 +198,7 @@ module.exports = function(options) {
         // validate if input is according to Joi schema
         utils.checkInputParameters(args.body, saveInvitedUsersSchema)
             .then(function () {
-                return utils.checkIfAuthorized(args.credentials, true);
+                return utils.checkIfAuthorized(args.credentials, false, true);
             })    
             .then(function () {
                 teamId = args.credentials.teamId; // set the team Id from the decoded token
