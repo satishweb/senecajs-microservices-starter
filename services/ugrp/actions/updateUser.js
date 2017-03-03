@@ -92,12 +92,12 @@ function updateUser(input, decodedToken) {
                     return user.getTeams({ where: { teamId: input.teamId } });
                 }
             })
-            .then(function (org) {
-                if (lodash.isEmpty(org)) {
-                    // console.log("User not found in org ---- ", org);
+            .then(function (team) {
+                if (lodash.isEmpty(team)) {
+                    // console.log("User not found in team ---- ", team);
                     return new Promise(function(resolve, reject) { reject('User does not belong to team.') });
                 } else {
-                    // console.log("User found in org ---- ", org);
+                    // console.log("User found in team ---- ", team);
                     // remove userId from input
                     delete input.userId;
                     return userInstance.update(input)

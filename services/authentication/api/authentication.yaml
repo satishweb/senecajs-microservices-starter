@@ -11,8 +11,8 @@ info:
     #### Sign out:
     Logged in user logs out. The JWT token for the user is verified and his/her session destroyed.
     #### Sign up:
-    New users can register by using email or through social media. In case of email sign up, a mail containing
-    a link to set the password is sent to that email. The user is logged in on signing up.
+    New users can register by using email or through social media. In case of email sign up, the user needs to specify the password.
+    For social sign up, the user does not have a password set. The user is logged in on signing up.
     #### Forgot Password:
     Registered user can send an email to his/her registered email Id containing a link to reset his/her password.
     The link has an expiry time and should be used before it.

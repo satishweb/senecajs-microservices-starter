@@ -13,7 +13,7 @@ var User = null;
 var Team = null;
 
 //Joi validation Schema
-var addRemoveUserSchema = Joi.object().keys({
+var addRemoveUsersSchema = Joi.object().keys({
     action: Joi.string().valid('addUsers', 'removeUsers').required(),
     groupId: Joi.number(),
     groupName: Joi.string(),
@@ -41,7 +41,7 @@ function checkInputParameters(input) {
         switch (input.action) {
             case 'addUsers':
             case 'removeUsers':
-                return utils.checkInputParameters(input, addRemoveUserSchema);
+                return utils.checkInputParameters(input, addRemoveUsersSchema);
                 break;
             case 'update':
                 return utils.checkInputParameters(input, updateGroupSchema);

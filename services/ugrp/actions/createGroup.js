@@ -43,6 +43,9 @@ var microSchema = Joi.object().keys({
  */
 function createGroup(ownerId, teamId, input, teamUsers) {
 
+    // remove duplicate user Ids if present in input    
+    input.userIds = lodash.uniq(input.userIds);
+
     // remove input users that are not part of the team
     var userIds = lodash.intersection(input.userIds, teamUsers);
     // console.log("Intersecting user ids ---- ", userIds);

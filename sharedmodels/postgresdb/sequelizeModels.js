@@ -80,6 +80,19 @@ module.exports = function(sequelize) {
         }]
     });
 
+    var Role = sequelize.define('roles', {
+        roleId: { type: Sequelize.INTEGER, primaryKey: true, autoIncrement: true },
+        teamId: { type: Sequelize.INTEGER },
+        name: { type: Sequelize.STRING },
+        description: { type: Sequelize.STRING },
+        ownerId: { type: Sequelize.INTEGER }
+    }, {
+        indexes: [{
+            unique: true,
+            fields: ['name', 'teamId']
+        }]
+    });
+
     var ApiKey = sequelize.define('apikeys', {
         apikeyId: { type: Sequelize.INTEGER, primaryKey: true, autoIncrement: true },
         teamId: { type: Sequelize.INTEGER },
@@ -87,17 +100,47 @@ module.exports = function(sequelize) {
         apiKey: { type: Sequelize.STRING }
     });
 
+    // User-Email Mapping 1-Many    
     User.hasMany(Email, { foreignKey: 'userId' });
+
+    // User-Team Mapping Many-Many
     User.belongsToMany(Team, { through: 'join_userteams', foreignKey: 'userId', otherKey: 'teamId' });
     Team.belongsToMany(User, { through: 'join_userteams', foreignKey: 'teamId', otherKey: 'userId' });
+    
+    // User-Group Mapping Many-Many
     User.belongsToMany(Group, { through: 'join_usergroups', foreignKey: 'userId', otherKey: 'groupId' });
     Group.belongsToMany(User, { through: 'join_usergroups', foreignKey: 'groupId', otherKey: 'userId' });
+    
+    // Team-Owner Mapping Many-1
     User.hasMany(Team, { as: 'ownedTeams', foreignKey: 'ownerId' });
     Team.belongsTo(User, { as: 'owner', foreignKey: 'ownerId' });
+    
+    // Group-Owner Mapping Many-1 
     User.hasMany(Group, { as: 'ownedGroups', foreignKey: 'ownerId' });
     Group.belongsTo(User, { as: 'owner', foreignKey: 'ownerId' });
+    
+    // Team-Group Mapping 1-Many
     Team.hasMany(Group, { foreignKey: 'teamId' });
     Group.belongsTo(Team, { foreignKey: 'teamId' });
+    
+    // Team-ApiKey Mapping 1-Many
     Team.hasMany(ApiKey, { foreignKey: 'teamId' });
     ApiKey.belongsTo(Team, { foreignKey: 'teamId' });
+
+    // Role-Owner Mapping Many-1
+    User.hasMany(Role, { as: 'ownedRoles', foreignKey: 'ownerId' });
+    Role.belongsTo(User, { as: 'owner', foreignKey: 'ownerId' });
+
+    // Role-Team Mapping Many-1
+    Team.hasMany(Role, { foreignKey: 'teamId' });
+    Role.belongsTo(Team, { foreignKey: 'teamId' });
+
+    // Role-User Mapping Many-Many
+    User.belongsToMany(Role, { through: 'join_userroles', foreignKey: 'userId', otherKey: 'roleId' });
+    Role.belongsToMany(User, { through: 'join_userroles', foreignKey: 'roleId', otherKey: 'userId' });
+    
+    // Role-Group Mapping Many-Many
+    Role.belongsToMany(Group, { through: 'join_grouproles', foreignKey: 'roleId', otherKey: 'groupId' });
+    Group.belongsToMany(Role, { through: 'join_grouproles', foreignKey: 'groupId', otherKey: 'roleId' });
+    
 };

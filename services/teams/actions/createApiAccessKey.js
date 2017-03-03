@@ -18,8 +18,9 @@ var ApiKey = null;
 //Joi validation Schema
 var schema = Joi.object().keys({
     origin: Joi.string().trim().required(),
-    apiKey: Joi.string().trim()
-});
+    apiKey: Joi.string().trim(),
+    createNew: Joi.boolean()
+}).xor('apiKey', 'createNew');
 
 /**
  * Create API Access Key for the given team 
@@ -31,15 +32,16 @@ var schema = Joi.object().keys({
 function createApiKey(input, teamId) {
     var apiKey = jwt.sign({ origin: input.origin, teamId: teamId, isApiKey: true }, process.env.JWT_SECRET_KEY); // create the JWT token
     if (input.apiKey) {
-        return ApiKey.update({ apiKey: apiKey, origin: input.origin }, { where: { apiKey: input.apiKey, teamId: teamId } })
-            .then(function(updatedApiKey) {
-                if (updatedApiKey[0] === 0) {
+        return ApiKey.update({ apiKey: apiKey, origin: input.origin }, { where: { apiKey: input.apiKey, teamId: teamId }, returning: true })
+            .then(function (updatedApiKey) {
+                console.log("Update response ---- ", updatedApiKey);
+                if (updatedApiKey[0] === 0 || lodash.isEmpty(updatedApiKey[1])) {
                     return Promise.reject({ id: 400, msg: "Update failed. Input API Key not found for your team." });
                 } else {
-                    return updatedApiKey;
+                    return updatedApiKey[1][0];
                 }
             })
-    } else if (input.origin) {
+    } else if (input.createNew === true) {
         return Team.findOne({ where: { teamId: teamId } })
             .then(function(team) {
                 if (lodash.isEmpty(team)) {

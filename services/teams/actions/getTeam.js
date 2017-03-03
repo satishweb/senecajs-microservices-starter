@@ -86,17 +86,6 @@ function getTeamList(seneca, input, dbConnection) {
                 fields: ['userId', 'firstName', 'lastName']
             }
         },
-        "ownerName": {
-            "databaseName": "$owner.firstName$",
-            "displayName": "Owner's First Name",
-            "search": true,
-            "sort": true, 
-            "join": {
-                model: "users",
-                as: "owner",
-                fields: ['userId', 'firstName', 'lastName']
-            }
-        },
         "userId": {
             "databaseName": "$users.userId$",
             "displayName": "Users",
@@ -104,11 +93,20 @@ function getTeamList(seneca, input, dbConnection) {
             "join": {
                 model: "users",
                 fields: ['userId', 'firstName', 'lastName'],
-                exclude: ['join_userorgs']
+                exclude: ['join_userteams']
+            }
+        },
+        "groupId": {
+            "databaseName": "$groups.groupId$",
+            "displayName": "Groups",
+            "filter": true,
+            "join": {
+                model: "groups",
+                fields: ['groupId', 'name'],
             }
         },
         "name": {
-            "displayName": "Department Name",
+            "displayName": "Team Name",
             "search": true,
             "sort": true
         },

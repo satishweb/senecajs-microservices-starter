@@ -264,7 +264,7 @@ module.exports = function(options) {
             .catch(function(err) {
                 console.log('----signIn error---- ', err);
                 var error = err || { id: 400, msg: "Unexpected error" };
-                done(null, { statusCode: 200, content: 'success' in error ? error : utils.error(error.id, error.msg, microtime.now()) });
+                done(null, { statusCode: 200, content: 'success' in error ? error : utils.error(error.id, error.message || error.msg, microtime.now()) });
             });
     };
 };

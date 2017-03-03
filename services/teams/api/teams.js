@@ -49,6 +49,9 @@ module.exports = function(server, options, done) {
                                 },
                                 'createApiKey': {
                                     $post: requestHandlerFactory('post', 'createApiAccessKey')
+                                },
+                                'deleteApiKey': {
+                                    $delete: requestHandlerFactory('delete', 'deleteApiAccessKey')
                                 }
                             }
                         }

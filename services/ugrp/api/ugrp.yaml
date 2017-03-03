@@ -179,6 +179,47 @@ paths:
             $ref: "#/definitions/Error"
       security:
         - jwt.secured: [] 
+  "/role/v1/create":
+    post:
+      parameters:
+        - name: Authorization
+          in: headers
+          required: true
+          type: string
+        - name: createRole
+          in: body
+          required: true
+          schema:
+            $ref: "#/definitions/createRole"
+      responses:
+        "200":
+          description: "Ok"
+          schema:
+            $ref: "#/definitions/Output"
+        default:
+          description: Unexpected error
+          schema:
+            $ref: "#/definitions/Error"
+      security:
+        - jwt.secured: []
+  "/role/v1/get":
+    post:
+      parameters:
+        - name: Authorization
+          in: headers
+          required: true
+          type: string
+      responses:
+        "200":
+          description: "Ok"
+          schema:
+            $ref: "#/definitions/Output"
+        default:
+          description: Unexpected error
+          schema:
+            $ref: "#/definitions/Error"
+      security:
+        - jwt.secured: []
 securityDefinitions:
   jwt.secured:
     type: apiKey
@@ -219,41 +260,84 @@ definitions:
         type: string
   updateUser:
     type: object
+    required:
+      - userId
     properties:
       userId:
+        description: The Id of the user whose profile is to be updated
         type: integer
       email:
+        description: The email Id of the user
         type: string
       firstName:
+        description: The first name of the user
         type: string
       lastName:
+        description: The last name of the user
         type: string
       avatar:
+        description: The URL of the user's avatar
         type: string
       contactNumber:
+        description: The contact number of the user
         type: string
       address:
+        description: The address of the user
         type: string
       gender:
+        description: The gender of the user
         type: string
       birthDate:
+        description: The user's date of birth 
         type: string
       facebookId:
+        description: The user's Facebook Id returned by Facebook on successful login
         type: string
       linkedInId:
+        description: The user's LinkedIn Id returned by LinkedIn on successful login 
         type: string
       googleId:
+        description: The user's Google Id returned by Google on successful login
         type: string
   createGroup:
     type: object
+    required:
+      - name
     properties:
       userIds:
+        description: The array of user Ids to be added to the group
         type: array
         items:
+          description: The Id of the user to be added to the group (must be present in the team)
           type: integer
       description:
+        description: Small description for the group
         type: string
       name:
+        description: The name of the group to be created
+        type: string
+  createRole:
+    type: object
+    required:
+      - name
+    properties:
+      userIds:
+        description: The array of user Ids to whom the role is to be assigned
+        type: array
+        items:
+          description: The Id of the user to whom the role is assigned (must be present in the team)
+          type: integer
+      groupIds:
+        description: The array of group Ids which are to be assigned the role
+        type: array
+        items:
+          description: The Id of the group which is to be assigned the role (must be present in the team)
+          type: integer
+      description:
+        description: Small description for the role
+        type: string
+      name:
+        description: The name of the role to be created
         type: string
   deleteGroup:
     type: object

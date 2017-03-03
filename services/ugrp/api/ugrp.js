@@ -53,6 +53,22 @@ module.exports = function(server, options, done) {
                                         $delete: requestHandlerFactory('delete', 'deleteGroup')
                                     }
                                 }
+                            },
+                            'role': {
+                                'v1': {
+                                    'create': {
+                                        $post: requestHandlerFactory('post', 'createRole')
+                                    },
+                                    'get': {
+                                        $post: requestHandlerFactory('post', 'getRole')
+                                    }/*,
+                                    'update': {
+                                        $put: requestHandlerFactory('post', 'updateRole')
+                                    },
+                                    'delete': {
+                                        $delete: requestHandlerFactory('delete', 'deleteRole')
+                                    }*/
+                                }
                             }
                         }
                     }
