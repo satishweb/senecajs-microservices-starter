@@ -165,10 +165,10 @@
         "en": "$[1] sent successfully."
     },
     "2250": {
-        "en": "Agent(s) added successfully to $[1]."
+        "en": "$[1] added successfully to $[2]."
     },
     "2260": {
-        "en": "Agent(s) removed successfully from $[1]."
+        "en": "$[1] removed successfully from $[2]."
     },
     "2270": {
         "en": "User with $[1] not found."
@@ -183,6 +183,9 @@
         "en": "Sorry, this $[1] already exists. Please sign in or try with another $[1]."
     },
     "2310": {
-        "en": "This action is only accessible from the main URl."
+        "en": "This action is only accessible from the main URL."
+    },
+    "2320": {
+        "en": "Invalid input. One or more $[1] to be $[2] the $[3] are not present in the $[4]."
     }
 }
