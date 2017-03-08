@@ -1,5 +1,5 @@
 callback({
-    "apiUrl": '//key-local-api.example.com/',
+    "apiUrl": '//key-env-api.example.com/',
     "apiVersion": "v1",
     "isLive": true,
     "debugMode": false,

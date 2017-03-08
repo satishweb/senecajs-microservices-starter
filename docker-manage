@@ -62,7 +62,7 @@ if [[ ! -f $(which envsubst) ]]
 	exit 2
 fi
 
-if [[ "$projectEnv" == "local" ]]
+if [[ "$projectEnv" != "prod" ]]
 	then
 		dcCmd="docker-compose -f .$projectEnv-docker-compose-backend.yml -f .$projectEnv-docker-compose-frontend.yml"
 	else
