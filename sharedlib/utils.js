@@ -86,7 +86,7 @@ module.exports.createJWT = function(userDetails, requestHeaders) {
  * If request is from Postman, returns the sample team from bootstrap.
  * If the fqdn doesn't match with any team's, null is returned.
  * If the corresponding team has been deleted, error message is returned.
- * @method fetchTeamanisationId
+ * @method fetchTeamId
  * @param {String|Boolean} teamId The value of team Id or fromSignUp flag
  * @param {Object} header The input headers to get the request origin
  * @param {Seneca} seneca The Seneca instance to call microservice
@@ -106,19 +106,19 @@ module.exports.fetchTeamId = function(teamId, header, seneca) {
             // find the team corresponding to the sub-domain by calling getTeam of teams
             // microservice
             that.microServiceCall(seneca, 'teams', 'getTeam', { action: 'fqdn', fqdn: urlComp[0] }, null,
-                function(err, orgResult) {
+                function(err, teamResult) {
                     if (err) {
                         resolve(err);
-                    } else if (orgResult.content && lodash.isEmpty(orgResult.content.data)) { // if data
+                    } else if (teamResult.content && lodash.isEmpty(teamResult.content.data)) { // if data
                         // returned is empty, team was not found
                         resolve(null);
-                    } else if (orgResult.content &&
-                        orgResult.content.data &&
-                        orgResult.content.data.isDeleted ==
+                    } else if (teamResult.content &&
+                        teamResult.content.data &&
+                        teamResult.content.data.isDeleted ==
                         false) {
                         // if team details are returned, check if the team has not been deleted and
                         // return the details
-                        resolve(orgResult.content.data);
+                        resolve(teamResult.content.data);
                     } else { // if team has been deleted, return error message
                         reject({
                             id: 400,
@@ -173,7 +173,6 @@ module.exports.verifyTokenAndDecode = function(token, errorMsg) {
  * @returns {Promise} Resolved Promise if successful, else containing the error message
  */
 module.exports.checkIfAuthorized = function (decodedToken, isApiKey, subDomainsOnly) {
-    console.log("DecodedToken ---- ", decodedToken);
         if (decodedToken && (decodedToken.isMicroservice || decodedToken.isOwner || (isApiKey && decodedToken.isApiKey))) {    // if the decoded token belongs to an owner, resolve the
             // decoded token
             if (subDomainsOnly === true) {

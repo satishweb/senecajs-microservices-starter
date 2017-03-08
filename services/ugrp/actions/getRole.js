@@ -14,6 +14,7 @@ var Team = null;
 var Email = null;
 var User = null;
 var Role = null;
+var Permission = null;
 
 var roleGetSchema = Joi.object().keys({
     action: Joi.string().trim().allow('list', 'id'),
@@ -48,6 +49,12 @@ function fetchRole(roleId, teamId) {
                 through: {
                     attributes: []
                 }    
+            }, {
+                model: Permission,
+                attributes: ['permissionId', 'resource', 'permission'],
+                through: {
+                    attributes: []
+                }
             }]
         })
         .then(function(role) {
@@ -121,6 +128,16 @@ function listRoles(input, teamId, dbConnection) {
                 exclude: ['join_grouproles']
             }
         },
+        "permissions": {
+            "databaseName": "$permission.permissionId$",
+            "displayName": "Permissions",
+            "filter": true,
+            "join": {
+                model: 'permissions',
+                fields: ['permissionId', 'resource', 'permission'],
+                exclude: ['join_rolepermissions']
+            }
+        },
         "team": {
             "databaseName": "$team.teamId$",
             "displayName": "Team",
@@ -175,6 +192,7 @@ module.exports = function(options) {
         User = User || dbConnection.models.users;
         Team = Team || dbConnection.models.teams;
         Role = Role || dbConnection.models.roles;
+        Permission = Permission || dbConnection.models.permissions;
 
         utils.checkInputParameters(args.body, roleGetSchema)
             .then(function () {

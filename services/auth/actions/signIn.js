@@ -203,10 +203,7 @@ module.exports = function(options) {
             // args.header.host = args.body.subDomain +'.'+ process.env.DOMAIN;
         }
         
-        utils.checkIfAppUrl(args.header.origin)
-            .then(function() {
-                return utils.checkInputParameters(args.body, signInSchema)
-            })
+        utils.checkInputParameters(args.body, signInSchema)
             .then(function() {
                 return signIn.findUser(User, Email, args.body, args.header, seneca);
             })

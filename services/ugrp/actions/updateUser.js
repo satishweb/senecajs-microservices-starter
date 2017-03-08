@@ -1,6 +1,5 @@
 'use strict';
 
-
 var utils = require(__base + 'sharedlib/utils');
 var Locale = require(__base + 'sharedlib/formatter');
 var outputFormatter = new Locale(__base);
@@ -45,7 +44,7 @@ var userSchema = Joi.object().keys({
 function verifyTokenBelongsToUser(userId, decodedToken) {
     return new Promise(function(resolve, reject) {
         // check if the token belongs to the user, or if the token belongs to the owner of the user's team and the token contains the Id of the team
-        if (userId == decodedToken.userId || (decodedToken.isOwner && decodedToken.teamId)) {
+        if (userId === decodedToken.userId || (decodedToken.isOwner && decodedToken.teamId)) {
             resolve();
         } else {
             reject({ id: 400, msg: "You are not authorized to update this user's profile." });
@@ -70,7 +69,7 @@ function updateUser(input, decodedToken) {
         });
 
         // create find query to find user by userId and return the updated row
-        var find = { where: { userId: input.userId } };
+        var find = { where: { userId: input.userId || decodedToken.userId } };
 
         // if team is known, check if to be updated user belongs to that team       
 

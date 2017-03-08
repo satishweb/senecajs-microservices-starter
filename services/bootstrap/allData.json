@@ -58,6 +58,62 @@
         "firstName": "Employee2",
         "contact": "1234567890",
         "isDeleted": false
+    }, {
+        "userId": 5,
+        "passwordStatus": "passwordSet",
+        "profileComplete": true,
+        "lastLoggedInTime": 1478529128921442.0,
+        "avatar": null,
+        "facebookId": "189941524786982",
+        "linkedInId": null,
+        "googleId": null,
+        "password": "password",
+        "lastName": null,
+        "firstName": "Employee3",
+        "contact": "1234567890",
+        "isDeleted": false
+    }, {
+        "userId": 6,
+        "passwordStatus": "passwordSet",
+        "profileComplete": true,
+        "lastLoggedInTime": 1478529128921442.0,
+        "avatar": null,
+        "facebookId": "189941524786983",
+        "linkedInId": null,
+        "googleId": null,
+        "password": "password",
+        "lastName": null,
+        "firstName": "Employee4",
+        "contact": "1234567890",
+        "isDeleted": false
+    }, {
+        "userId": 7,
+        "passwordStatus": "passwordSet",
+        "profileComplete": true,
+        "lastLoggedInTime": 1478529128921442.0,
+        "avatar": null,
+        "facebookId": "189941524786982",
+        "linkedInId": null,
+        "googleId": null,
+        "password": "password",
+        "lastName": null,
+        "firstName": "Employee5",
+        "contact": "1234567890",
+        "isDeleted": false
+    }, {
+        "userId": 8,
+        "passwordStatus": "passwordSet",
+        "profileComplete": true,
+        "lastLoggedInTime": 1478529128921442.0,
+        "avatar": null,
+        "facebookId": "189941524786983",
+        "linkedInId": null,
+        "googleId": null,
+        "password": "password",
+        "lastName": null,
+        "firstName": "Employee6",
+        "contact": "1234567890",
+        "isDeleted": false
     }]
 }, {
     "collection": "teams",
@@ -106,21 +162,57 @@
     }, {
         "email": "employee2@example.io",
         "userId": 4
+    }, {
+        "email": "employee3@example.io",
+        "userId": 5
+    }, {
+        "email": "employee4@example.io",
+        "userId": 6
+    }, {
+        "email": "employee5@example.io",
+        "userId": 7
+    }, {
+        "email": "employee6@example.io",
+        "userId": 8
     }]
 }, {
     "collection": "groups",
     "data": [{
         "groupId": 1,
-        "name": "General",
-        "description": "General Group",
+        "name": "users",
+        "description": "Default Users group",
         "teamId": 1,
         "ownerId": 1
     }, {
         "groupId": 2,
-        "name": "First Group",
-        "description": "Group 1 for Team 1",
+        "name": "admin",
+        "description": "Default Admins group",
         "teamId": 1,
         "ownerId": 1
+    }, {
+        "groupId": 3,
+        "name": "users",
+        "description": "Default Users group",
+        "teamId": 2,
+        "ownerId": 1
+    }, {
+        "groupId": 4,
+        "name": "admin",
+        "description": "Default Admins group",
+        "teamId": 2,
+        "ownerId": 1
+    }, {
+        "groupId": 5,
+        "name": "users",
+        "description": "Default Users group",
+        "teamId": 3,
+        "ownerId": 2
+    }, {
+        "groupId": 6,
+        "name": "admin",
+        "description": "Default Admins group",
+        "teamId": 3,
+        "ownerId": 2
     }]
 }, {
     "collection": "tokens",
@@ -137,8 +229,23 @@
         "userId": 4,
         "teamId": 1
     }, {
-        "userId": 3,
+        "userId": 5,
+        "teamId": 1 
+    }, {
+        "userId": 5,
         "teamId": 2 
+    }, {
+        "userId": 6,
+        "teamId": 2 
+    }, {
+        "userId": 7,
+        "teamId": 3 
+    }, {
+        "userId": 3,
+        "teamId": 3 
+    }, {
+        "userId": 8,
+        "teamId": 3 
     }]
 }, {
     "collection": "join_usergroups",
@@ -149,10 +256,28 @@
         "userId": 4,
         "groupId": 1
     }, {
+        "userId": 5,
+        "groupId": 1
+    }, {
         "userId": 3,
         "groupId": 2
+    }, {
+        "userId": 5,
+        "groupId": 3
+    }, {
+        "userId": 6,
+        "groupId": 3
+    }, {
+        "userId": 3,
+        "groupId": 5
+    }, {
+        "userId": 7,
+        "groupId": 5
+    }, {
+        "userId": 8,
+        "groupId": 5
     }]
-},{
+}, {
     "collection": "sessions",
     "data": [{
         "sessionId": 1,
@@ -162,5 +287,134 @@
         "userId": 2,
         "emailId": "postman@user.io",
         "lastLoggedInTime": 1486049467335177
+    }]
+}, {
+    "collection": "roles",
+    "data": [{
+        "roleId": 1,
+        "teamId": 1,
+        "name": "Role 1",
+        "description": "Role 1",
+        "ownerId": 1 
+    }, {
+        "roleId": 2,
+        "teamId": 1,
+        "name": "Role 2",
+        "description": "Role 2",
+        "ownerId": 1 
+    }, {
+        "roleId": 3,
+        "teamId": 1,
+        "name": "Role 3",
+        "description": "Role 3",
+        "ownerId": 1 
+    }]
+}, {
+    "collection": "permissions",
+    "data": [{
+        "permissionId": 1,
+        "resource": "User",
+        "permission": "get",
+        "description": "Allow access to getUsers"
+    }, {
+        "permissionId": 2,
+        "resource": "User",
+        "permission": "update",
+        "description": "Allow access to updateUsers"
+    }, {
+        "permissionId": 3,
+        "resource": "User",
+        "permission": "delete",
+        "description": "Allow access to deleteUsers"
+    }, {
+        "permissionId": 4,
+        "resource": "Team",
+        "permission": "get",
+        "description": "Allow access to getTeam"
+    }, {
+        "permissionId": 5,
+        "resource": "Team",
+        "permission": "update",
+        "description": "Allow access to updateTeam"
+    }, {
+        "permissionId": 6,
+        "resource": "Team",
+        "permission": "delete",
+        "description": "Allow access to deleteTeam"
+    }, {
+        "permissionId": 7,
+        "resource": "Group",
+        "permission": "get",
+        "description": "Allow access to getGroup"
+    }, {
+        "permissionId": 8,
+        "resource": "Group",
+        "permission": "update",
+        "description": "Allow access to updateGroup"
+    }, {
+        "permissionId": 9,
+        "resource": "Group",
+        "permission": "delete",
+        "description": "Allow access to deleteGroup"
+    }, {
+        "permissionId": 10,
+        "resource": "Role",
+        "permission": "get",
+        "description": "Allow access to getRole"
+    }, {
+        "permissionId": 11,
+        "resource": "Role",
+        "permission": "update",
+        "description": "Allow access to updateRole"
+    }, {
+        "permissionId": 12,
+        "resource": "Role",
+        "permission": "delete",
+        "description": "Allow access to deleteRole"
+    }]
+}, {
+    "collection": "join_rolepermissions",
+    "data": [{
+        "roleId": 1,
+        "permissionId": 1
+    }, {
+        "roleId": 1,
+        "permissionId": 4
+    }, {
+        "roleId": 1,
+        "permissionId": 7
+    }, {
+        "roleId": 1,
+        "permissionId": 10
+    }, {
+        "roleId": 2,
+        "permissionId": 2
+    }, {
+        "roleId": 2,
+        "permissionId": 5
+    }, {
+        "roleId": 2,
+        "permissionId": 8
+    }]
+}, {
+    "collection": "join_grouproles",
+    "data": [{
+        "roleId": 1,
+        "groupId": 1
+    }, {
+        "roleId": 1,
+        "groupId": 3
+    }, {
+        "roleId": 1,
+        "groupId": 5
+    }, {
+        "roleId": 2,
+        "groupId": 2
+    }, {
+        "roleId": 2,
+        "groupId": 4
+    }, {
+        "roleId": 2,
+        "groupId": 6
     }]
 }]

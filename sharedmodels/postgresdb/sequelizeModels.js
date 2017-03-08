@@ -30,7 +30,8 @@ module.exports = function(sequelize) {
     var Team = sequelize.define('teams', {
         teamId: { type: Sequelize.INTEGER, primaryKey: true, autoIncrement: true },
         name: { type: Sequelize.STRING },
-        route53Response: { type: Sequelize.JSON },
+        route53Id: { type: Sequelize.STRING },
+        route53Status: { type: Sequelize.STRING },
         subDomain: { type: Sequelize.STRING, unique: true },
         domain: { type: Sequelize.STRING, defaultValue: process.env.DOMAIN },
         fqdn: { type: Sequelize.STRING, unique: true },
@@ -93,6 +94,13 @@ module.exports = function(sequelize) {
         }]
     });
 
+    var Permission = sequelize.define('permissions', {
+        permissionId: { type: Sequelize.INTEGER, primaryKey: true, autoIncrement: true },
+        resource: { type: Sequelize.STRING },
+        permission: { type: Sequelize.STRING },
+        description: { type: Sequelize.STRING }
+    });
+
     var ApiKey = sequelize.define('apikeys', {
         apikeyId: { type: Sequelize.INTEGER, primaryKey: true, autoIncrement: true },
         teamId: { type: Sequelize.INTEGER },
@@ -142,5 +150,9 @@ module.exports = function(sequelize) {
     // Role-Group Mapping Many-Many
     Role.belongsToMany(Group, { through: 'join_grouproles', foreignKey: 'roleId', otherKey: 'groupId' });
     Group.belongsToMany(Role, { through: 'join_grouproles', foreignKey: 'groupId', otherKey: 'roleId' });
+    
+    // Role-Permission Mapping Many-Many
+    Role.belongsToMany(Permission, { through: 'join_rolepermissions', foreignKey: 'roleId', otherKey: 'permissionId' });
+    Permission.belongsToMany(Role, { through: 'join_rolepermissions', foreignKey: 'permissionId', otherKey: 'roleId' });
     
 };

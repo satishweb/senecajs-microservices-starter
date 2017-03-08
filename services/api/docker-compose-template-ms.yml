@@ -16,7 +16,7 @@ services:
       - ./translations.json:/src/${MICROSERVICE}/translations.json
       - ./services/bootstrap/api:/src/${MICROSERVICE}/api/bootstrap
       - ./services/email/api:/src/${MICROSERVICE}/api/email
-      - ./services/authentication/api:/src/${MICROSERVICE}/api/authentication
+      - ./services/auth/api:/src/${MICROSERVICE}/api/auth
       - ./services/ugrp/api:/src/${MICROSERVICE}/api/ugrp
       - ./services/invitations/api:/src/${MICROSERVICE}/api/invitations
       - ./services/teams/api:/src/${MICROSERVICE}/api/teams

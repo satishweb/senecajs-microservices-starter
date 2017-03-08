@@ -6,6 +6,7 @@ var utils = require(__base + 'sharedlib/utils');
 var Locale = require(__base + 'sharedlib/formatter');
 var outputFormatter = new Locale(__base);
 var Joi = require('joi');
+var url = require('url');
 var lodash = require('lodash');
 var microtime = require('microtime');
 var User = null;
@@ -107,7 +108,7 @@ module.exports = function(options) {
                 response.isOwner = true; // only team owner's can sign up, so set isOwner to true in response
                 response.teamId = null;
                 var orgs = {};
-                orgs[args.header.origin.split('://')[0] + '://' + process.env.APP_URL] = { teamId: null, isOwner: true };
+                orgs[url.parse(process.env.HTTPSCHEME + '://' + process.env.APP_URL).hostname] = { teamId: null, isOwner: true };
                 response.origin = orgs;
                 // create a session token for the signed up user
                 return utils.createJWT(response, args.header);

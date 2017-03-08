@@ -220,6 +220,29 @@ paths:
             $ref: "#/definitions/Error"
       security:
         - jwt.secured: []
+  "/role/v1/update":
+    put:
+      parameters:
+        - name: Authorization
+          in: headers
+          required: true
+          type: string
+        - name: updateRole
+          in: body
+          required: true
+          schema:
+            type: object
+      responses:
+        "200":
+          description: "Ok"
+          schema:
+            $ref: "#/definitions/Output"
+        default:
+          description: Unexpected error
+          schema:
+            $ref: "#/definitions/Error"
+      security:
+        - jwt.secured: []
 securityDefinitions:
   jwt.secured:
     type: apiKey
@@ -321,6 +344,12 @@ definitions:
     required:
       - name
     properties:
+      permissionIds:
+        description: The array of permission Ids to be assigned to the role
+        type: array
+        items:
+          description: The Id of the permission to be assigned to the role
+          type: integer
       userIds:
         description: The array of user Ids to whom the role is to be assigned
         type: array

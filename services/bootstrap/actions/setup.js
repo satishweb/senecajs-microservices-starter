@@ -186,9 +186,10 @@ module.exports = function(options) {
                     token = null;
                     // altering the sequences to start after the bootstrap data
                     Promise.all([dbConnection.query('ALTER SEQUENCE "sessions_sessionId_seq" RESTART WITH 2'),
-                    dbConnection.query('ALTER SEQUENCE "groups_groupId_seq" RESTART WITH 3'),
+                    dbConnection.query('ALTER SEQUENCE "groups_groupId_seq" RESTART WITH 7'),
                     dbConnection.query('ALTER SEQUENCE "teams_teamId_seq" RESTART WITH 4'),
-                    dbConnection.query('ALTER SEQUENCE "users_userId_seq" RESTART WITH 5')]);
+                    dbConnection.query('ALTER SEQUENCE "users_userId_seq" RESTART WITH 9'),
+                    dbConnection.query('ALTER SEQUENCE "roles_roleId_seq" RESTART WITH 4')]);
                 })
                 .then(function () {
                     done(null, {

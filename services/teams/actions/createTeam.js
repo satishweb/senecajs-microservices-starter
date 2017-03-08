@@ -11,7 +11,6 @@ var microtime = require('microtime');
 var Team = null;
 var Group = null;
 var User = null;
-var subDomain = null;
 var route53 = null;
 var AWS = require('aws-sdk');
 AWS.config.update({
@@ -111,14 +110,14 @@ function checkIfRecordSetPresent(data, filterName, createRecordObject) {
  * Make entry in resource record set of Amazon Route53
  * @method createRoute53ResourceRecordSet
  * @param {Object} input used to get input parameters
- * @param {Object} cloudFrontResponse used to get cloud front response of create distribution
  * @returns {Promise} Promise containing amazon response if successful, else containing the error message
  */
-function createRoute53ResourceRecordSet(input, cloudFrontResponse) {
+function createRoute53ResourceRecordSet(input, subDomain) {
     return new Promise(function(resolve, reject) {
         var inputParams = {
             "HostedZoneId": process.env.R53_ZONE_ID,
             "ChangeBatch": {
+                "Comment": "Created for "+ process.env.PROJECTKEY+'-'+process.env.SYSENV,
                 "Changes": [{
                     "Action": "UPSERT",
                     "ResourceRecordSet": {
@@ -126,7 +125,7 @@ function createRoute53ResourceRecordSet(input, cloudFrontResponse) {
                         "Type": "CNAME",
                         "TTL": 300,
                         "ResourceRecords": [{
-                            "Value": process.env.CLOUD_FRONT_DEFAULT_DOMAIN //process.env.R53_ALIAS_APP_URL
+                            "Value": process.env.R53_ALIAS_APP_URL
                         }]
                     }
                 }]
@@ -168,14 +167,15 @@ function createRoute53ResourceRecordSet(input, cloudFrontResponse) {
  * @returns {Promise} Promise containing created Team document if successful, else containing
  * the error message
  */
-function createTeam(ownerId, input, amazonResponse, seneca) {
+function createTeam(ownerId, input, subDomain, amazonResponse, seneca) {
     return new Promise(function(resolve, reject) {
 
         // create team data using fields not present in input
         var data = {
             ownerId: ownerId,
             fqdn: subDomain,
-            route53Response: amazonResponse.route53Response,
+            route53Id: amazonResponse.route53Response ? amazonResponse.route53Response.ChangeInfo.Id : null,
+            route53Status: amazonResponse.route53Response ? amazonResponse.route53Response.ChangeInfo.Status : null,
             groups: [{
                 name: 'Users',
                 description: 'Default Users group',
@@ -246,6 +246,7 @@ module.exports = function(options) {
         Team = Team || dbConnection.models.teams;
         User = User || dbConnection.models.users;
         Group = Group || dbConnection.models.groups;
+        var subDomain = null;
 
         if (args.body.name) { //check if name is present
             args.body.name = args.body.name.toLowerCase();
@@ -261,12 +262,13 @@ module.exports = function(options) {
                 subDomain = subDomain.toLowerCase(); //convert sub-domain to lower case as CNAME is required small in cloud
                 // front create distribution
                 if (process.env.R53_ACCESS == 'true') { //check if R53_ACCESS is true
+                    route53 = new AWS.Route53();
                     AWS.config.update({
                         accessKeyId: process.env.R53_ACCESS_ID,
                         secretAccessKey: process.env.R53_SECRET_KEY,
                         region: process.env.R53_REGION
                     });
-                    return createRoute53ResourceRecordSet(args.body, response);
+                    return createRoute53ResourceRecordSet(args.body, subDomain);
                 } else {
                     return new Promise(function(resolve) {
                         resolve(true);
@@ -274,7 +276,7 @@ module.exports = function(options) {
                 }
             })
             .then(function(response) {
-                return createTeam(args.credentials.userId, args.body, response, seneca);
+                return createTeam(args.credentials.userId, args.body, subDomain, response, seneca);
             })
             .then(function(response) {
                 response.registrationStep = 3;
@@ -282,7 +284,7 @@ module.exports = function(options) {
                 return sendResponse(response, done);
             })
             .catch(function(err) {
-                console.log('err in create organisation--- ', err);
+                console.log('err in create team--- ', err);
 
                 // in case of error, print the error
                 utils.senecaLog(seneca, 'error', __filename.split('/').pop(), err);

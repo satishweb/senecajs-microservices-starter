@@ -11,6 +11,7 @@ var Role = null;
 var User = null;
 var Group = null;
 var Team = null;
+var Permission = null;
 
 /**
  * @module createRole
@@ -20,6 +21,7 @@ var Team = null;
 var roleSchema = Joi.object().keys({
     name: Joi.string().trim().required(),
     description: Joi.string().allow(''),
+    permissionIds: Joi.array().items(Joi.number()),
     userIds: Joi.array().items(Joi.number()),
     groupIds: Joi.array().items(Joi.number())
 });
@@ -139,7 +141,7 @@ function createRole(ownerId, teamId, input, teamUsers, teamGroups) {
                     return Promise.resolve();
                 }
             })
-            .then(function () {
+            .then(function() {
                 var createdRole = createPromise.value();
                 if (!lodash.isEmpty(groupIds)) {
                     return createdRole.addGroups(groupIds);
@@ -152,13 +154,35 @@ function createRole(ownerId, teamId, input, teamUsers, teamGroups) {
             })
             .catch(function(err) { // if error, check if error code represents duplicate index on unique field (name)
                 // console.log("Error in create group ---- ", err);
-                if (err.parent && err.parent.code == 23505) { // check if duplicate name is used to create a new group
-                    return Promise.reject({ id: 400, msg: "Group name already exists for this team." });
+                if (err.parent && err.parent.code == 23505) { // check if duplicate name is used to create a new role
+                    return Promise.reject({ id: 400, msg: "Role already exists for this team." });
                 } else { // in case of other errors, reject received error
                     return Promise.reject({ id: 400, msg: err.message });
                 }
             })
     }
+}
+
+/**
+ * Validate the input permission Ids if they do exists in the table
+ * @method validatePermissions
+ * @param {Number[]} permissionIds The array of permission Ids to validate
+ * @returns {Promise} Returns the array of valid permission Ids if all permission Ids are valid, else return error message
+ */
+function validatePermissions(permissionIds) {
+    return Permission.findAll({ where: { permissionId: { $in: permissionIds } } })
+        .then(function(permissions) {
+            if (lodash.isEmpty(permissions)) {
+                Promise.reject({ id: 400, msg: "Invalid permission Ids. One or more permissions do not exist." });
+            } else {
+                var validPermissions = lodash.map(permissions, lodash.property('permissionId'));
+                if (permissionIds.length === validPermissions.length) {
+                    return validPermissions;
+                } else {
+                    return Promise.reject({ id: 400, msg: "Invalid permission Ids. One or more permissions do not exist." });
+                }
+            }
+        })
 }
 
 /**
@@ -184,11 +208,9 @@ function sendResponse(result, done) {
 
 /**
  * This is a POST action for the UGRP microservice
- * It creates a new group from the input details with the user as it's owner. User cannot create group called
- * 'users'. This name can only be used by microservices to create default group. If group name is already present,
+ * It creates a new role from the input details with the user as it's owner. If role name is already present,
  * error is returned.
- * Optionally, users can be added to the group while creating the group. It adds the Ids of the user to the group and
- * also the group Id to each users groups.
+ * Optionally, users, groups and permissions can be added to the role while creating the role.
  * @param {Object} options Contains the seneca instance
  */
 
@@ -205,19 +227,22 @@ module.exports = function(options) {
         User = User || dbConnection.models.users;
         Role = Role || dbConnection.models.roles;
         Team = Team || dbConnection.models.teams;
+        Permission = Permission || dbConnection.models.permissions;
 
         utils.checkInputParameters(args.body, roleSchema)
             .then(function() {
                 return utils.checkIfAuthorized(args.credentials, false, true);
             })
             .then(function() {
-                teamId = args.credentials.teamId; // store the team Id for further use
-                // console.log("Input parameters verified ----- ", teamId);
+                return validatePermissions(args.body.permissionIds)
+            })
+            .then(function() {
+                // store the team Id for further use
+                teamId = args.credentials.teamId;
                 // fetch team details from team Id
                 return fetchTeamDetails(teamId, args.body);
             })
-            .spread(function (team, teamUsers, teamGroups) {
-                // console.log("Fetched team ----- ", team, teamUsers, teamGroups);
+            .spread(function(team, teamUsers, teamGroups) {
                 teamId = args.credentials.teamId;
                 // create role from input details
                 return createRole(args.credentials.userId, teamId, args.body, teamUsers, teamGroups);

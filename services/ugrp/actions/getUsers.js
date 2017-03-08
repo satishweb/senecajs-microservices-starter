@@ -118,6 +118,16 @@ function listUsers(input, teamId, dbConnection) {
                 exclude: ['join_usergroups']
             }
         },
+        "roles": {
+            "databaseName": "$roles.roleId$",
+            "displayName": "Roles",
+            "filter": true,
+            "join": {
+                model: 'roles',
+                fields: ['roleId', 'name'],
+                exclude: ['join_userroles']
+            }
+        },
         "isDeleted": {
             "show": false,
             "filter": true

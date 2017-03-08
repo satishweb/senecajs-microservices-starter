@@ -64,80 +64,6 @@ function updateTeam(org, update) {
 }
 
 /**
- * Check the status of Cloud front distribution on Amazon Cloud Front
- * @method checkCloudFrontStatus
- * @param {Object} orgDetails team details fetched
- */
-function checkCloudFrontStatus(orgDetails) {
-  return new Promise(function (resolve, reject) {
-    AWS.config.update({
-      accessKeyId    : process.env.CLOUD_FRONT_ACCESS_ID,
-      secretAccessKey: process.env.CLOUD_FRONT_SECRET_KEY,
-      region         : process.env.CLOUD_FRONT_REGION
-    });
-    var cloudfront = new AWS.CloudFront({apiVersion: process.env.CLOUD_FRONT_API_VERSION});
-    
-    //check if distribution Id is present in database
-    if (orgDetails.cloudFrontResponse &&
-      orgDetails.cloudFrontResponse.Distribution &&
-      orgDetails.cloudFrontResponse.Distribution.Id) {
-      var param = {
-        Id: orgDetails.cloudFrontResponse.Distribution.Id
-      };
-      
-      cloudfront.getDistribution(param, function (err, data) {
-        if (err) {
-          reject({id: 400, msg: err.message});
-        } else {
-          // console.log('data checkCloudFrontStatus:-----', JSON.stringify(data));
-          updateTeam(orgDetails.teamId, {'cloudFrontResponse.Distribution.Status': data.Distribution.Status});
-          if (data.Distribution.Status == 'Deployed') {
-            resolve({isUpdated: true})
-          } else {
-            resolve({isUpdated: false})
-          }
-        }
-      });
-    } else {
-      resolve({isUpdated: true})
-    }
-  })
-}
-
-/**
- * Check if sub-domain has been deployed on amazon or not
- * @method checkDeploymentStatus
- * @param {Object} orgDetails use to get team details
- */
-function checkDeploymentStatus(orgDetails) {
-    return new Promise(function(resolve, reject) {
-        if (orgDetails.route53Response && orgDetails.route53Response.ChangeInfo && orgDetails.route53Response.ChangeInfo.Status == 'PENDING' && process.env.R53_ACCESS == 'true') { //check
-            // if route53 change status is PENDING and  R53_ACCESS is true
-            checkResourceRecordSetStatus(orgDetails)
-                .then(function(response) {
-                    if (response.isUpdated === true && process.env.CLOUD_FRONT_ACCESS == 'true') { //if route53 changes are
-                        // reflected then check cloud front changes if CLOUD_FRONT_ACCESS is true
-                        checkCloudFrontStatus(orgDetails)
-                            .then(function(response) {
-                                resolve(response);
-                            })
-                            .catch(function(error) {
-                                reject(error);
-                            })
-                    } else {
-                        resolve(response)
-                    }
-                })
-                .catch(function(error) {
-                    reject(error);
-                })
-        } else {
-            resolve({ isUpdated: true });
-        }
-    })
-}
-
-/**
  * Check the status of Resource Record on Amazon Route53
  * @method checkResourceRecordSetStatus
  * @param {Object} orgDetails team details fetched
@@ -146,16 +72,16 @@ function checkResourceRecordSetStatus(orgDetails) {
     return new Promise(function(resolve, reject) {
         var route53 = new AWS.Route53();
         //check if route53 Id is present in database
-        if (orgDetails.route53Response && orgDetails.route53Response.ChangeInfo && orgDetails.route53Response.ChangeInfo.Id) {
+        if (orgDetails.route53Status === 'PENDING') {
             var param = {
-                Id: orgDetails.route53Response.ChangeInfo.Id
+                Id: orgDetails.route53Id
             };
 
             route53.getChange(param, function(err, data) {
                 if (err) {
                     reject({ id: 400, msg: err.message });
                 } else {
-                    updateTeam(orgDetails, { 'route53Response.ChangeInfo.Status': data.ChangeInfo.Status });
+                    updateTeam(orgDetails, { 'route53Status': data.ChangeInfo.Status });
                     if (data.ChangeInfo.Status == 'INSYNC') {
                         resolve({ isUpdated: true })
                     } else {
@@ -212,7 +138,7 @@ module.exports = function(options) {
             .then(function (response) {
                 console.log("Response of fetchTeam --- ", response);
                 orgDetails = response;
-                return checkDeploymentStatus(response);
+                return checkResourceRecordSetStatus(response);
             })
             .then(function (response) {
                 response = Object.assign(response, orgDetails.toJSON());

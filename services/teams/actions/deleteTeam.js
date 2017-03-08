@@ -94,7 +94,7 @@ module.exports = function(options) {
                 sendResponse(response, done);
             })
             .catch(function (err) {
-                console.log("error in delete org ----- ", err);
+                console.log("error in delete team ----- ", err);
                 // in case of error, print the error and send as response
                 utils.senecaLog(seneca, 'error', __filename.split('/').pop(), err);
 

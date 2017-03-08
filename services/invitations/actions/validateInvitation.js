@@ -97,7 +97,7 @@ function addUserToTeam(user, invitation, decodedToken, header, seneca) {
  * containing the error message
  */
 function callForgotPassword(decodedToken, header, seneca) {
-    return utils.microServiceCallPromise(seneca, 'authentication', 'forgotPassword', { email: decodedToken.email, teamId: decodedToken.teamId, fromInvitation: true }, header, true);
+    return utils.microServiceCallPromise(seneca, 'auth', 'forgotPassword', { email: decodedToken.email, teamId: decodedToken.teamId, fromInvitation: true }, header, true);
 }
 
 /**

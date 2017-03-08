@@ -37,7 +37,7 @@ var callSignUp = function callSignUp(input, header, seneca) {
         console.log("Before call ---- ");
 
         /************ Call SignUp microservice **************/
-        utils.microServiceCall(seneca, 'authentication', 'signUp', body, header, function(err, result) {
+        utils.microServiceCall(seneca, 'auth', 'signUp', body, header, function(err, result) {
             // if registration fails, ask user to register manually
             if (err || result.content.success === false) {
                 console.log("Error in registering user --- ", err, result.content);

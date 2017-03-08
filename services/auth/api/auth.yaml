@@ -1,7 +1,7 @@
 ---
 swagger: "2.0"
 info:
-  title: "Authentication API"
+  title: "Auth API"
   description: |
     Provides functionality for User sign up, sign in, sign out and changing passwords.
     #### Sign in:

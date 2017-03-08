@@ -61,10 +61,10 @@ module.exports = function(server, options, done) {
                                     },
                                     'get': {
                                         $post: requestHandlerFactory('post', 'getRole')
-                                    }/*,
+                                    },
                                     'update': {
                                         $put: requestHandlerFactory('post', 'updateRole')
-                                    },
+                                    }/*,
                                     'delete': {
                                         $delete: requestHandlerFactory('delete', 'deleteRole')
                                     }*/

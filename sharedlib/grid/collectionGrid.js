@@ -117,19 +117,20 @@ CollectionGrid.prototype.executeQuery = function() {
         sort = lodash.concat(sort, lodash.values(gridObject.Query.sort));
         // console.log("Query after joining ----- ", JSON.stringify(findObject), associations, "sort ----- ", sort, gridObject.Query.sort, gridObject.Query.pagination.limit, gridObject.Query.pagination.skip);
         //first find count of document matched and then fetch result set using pagination
-        gridObject.database.models[gridObject.collectionName].findAndCount({
+
+        gridObject.database.models[gridObject.collectionName].findAndCountAll({
 
           distinct: true,
           where: findObject,
           include: associations,
           order: sort,
-          limit: gridObject.Query.pagination.limit,
-          offset: gridObject.Query.pagination.skip
+        //   limit: gridObject.Query.pagination.limit,
+        //   offset: gridObject.Query.pagination.skip
         })
             .then(function(result) {
                 // console.log("result ---- ", JSON.stringify(result));
                 gridObject.Query.pagination.total = result.count;
-                gridObject.resultArr = result.rows; //assigning result fetched from database to to resultArr
+                gridObject.resultArr = result.rows.slice(gridObject.Query.pagination.skip, gridObject.Query.pagination.skip+gridObject.Query.pagination.limit); //assigning result fetched from database to to resultArr
                 resolve(gridObject.resultArr);
             })
             .catch(function(err) {
