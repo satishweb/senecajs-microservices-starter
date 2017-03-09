@@ -12,6 +12,7 @@ var Group = null;
 var User = null;
 var Team = null;
 var Role = null;
+var Permission = null;
 
 //Joi validation Schema for add/remove Users
 var addRemoveUsersSchema = Joi.object().keys({
@@ -25,6 +26,13 @@ var addRemoveGroupsSchema = Joi.object().keys({
     action: Joi.string().valid('addGroups', 'removeGroups').required(),
     roleId: Joi.number().required(),
     groupIds: Joi.array().items(Joi.number().required()).required()
+});
+
+//Joi validation Schema for add/remove Permissions
+var addRemovePermissionsSchema = Joi.object().keys({
+    action: Joi.string().valid('addPermissions', 'removePermissions').required(),
+    roleId: Joi.number().required(),
+    permissionIds: Joi.array().items(Joi.number().required()).required()
 });
 
 //Joi validation Schema for update role details
@@ -55,6 +63,10 @@ function checkInputParameters(input) {
             case 'removeGroups':
                 return utils.checkInputParameters(input, addRemoveGroupsSchema);
                 break;
+            case 'addPermissions':
+            case 'removePermissions':
+                return utils.checkInputParameters(input, addRemovePermissionsSchema);
+                break;
             case 'update':
                 return utils.checkInputParameters(input, updateRoleSchema);
                 break;
@@ -62,14 +74,14 @@ function checkInputParameters(input) {
                 return Promise.reject({
                     id: 400,
                     msg: "Invalid input. \"action\" is required and must be one of" +
-                        "[\"addUsers\", \"removeUsers\", \"addGroups\", \"removeGroups\", \"update\"]"
+                        "[\"addUsers\", \"removeUsers\", \"addGroups\", \"removeGroups\", \"addPermissions\", \"removePermissions\", \"update\"]"
                 });
         }
     } else { // if action is not present in the input return error.
         return Promise.reject({
             id: 400,
             msg: "Invalid input. \"action\" is required and must be one of " +
-                "[\"addUsers\", \"removeUsers\", \"addGroups\", \"removeGroups\", \"update\"]"
+                "[\"addUsers\", \"removeUsers\", \"addGroups\", \"removeGroups\", \"addPermissions\", \"removePermissions\", \"update\"]"
         });
     }
 }
@@ -114,18 +126,22 @@ function fetchRole(action, teamId, input) {
 
     // if action is addUsers, fetch users belonging to the team to check if users to be added to role are present in the team
     if (action === 'addUsers') {
-        // teamUsers = getTeamAttributes(teamId, 'user');
         teamUsers = getValidInputs(teamId, input.userIds, 'user');
     } else if (action === 'addGroups') {
         // if action is addGroups, fetch groups belonging to the team to check if the groups to be added to role belong to team
-        // teamGroups = getTeamAttributes(teamId, 'group');
         teamGroups = getValidInputs(teamId, input.groupIds, 'group');
+    } else if (action === 'addPermissions') {
+        // if action is addPermissions, fetch Permissions
+        teamGroups = getValidInputs(teamId, input.permissionIds, 'permission');
     } else if (action === 'removeUsers') {
         // if action is removeUsers, fetch the users already added to the role to check if users to be removed are present in the role
         roleUsers = getRoleAttributes(rolePromise, input.userIds, 'user');
     } else if (action === 'removeGroups') {
         // if action is removeGroups, fetch the groups already added to the role to check if groups to be removed are present in the role
         roleGroups = getRoleAttributes(rolePromise, input.groupIds, 'group');
+    } else if (action === 'removePermissions') {
+        // if action is removePermissions, fetch the permissions already added to the role to check if permissions to be removed are present in the role
+        roleGroups = getRoleAttributes(rolePromise, input.permissionIds, 'permission');
     }
 
     // return when all promises have completed
@@ -160,11 +176,13 @@ function getValidInputs(teamId, inputIds, attributeName) {
             attributes: ['teamId'],
             through: { attributes: [] } 
         };
-    } else if (attributeName === 'group') { // if attribute is role add the team Id to the where clause of the find query
+    } else if (attributeName === 'group') { // if attribute is group add the team Id to the where clause of the find query
         model = Group;
         find.where.teamId = teamId;
+    } else if (attributeName === 'permission') { // if attribute is permission add the team Id to the where clause of the find query
+        model = Permission;
     } else {
-        return Promise.reject({ id: 400, msg: "Incorrect attribute name. Must be one of \"user\" or \"role\"." });
+        return Promise.reject({ id: 400, msg: "Incorrect attribute name. Must be one of \"user\", \"permission\" or \"role\"." });
     }
 
     // find attribute with team Id and return array of valid Ids
@@ -174,12 +192,9 @@ function getValidInputs(teamId, inputIds, attributeName) {
             if (lodash.isEmpty(findResult)) {
                 return [];
             } else {
-                // console.log("Find result fetched ---- ", findResult);
-
                 // if find result is not empty, create array of valid Ids to return from the fetched attribute objects
                 var validInputs = lodash.map(findResult, lodash.property(attributeName + 'Id'));
 
-                // console.log("Valid inputs ---- ", validInputs);
                 return validInputs;
             }
         });
@@ -292,6 +307,12 @@ function sendResponse(action, result, done) {
             case 'removeGroups':
                 done(null, formatOutput(2260, 'Group/s'));
                 break;
+            case 'addPermissions':
+                done(null, formatOutput(2250, 'Permission/s'));
+                break;
+            case 'removePermissions':
+                done(null, formatOutput(2260, 'Permission/s'));
+                break;
             case 'update':
                 done(null, {
                     statusCode: 200,
@@ -322,6 +343,7 @@ module.exports = function(options) {
         User = User || dbConnection.models.users;
         Team = Team || dbConnection.models.teams;
         Role = Role || dbConnection.models.roles;
+        Permission = Permission || dbConnection.models.permissions;
 
         var action = null;
 
@@ -345,6 +367,10 @@ module.exports = function(options) {
                     return [role, checkIfInputIdsCorrect(args.body.groupIds, teamGroups, 'groups', 'added to', 'team')];
                 } else if (action === 'removeGroups') {
                     return [role, checkIfInputIdsCorrect(args.body.groupIds, roleGroups, 'groups', 'removed from', 'role')];
+                } else if (action === 'addPermissions') {
+                    return [role, checkIfInputIdsCorrect(args.body.permissionIds, teamGroups, 'permissions', 'added to', 'Permissions list')];
+                } else if (action === 'removePermissions') {
+                    return [role, checkIfInputIdsCorrect(args.body.permissionIds, roleGroups, 'permissions', 'removed from', 'role')];
                 }
             })
             .spread(function(role, correctInputIds) {
@@ -362,6 +388,12 @@ module.exports = function(options) {
                     case 'removeGroups':
                         return role.removeGroups(correctInputIds);
                         break;
+                    case 'addPermissions':
+                        return role.addPermissions(correctInputIds);
+                        break;
+                    case 'removePermissions':
+                        return role.removePermissions(correctInputIds);
+                        break;
                     case 'update':
                         var updateData = lodash.omitBy(args.body, function(value) {
                             return value === null || value === {};
@@ -372,7 +404,7 @@ module.exports = function(options) {
                         done(null, {
                             statusCode: 200,
                             content: utils.error(400, "Invalid input. \"action\" is required and must be one of" +
-                        "[\"addUsers\", \"removeUsers\", \"addGroups\", \"removeGroups\", \"update\"]", microtime.now())
+                        "[\"addUsers\", \"removeUsers\", \"addGroups\", \"removeGroups\", \"addPermissions\", \"removePermissions\", \"update\"]", microtime.now())
                         });
                 }
             })
