@@ -96,7 +96,7 @@ module.exports.findUser = function(User, Email, input, header, seneca) {
         console.log("Find query --- ", query);
 
         /************* Fetch user with matching email or socialID **************/
-        User.findOne(query)   
+        User.findOne(query)
             .then(function(result) {
                 // console.log("Result of find ---- ", result);
                 if (lodash.isEmpty(result)) {
@@ -130,7 +130,7 @@ module.exports.findUser = function(User, Email, input, header, seneca) {
                     // console.log("User result after filtering ---- ", user);
                     // if sign in type was social and user is found,
                     // delete password and return user details
-                    
+
                     // resolve user if found
                     resolve(result);
                 }
@@ -184,7 +184,7 @@ module.exports.updateLoginTime = function(User, userDetails) {
     return new Promise(function(resolve) {
         // Update lastLoggedInTime in user document and return updated document.
         User.update({ lastLoggedInTime: microtime.now() / 1000 }, { where: { userId: userDetails.userId }, returning: true, plain: true })
-            .then(function (updatedUser) {
+            .then(function(updatedUser) {
                 // console.log("Updated response --- ", updatedUser);
                 // if user details updated and returned,
                 // remove password and return remaining details
@@ -196,3 +196,194 @@ module.exports.updateLoginTime = function(User, userDetails) {
             });
     });
 };
+
+module.exports.fetchMap = function(userInstance, Role, Permission) {
+    var that = this;
+    return this.fetchUgrpMap(userInstance, Role, Permission)
+        .then(function(map) {
+            return that.fetchUserRoles(userInstance, map, Role, Permission)
+        })
+}
+
+module.exports.fetchUserRoles = function(userInstance, teamResult, Role, Permission) {
+    return new Promise(function(resolve, reject) {
+        userInstance.getRoles()
+            .then(function(roles) {
+                if (!lodash.isEmpty(roles)) {
+                    roles.forEach(function(role, i) {
+                        if (!teamResult[role.teamId]) {
+                            teamResult[role.teamId] = {};
+                        }
+                        (function(role, i) {
+                            if (!lodash.isEmpty(role)) {
+                                role.getPermissions()
+                                    .then(function(permissions) {
+                                        if (!lodash.isEmpty(permissions)) {
+                                            permissions.forEach(function(permission) {
+                                                // console.log("Permission ---- ", i, role.teamId, permission.resource, permission.permission);
+                                                if (!teamResult[role.teamId][permission.resource]) {
+                                                    teamResult[role.teamId][permission.resource] = [];
+                                                }
+                                                teamResult[role.teamId][permission.resource].push(permission.permission)
+                                                teamResult[role.teamId][permission.resource] = lodash.uniq(teamResult[role.teamId][permission.resource]);
+                                                // console.log("Permissions --- ", teamResult[role.teamId]);
+                                            });
+                                        }
+                                        // console.log("Role Permissions result for each role --- ", teamResult);
+                                        if (i == roles.length - 1) {
+                                            // console.log("Role Permission result in the end ---- ", teamResult);
+                                            resolve(teamResult);
+                                        }
+                                    })
+                            } else {
+                                if (i == roles.length - 1) {
+                                    // console.log("Role Permission result in the end ---- ", teamResult);
+                                    resolve(teamResult);
+                                }
+                            }
+                        })(role, i);
+                    });
+                } else {
+                    resolve(teamResult);
+                }
+            })
+    });
+}
+
+module.exports.fetchUgrpMap = function(userInstance, Role, Permission) {
+        // var map = {};
+        var teamResult = {};
+        // var roleIds = [];
+        return new Promise(function(resolve, reject) {
+            userInstance.getGroups()
+                .then(function(groups) {
+                    if (!lodash.isEmpty(groups)) {
+                        groups.forEach(function(group, i) {
+                            if (!teamResult[group.teamId]) {
+                                teamResult[group.teamId] = {};
+                            }
+                            (function(group, i) {
+                                group.getRoles()
+                                    .then(function(roles) {
+                                        if (!lodash.isEmpty(roles)) {
+                                            roles.forEach(function(role) {
+                                                if (!lodash.isEmpty(role)) {
+                                                    role.getPermissions()
+                                                        .then(function(permissions) {
+                                                            if (!lodash.isEmpty(permissions)) {
+                                                                permissions.forEach(function(permission) {
+                                                                    // console.log("Permission ---- ", i, group.teamId, permission.resource, permission.permission);
+                                                                    if (!teamResult[group.teamId][permission.resource]) {
+                                                                        teamResult[group.teamId][permission.resource] = [];
+                                                                    }
+                                                                    teamResult[group.teamId][permission.resource].push(permission.permission)
+                                                                    teamResult[group.teamId][permission.resource] = lodash.uniq(teamResult[group.teamId][permission.resource]);
+                                                                    // console.log("Permissions --- ", teamResult[group.teamId]);
+                                                                });
+                                                            }
+                                                            // console.log("Permissions result for each role --- ", teamResult);
+                                                            if (i == groups.length - 1) {
+                                                                // console.log("Permission result in the end ---- ", teamResult);
+                                                                resolve(teamResult);
+                                                            }
+                                                        })
+                                                } else {
+                                                    if (i == groups.length - 1) {
+                                                        // console.log("Role Permission result in the end ---- ", teamResult);
+                                                        resolve(teamResult);
+                                                    }
+                                                }
+                                            });
+                                        } else {
+                                            if (i == groups.length - 1) {
+                                                // console.log("Role Permission result in the end ---- ", teamResult);
+                                                resolve(teamResult);
+                                            }
+                                        }
+                                    })
+                            })(group, i);
+
+                        });
+                    } else {
+                        resolve({});
+                    }
+                })
+        });
+    }
+    /*.then(function(groups) {
+        // console.log("groups ---- ", groups);
+        var rolePromise = [];
+        groups.forEach(function(group) {
+            console.log("Group Id ---- ", group.groupId);
+            rolePromise.push(group.getRoles()
+                .then(function(roles) {
+                    if (lodash.isEmpty(roles)) {
+                        return [];
+                    } else {
+                        // if roles are found, create array of roleIds to return from the fetched attributes
+                        var roleArray = lodash.map(roles, lodash.property('roleId'));
+                        map[group.teamId] = roleArray;
+                        roleIds = lodash.concat(roleIds, roleArray);
+                        return roleArray;
+                    }
+                })
+                .catch(function(err) {
+                    return [];
+                }));
+        });
+        rolePromise.push(userInstance.getRoles()
+            .then(function(roles) {
+                console.log("User roles ---- ", roles);
+                if (lodash.isEmpty(roles)) {
+                    return [];
+                } else {
+                    // if roles are found, create array of roleIds to return from the fetched attributes
+                    var roleArray = lodash.map(lodash.groupBy(roles, 'teamId'), lodash.property('teamId.roleId'));
+                    map[teamId] = roleArray;
+                    roleIds = lodash.concat(roleIds, roleArray);
+                    return roleArray;
+                }
+            })
+            .catch(function(err) {
+                return [];
+            }));
+        return Promise.all(rolePromise);
+    })
+    .then(function(roles) {
+        console.log("returned roles ----- ", roles, roleIds);
+        console.log("map ---- ", map);
+        var uniqueRoles = lodash.uniq(roleIds);
+        return Role.findAll({ where: { roleId: { $in: uniqueRoles } }, include: { model: Permission, attributes: ['resource', 'permission'], through: { attributes: [] } } })
+    })
+    .then(function(roles) {
+        // console.log("Permissions ----- ", roles);
+        // var rolePermissions = lodash.keyBy(roles, 'roleId');
+        // console.log("RolePermissions ---- ", rolePermissions);
+        var newRoles = {};
+        roles.forEach(function(role) {
+            var permissions = {};
+            role.permissions.forEach(function(permission) {
+                if (!permissions[permission.resource]) {
+                    permissions[permission.resource] = [];
+                }
+                permissions[permission.resource].push(permission.permission);
+            });
+            newRoles[role.roleId] = permissions;
+        });
+        console.log("Roles ----- ", JSON.stringify(newRoles), lodash.keys(map));
+        lodash.keys(map).forEach(function(teamId) {
+            var permissions = {};
+            map[teamId].forEach(function(roleId) {
+                lodash.keys(newRoles[roleId]).forEach(function(resource) {
+                    // console.log("Resource ----- ", resource, "\npermissions[resource] ----- ", permissions[resource]);
+                    if (!permissions[resource]) {
+                        permissions[resource] = [];
+                    }
+                    permissions[resource] = lodash.uniq(lodash.concat(permissions[resource], newRoles[roleId][resource]));
+                })
+            })
+            map[teamId] = permissions;
+        });
+        console.log("Final map ----- ", JSON.stringify(map));
+        return map;
+    })*/

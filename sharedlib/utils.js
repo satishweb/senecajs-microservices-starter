@@ -24,6 +24,22 @@ module.exports.checkIfAppUrl = function (origin) {
 }
 
 /**
+ * Checks if the input request is received from the APP Domain by using the origin received in the header
+ * @method checkIfAppDomain
+ * @param {String} origin The origin received in the header for the request 
+ * @returns {Promise} The Promise is resolved if the origin matches the APP Domain, else it is rejected with error message.
+ */
+module.exports.checkIfAppDomain = function (origin) {
+    var domain = url.parse(origin).hostname.split('.').slice(-2).join('.');
+    console.log("origin ---- ", origin, " app_url ---- ", process.env.DOMAIN, " domain --- ", domain);
+    if (domain !== process.env.DOMAIN) {
+        return Promise.reject({id: 2310, msg: "This action is only accessible from the main app Domain."});
+    } else {
+        return Promise.resolve();
+    }
+}
+
+/**
  * Check input parameter using Joi
  * @method checkInputParameters
  * @param {Object} input Used to get the input parameters to validate
@@ -65,6 +81,7 @@ module.exports.createJWT = function(userDetails, requestHeaders) {
             avatar: userDetails.avatar,
             userId: userDetails.userId,
             emailId: userDetails.emails,
+            permissions: userDetails.permissions,
             // isOwner: userDetails.isOwner || false,
             accountType: userDetails.accountType,
             lastLoggedInTime: userDetails.lastLoggedInTime

@@ -14,6 +14,9 @@ var User = null;
 var Team = null;
 var Session = null;
 var Email = null;
+var Role = null;
+var Permission = null;
+
 /**
  * @module signIn
  */
@@ -193,6 +196,8 @@ module.exports = function(options) {
         Team = Team || dbConnection.models.teams;
         Email = Email || dbConnection.models.emails;
         Session = Session || dbConnection.models.sessions;
+        Role = Role || dbConnection.models.roles;
+        Permission = Permission || dbConnection.models.permissions;
 
         if (args.body.email) {
             args.body.email = args.body.email.toLowerCase();
@@ -232,17 +237,20 @@ module.exports = function(options) {
                 var fqdn = null;
                 orgs = org;
                 var hostName = args.body.subDomain ? args.header.origin : url.parse(args.header.origin).hostname;
-                console.log("hostname --- ", hostName);
+                // console.log("hostname --- ", hostName);
                 if (orgs[hostName]) {
                     teamId = orgs[hostName].teamId;
                     isOwner = orgs[hostName].isOwner;
                 }
-                console.log("Team ----- ", org);
-                // console.log("Response of checkMember/fetchTeam ---- ", orgDetails);
+                // console.log("Team ----- ", org);
                 return signIn.updateLoginTime(User, user);
             })
-            .then(function(userDetails) {
+            .then(function (userDetails) {
+                return [userDetails, signIn.fetchMap(user, Role, Permission)];
+            })
+            .spread(function (userDetails, map) {
                 delete userDetails.password;
+                userDetails.permissions = map;
                 userDetails.teamId = teamId;
                 userDetails.isOwner = isOwner;
                 userDetails.emails = emails;

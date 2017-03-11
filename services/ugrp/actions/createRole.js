@@ -60,7 +60,7 @@ function fetchTeamDetails(teamId, input) {
         });
     }
 
-    // console.log("Find --- ", find, Team, Group, User);   
+    console.log("Find --- ", find, Team, Group, User);   
 
     return Team.findOne(find)
         .then(function(team) {
@@ -74,8 +74,8 @@ function fetchTeamDetails(teamId, input) {
                 if (team.groups) {
                     var teamGroups = lodash.map(team.groups, lodash.property('groupId'));
                 }
-                // console.log("Team users ---- ", teamUsers);
-                // console.log("Team groups ---- ", teamGroups);
+                console.log("Team users ---- ", teamUsers);
+                console.log("Team groups ---- ", teamGroups);
                 return [team, teamUsers, teamGroups];
             }
         })
@@ -99,18 +99,14 @@ function fetchTeamDetails(teamId, input) {
 function createRole(ownerId, teamId, input, teamUsers, teamGroups) {
 
     if (input.userIds) {
-        // remove duplicate user Ids if present in input
-        input.userIds = lodash.uniq(input.userIds);
         // remove input users that are not part of the team
         var userIds = lodash.intersection(input.userIds, teamUsers);
-        // console.log("Intersecting user ids ---- ", userIds);
+        console.log("Intersecting user ids ---- ", userIds);
     }
     if (input.groupIds) {
-        // remove duplicate group Ids if present in input
-        input.groupIds = lodash.uniq(input.groupIds);
         // remove input groups that are not part of the team
         var groupIds = lodash.intersection(input.groupIds, teamGroups);
-        // console.log("Intersecting group ids ---- ", groupIds);
+        console.log("Intersecting group ids ---- ", groupIds);
     }
 
     if (userIds && userIds.length !== input.userIds.length) {
@@ -124,9 +120,10 @@ function createRole(ownerId, teamId, input, teamUsers, teamGroups) {
             ownerId: ownerId,
             teamId: teamId
         };
-
+        var permissionIds = input.permissionIds;
         delete input.groupIds;
         delete input.userIds
+        delete input.permissionIds;
 
         // merge the created object and input
         data = lodash.assign(data, input);
@@ -135,6 +132,14 @@ function createRole(ownerId, teamId, input, teamUsers, teamGroups) {
         var createPromise = Role.create(data);
         return createPromise
             .then(function(createdRole) {
+                if (!lodash.isEmpty(permissionIds)) {
+                    return createdRole.addPermissions(permissionIds);
+                } else {
+                    return Promise.resolve();
+                }
+            })
+            .then(function() {
+                var createdRole = createPromise.value();
                 if (!lodash.isEmpty(userIds)) {
                     return createdRole.addUsers(userIds);
                 } else {
@@ -170,19 +175,24 @@ function createRole(ownerId, teamId, input, teamUsers, teamGroups) {
  * @returns {Promise} Returns the array of valid permission Ids if all permission Ids are valid, else return error message
  */
 function validatePermissions(permissionIds) {
-    return Permission.findAll({ where: { permissionId: { $in: permissionIds } } })
-        .then(function(permissions) {
-            if (lodash.isEmpty(permissions)) {
-                Promise.reject({ id: 400, msg: "Invalid permission Ids. One or more permissions do not exist." });
-            } else {
-                var validPermissions = lodash.map(permissions, lodash.property('permissionId'));
-                if (permissionIds.length === validPermissions.length) {
-                    return validPermissions;
-                } else {
+    if (!lodash.isEmpty(permissionIds)) {
+        return Permission.findAll({ where: { permissionId: { $in: permissionIds } } })
+            .then(function (permissions) {
+                console.log("Permissions ---- ", permissions);
+                if (lodash.isEmpty(permissions)) {
                     return Promise.reject({ id: 400, msg: "Invalid permission Ids. One or more permissions do not exist." });
+                } else {
+                    var validPermissions = lodash.map(permissions, lodash.property('permissionId'));
+                    if (permissionIds.length === validPermissions.length) {
+                        return validPermissions;
+                    } else {
+                        return Promise.reject({ id: 400, msg: "Invalid permission Ids. One or more permissions do not exist." });
+                    }
                 }
-            }
-        })
+            })
+    } else {
+        return Promise.resolve(true);
+    }
 }
 
 /**
@@ -231,6 +241,18 @@ module.exports = function(options) {
 
         utils.checkInputParameters(args.body, roleSchema)
             .then(function() {
+                if (args.body.userIds) {
+                    // remove duplicate user Ids if present in input
+                    args.body.userIds = lodash.uniq(args.body.userIds);
+                }
+                if (args.body.groupIds) {
+                    // remove duplicate group Ids if present in input
+                    args.body.groupIds = lodash.uniq(args.body.groupIds);
+                }
+                if (args.body.permissionIds) {
+                    // remove duplicate permission Ids if present in input
+                    args.body.permissionIds = lodash.uniq(args.body.permissionIds);
+                }
                 return utils.checkIfAuthorized(args.credentials, false, true);
             })
             .then(function() {

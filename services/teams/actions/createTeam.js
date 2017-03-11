@@ -11,6 +11,9 @@ var microtime = require('microtime');
 var Team = null;
 var Group = null;
 var User = null;
+var Role = null;
+var Permission = null;
+
 var route53 = null;
 var AWS = require('aws-sdk');
 AWS.config.update({
@@ -168,7 +171,6 @@ function createRoute53ResourceRecordSet(input, subDomain) {
  * the error message
  */
 function createTeam(ownerId, input, subDomain, amazonResponse, seneca) {
-    return new Promise(function(resolve, reject) {
 
         // create team data using fields not present in input
         var data = {
@@ -184,6 +186,15 @@ function createTeam(ownerId, input, subDomain, amazonResponse, seneca) {
                 name: 'Admins',
                 description: 'Default Admins group',
                 ownerId: ownerId
+            }],
+            roles: [{
+                name: 'User',
+                description: 'Default User role',
+                ownerId: ownerId
+            }, {
+                name: 'Admin',
+                description: 'Default Admin role',
+                ownerId: ownerId
             }]
         };
 
@@ -191,20 +202,19 @@ function createTeam(ownerId, input, subDomain, amazonResponse, seneca) {
         data = lodash.assign(data, input);
 
         // save data to database        
-        Team.create(data, { include: [{ model: Group, as: 'groups' }] })
+        return Team.create(data, { include: [{ model: Group }, { model: Role }] })
             .then(function(saveResponse) {
-                resolve(saveResponse);
+                console.log("SaveResponse ---- ", saveResponse);
+                return saveResponse;
             })
             .catch(function(err) {
                 if (err.parent && err.parent.code == 23505) { // check if duplicate sub domain is used to create a new team
-                    reject({ id: 400, msg: "Sub Domain already exists." });
+                    return Promise.reject({ id: 400, msg: "Sub Domain already exists." });
                 } else {
-                    reject({ id: 400, msg: err.errors ? err.errors[0].message : err.message || err });
+                    return Promise.reject({ id: 400, msg: err.errors ? err.errors[0].message : err.message || err });
                 }
             })
-    });
 }
-
 
 /**
  * Updates the 
@@ -214,6 +224,33 @@ function createTeam(ownerId, input, subDomain, amazonResponse, seneca) {
 function updateUserRegistration(userId) {
     User.update({ registrationStep: 3 }, { where: { userId: userId } })
 }
+
+function addRolesToGroups(team) {
+    var groups = lodash.keyBy(team.groups, 'name');
+    team.roles.forEach(function (role) {
+        role.addGroup(groups[role.name + 's'].groupId);
+        if (role.name === 'Admin') {
+            Permission.findAll()
+                .then(function (permissions) {
+                    var permissionArray = lodash.map(permissions, lodash.property('permissionId'));
+                    role.addPermissions(permissionArray);
+                })
+        } else {
+            Permission.findAll({where: { permission: 'get' }})
+                .then(function (permissions) {
+                    var permissionArray = lodash.map(permissions, lodash.property('permissionId'));
+                    role.addPermissions(permissionArray);
+                })
+        }
+    })
+    team.addUser(team.ownerId);
+    team.groups.forEach(function (group) {
+        if(group.name === 'Admins') {
+            group.addUser(team.ownerId);
+        }
+    })
+}
+
 
 /**
  * Formats the output response and returns the response
@@ -246,7 +283,11 @@ module.exports = function(options) {
         Team = Team || dbConnection.models.teams;
         User = User || dbConnection.models.users;
         Group = Group || dbConnection.models.groups;
+        Role = Role || dbConnection.models.roles;
+        Permission = Permission || dbConnection.models.permissions;
         var subDomain = null;
+
+        var team = null;
 
         if (args.body.name) { //check if name is present
             args.body.name = args.body.name.toLowerCase();
@@ -278,8 +319,8 @@ module.exports = function(options) {
             .then(function(response) {
                 return createTeam(args.credentials.userId, args.body, subDomain, response, seneca);
             })
-            .then(function(response) {
-                response.registrationStep = 3;
+            .then(function(response){
+                addRolesToGroups(response);
                 updateUserRegistration(args.credentials.userId);
                 return sendResponse(response, done);
             })
