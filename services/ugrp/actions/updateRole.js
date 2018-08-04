@@ -35,21 +35,6 @@ var addRemovePermissionsSchema = Joi.object().keys({
     permissionIds: Joi.array().items(Joi.number().required()).required()
 });
 
-//Joi validation Schema for add/remove Roles to Group
-var addRemoveRolesToGroupSchema = Joi.object().keys({
-    action: Joi.string().valid('addRolesToGroup', 'removeRolesFromGroup').required(),
-    groupId: Joi.number(),
-    groupName: Joi.string(),
-    roleIds: Joi.array().items(Joi.number().required()).required()
-}).xor('groupId', 'groupName'); // should have either groupId or groupName, not both
-
-//Joi validation Schema for add/remove Roles to User
-var addRemoveRolesToUserSchema = Joi.object().keys({
-    action: Joi.string().valid('addRolesToUser', 'removeRolesFromUser').required(),
-    userId: Joi.number().required(),
-    roleIds: Joi.array().items(Joi.number().required()).required()
-});
-
 //Joi validation Schema for update role details
 var updateRoleSchema = Joi.object().keys({
     action: Joi.string().valid('update').required(),
@@ -82,14 +67,6 @@ function checkInputParameters(input) {
             case 'removePermissions':
                 return utils.checkInputParameters(input, addRemovePermissionsSchema);
                 break;
-            case 'addRolesToGroup':
-            case 'removeRolesFromGroup':
-                return utils.checkInputParameters(input, addRemoveRolesToGroupSchema);
-                break;
-            case 'addRolesToUser':
-            case 'removeRolesFromUser':
-                return utils.checkInputParameters(input, addRemoveRolesToUserSchema);
-                break;
             case 'update':
                 return utils.checkInputParameters(input, updateRoleSchema);
                 break;
@@ -97,18 +74,14 @@ function checkInputParameters(input) {
                 return Promise.reject({
                     id: 400,
                     msg: "Invalid input. \"action\" is required and must be one of" +
-                    "[\"addUsers\", \"removeUsers\", \"addGroups\", \"removeGroups\", \"addPermissions\", " +
-                    "\"removePermissions\", \"addRolesToGroup\", \"removeRolesFromGroup\", \"addRolesToUser\", " +
-                    "\"removeRolesFromUser\", \"update\"]."
+                        "[\"addUsers\", \"removeUsers\", \"addGroups\", \"removeGroups\", \"addPermissions\", \"removePermissions\", \"update\"]"
                 });
         }
     } else { // if action is not present in the input return error.
         return Promise.reject({
             id: 400,
-            msg: "Invalid input. \"action\" is required and must be one of" +
-                    "[\"addUsers\", \"removeUsers\", \"addGroups\", \"removeGroups\", \"addPermissions\", " +
-                    "\"removePermissions\", \"addRolesToGroup\", \"removeRolesFromGroup\", \"addRolesToUser\", " +
-                    "\"removeRolesFromUser\", \"update\"]."
+            msg: "Invalid input. \"action\" is required and must be one of " +
+                "[\"addUsers\", \"removeUsers\", \"addGroups\", \"removeGroups\", \"addPermissions\", \"removePermissions\", \"update\"]"
         });
     }
 }
@@ -122,79 +95,57 @@ function checkInputParameters(input) {
  * @param {Object} input The input object 
  * @returns {Promise} Resolved promise containing the fetched role if successful, else rejected promise with the appropriate error message
  */
-function fetchInstance(action, teamId, input) {
-    var find = { where: {}};
-    var model = null;
+function fetchRole(action, teamId, input) {
+    var find = {};
 
-    var modelInstance = null; // for the promise containing model instance returned by find model (role, group or user)
-    var validInputs = null; // for the promise containing the valid input values to add or remove
-    
-    // create find query for fetching instance of either Role, Group or User
-    if (input.roleId) {
-        find.where.roleId = input.roleId;
-        model = Role;
-        find.where.teamId = teamId; // add team Id to find query to enforce that the role must belong to this team only
-    } else if (input.groupId) {
-        find.where.groupId = input.groupId;
-        model = Group;
-        find.where.teamId = teamId; // add team Id to find query to enforce that the role must belong to this team only
-    } else if (input.groupName) {
-        find.where.groupName = input.groupName;
-        model = Group;
-        find.where.teamId = teamId; // add team Id to find query to enforce that the role must belong to this team only
-    } else if (input.userId) {
-        find.where.userId = input.userId;
-        find.include = {
-            model: Team,
-            where: { teamId: teamId},
-            attributes: ['teamId'],
-            through: { attributes: [] } 
-        };
-        model = User;
+    var rolePromise = null; // for the promise returned by find role
+    var teamUsers = null; // for the promise returned by get users belonging to the team
+    var teamGroups = null; // for the promise returned by get groups belonging to the team
+    var roleGroups = null; // for the promise returned by get groups already added to the role
+    var roleUsers = null; // for the promise returned by get users already added to the role
+
+    // create find query for fetching role
+    if (input.roleId) { // check if roleId is present and use it to create find query
+        find.roleId = input.roleId;
+    } else { // if not present, return error message
+        return Promise.reject({ id: 400, msg: "Invalid input. \"roleId\" must be present." });
     }
 
-    // console.log("Model ---- ", model, find); 
+    find.teamId = teamId; // add team Id to find query to enforce that the role must belong to this team only 
 
-    // fetch instance by find query created and assign returned promise to variable
-    modelInstance = model.findOne(find)
-        .then(function (instance) {
-            // console.log("Returned instance ---- ", instance);
-            // if no model is found, return error message
-            if (lodash.isEmpty(instance)) {
+    // fetch role by find query created and assign returned promise to variable
+    rolePromise = Role.findOne({ where: find })
+        .then(function(role) {
+            // if no role is found, return error message
+            if (lodash.isEmpty(role)) {
                 return Promise.reject(outputFormatter.format(false, 1100, null, 'Role'));
             } else {
-                return instance;
+                return role;
             }
         });
 
     // if action is addUsers, fetch users belonging to the team to check if users to be added to role are present in the team
     if (action === 'addUsers') {
-        validInputs = getValidInputs(teamId, input.userIds, 'user');
+        teamUsers = getValidInputs(teamId, input.userIds, 'user');
     } else if (action === 'addGroups') {
         // if action is addGroups, fetch groups belonging to the team to check if the groups to be added to role belong to team
-        validInputs = getValidInputs(teamId, input.groupIds, 'group');
+        teamGroups = getValidInputs(teamId, input.groupIds, 'group');
     } else if (action === 'addPermissions') {
         // if action is addPermissions, fetch Permissions
-        validInputs = getValidInputs(teamId, input.permissionIds, 'permission');
-    } else if (action === 'addRolesToGroup' || action === 'addRolesToUser') {
-        // if action is addRolesToGroup or addRolesToUser, fetch valid Roles
-        validInputs = getValidInputs(teamId, input.roleIds, 'role');
+        teamGroups = getValidInputs(teamId, input.permissionIds, 'permission');
     } else if (action === 'removeUsers') {
         // if action is removeUsers, fetch the users already added to the role to check if users to be removed are present in the role
-        validInputs = getRoleAttributes(modelInstance, input.userIds, 'user');
+        roleUsers = getRoleAttributes(rolePromise, input.userIds, 'user');
     } else if (action === 'removeGroups') {
         // if action is removeGroups, fetch the groups already added to the role to check if groups to be removed are present in the role
-        validInputs = getRoleAttributes(modelInstance, input.groupIds, 'group');
+        roleGroups = getRoleAttributes(rolePromise, input.groupIds, 'group');
     } else if (action === 'removePermissions') {
         // if action is removePermissions, fetch the permissions already added to the role to check if permissions to be removed are present in the role
-        validInputs = getRoleAttributes(modelInstance, input.permissionIds, 'permission');
-    } else if (action === 'removeRolesFromGroup' || action === 'removeRolesFromUser') {
-        // if action is removeRolesToGroup or removeRolesToUser, fetch the roles already added to the group/user to check if roles to be removed are present for the group/user
-        validInputs = getRoleAttributes(modelInstance, input.roleIds, 'role');
-    } 
+        roleGroups = getRoleAttributes(rolePromise, input.permissionIds, 'permission');
+    }
 
     // return when all promises have completed
-    return Promise.all([modelInstance, validInputs]);
+    return Promise.all([teamUsers, teamGroups, rolePromise, roleUsers, roleGroups]);
 }
 
 /**
@@ -206,8 +157,6 @@ function fetchInstance(action, teamId, input) {
  * @returns {Promise} Resolved Promise containing the array of valid input Ids, else rejected Promise containing the appropriate error message
  */
 function getValidInputs(teamId, inputIds, attributeName) {
-
-    // console.log("GetValidInputs called ---- ", teamId, inputIds, attributeName);
 
     var model;
 
@@ -224,7 +173,6 @@ function getValidInputs(teamId, inputIds, attributeName) {
         model = User;
         find.include = {
             model: Team,
-            where: {teamId: teamId},
             attributes: ['teamId'],
             through: { attributes: [] } 
         };
@@ -233,12 +181,9 @@ function getValidInputs(teamId, inputIds, attributeName) {
         find.where.teamId = teamId;
     } else if (attributeName === 'permission') { // if attribute is permission add the team Id to the where clause of the find query
         model = Permission;
-    } else if (attributeName === 'role') { // if attribute is role add the team Id to the where clause of the find query
-        model = Role;
-        find.where.teamId = teamId;
+    } else {
+        return Promise.reject({ id: 400, msg: "Incorrect attribute name. Must be one of \"user\", \"permission\" or \"role\"." });
     }
-
-    // console.log("Model ---- ", model, "\nFind ----- ", find);
 
     // find attribute with team Id and return array of valid Ids
     return model.findAll(find)
@@ -258,15 +203,15 @@ function getValidInputs(teamId, inputIds, attributeName) {
 /**
  * Fetch the attributes (users or groups) already present in the role, to check if the input attribute values can be removed from the role
  * @method getRoleAttributes
- * @param {Promise} instancePromise The promise for fetch instance, to get the instance 
+ * @param {Promise} rolePromise The promise for fetch role, to get the role instance 
  * @param {Number[]} inputIds The input array of attribute Ids
  * @param {String} attributeName The name of the attribute to be fetched
  * @returns {Promise} Resolved Promise containing the array of attributes fetched, else rejected Promise containing the appropriate error message
  */
-function getRoleAttributes(instancePromise, inputIds, attributeName) {
+function getRoleAttributes(rolePromise, inputIds, attributeName) {
 
-    return instancePromise.then(function(instance) { // fetch the attribute after the instance is returned
-            // create find query to check if the input attribute Ids are added to the instance (role/group/user)
+    return rolePromise.then(function(role) { // fetch the attribute after the role instance is returned
+            // create find query to check if the input attribute Ids are added to the role
             var find = {
                 where: {}
             };
@@ -279,18 +224,20 @@ function getRoleAttributes(instancePromise, inputIds, attributeName) {
             // console.log("Find query ----- ", find);
         
             // execute function to fetch attributes with the find query
-            return instance[functionName](find);
+            return role[functionName](find);
         })
         .then(function (attribute) {
             // if no attributes are fetched, return empty array
             if (lodash.isEmpty(attribute)) {
                 return [];
             } else {
+                // console.log("Group attribute fetched ---- ", attribute);
+
                 // if attributes are found, create array of attribute Ids to return from the fetched attributes
-                var attr = lodash.map(attribute, lodash.property(attributeName + 'Id'));
+                var roleAttr = lodash.map(attribute, lodash.property(attributeName + 'Id'));
                 
-                // console.log("Added attributes ---- ", attr);
-                return attr;
+                // console.log("Group attributes after map ---- ", groupAttr);
+                return roleAttr;
             }
         })
 }
@@ -305,7 +252,7 @@ function getRoleAttributes(instancePromise, inputIds, attributeName) {
  * @param {String} presentIn The name of the table in which the attribute values are not present in
  * @returns {Promise} The array of valid input attribute Ids or the rejected error message
  */
-function checkIfInputIdsCorrect(inputIds, attributeIds, attributeName, action, addedTo, presentIn) {
+function checkIfInputIdsCorrect(inputIds, attributeIds, attributeName, action, presentIn) {
     var uniqueAttributes;
 
     // if inputIds are present, remove duplicates
@@ -318,7 +265,7 @@ function checkIfInputIdsCorrect(inputIds, attributeIds, attributeName, action, a
 
     // if any input attribute Id is not valid, return error message
     if (attributeIds.length !== uniqueAttributes.length) {
-        return Promise.reject(outputFormatter.format(false, 2320, null, attributeName, action, addedTo, presentIn));
+        return Promise.reject(outputFormatter.format(false, 2320, null, attributeName, action, 'role', presentIn));
     } else { // else return the valid input attributes
         return attributeIds;
     }
@@ -331,10 +278,10 @@ function checkIfInputIdsCorrect(inputIds, attributeIds, attributeName, action, a
  * @param {String} attribute The attribute that was to be changed
  * @returns {Object} The formatted output object
  */
-function formatOutput(code, attribute, addedTo) {
+function formatOutput(code, attribute) {
     return {
         statusCode: 200,
-        content: outputFormatter.format(true, code, null, attribute, addedTo)
+        content: outputFormatter.format(true, code, null, attribute, 'Role')
     };
 }
 
@@ -349,34 +296,22 @@ function sendResponse(action, result, done) {
     if (result !== null) {
         switch (action) {
             case 'addUsers':
-                done(null, formatOutput(2250, 'User/s', 'Role'));
+                done(null, formatOutput(2250, 'User/s'));
                 break;
             case 'removeUsers':
-                done(null, formatOutput(2260, 'User/s', 'Role'));
+                done(null, formatOutput(2260, 'User/s'));
                 break;
             case 'addGroups':
-                done(null, formatOutput(2250, 'Group/s', 'Role'));
+                done(null, formatOutput(2250, 'Group/s'));
                 break;
             case 'removeGroups':
-                done(null, formatOutput(2260, 'Group/s', 'Role'));
+                done(null, formatOutput(2260, 'Group/s'));
                 break;
             case 'addPermissions':
-                done(null, formatOutput(2250, 'Permission/s', 'Role'));
+                done(null, formatOutput(2250, 'Permission/s'));
                 break;
             case 'removePermissions':
-                done(null, formatOutput(2260, 'Permission/s', 'Role'));
-                break;
-            case 'addRolesToGroup':
-                done(null, formatOutput(2250, 'Role/s', 'Group'));
-                break;
-            case 'removeRolesFromGroup':
-                done(null, formatOutput(2260, 'Role/s', 'Group'));
-                break;
-            case 'addRolesToUser':
-                done(null, formatOutput(2250, 'Role/s', 'User'));
-                break;
-            case 'removeRolesFromUser':
-                done(null, formatOutput(2260, 'Role/s', 'User'));
+                done(null, formatOutput(2260, 'Permission/s'));
                 break;
             case 'update':
                 done(null, {
@@ -420,79 +355,56 @@ module.exports = function(options) {
             })
             .then(function() {
                 var teamId = args.credentials.teamId;
-                return fetchInstance(action, teamId, args.body);
+                return fetchRole(action, teamId, args.body);
             })
-            .spread(function(instance, validInputs) {
+            .spread(function(teamUsers, teamGroups, role, roleUsers, roleGroups) {
 
                 if (action === 'addUsers') {
-                    return [instance, checkIfInputIdsCorrect(args.body.userIds, validInputs, 'users', 'added to', 'role', 'team')];
+                    return [role, checkIfInputIdsCorrect(args.body.userIds, teamUsers, 'users', 'added to', 'team')];
                 } else if (action === 'removeUsers') {
-                    return [instance, checkIfInputIdsCorrect(args.body.userIds, validInputs, 'users', 'removed from', 'role', 'role')];
+                    return [role, checkIfInputIdsCorrect(args.body.userIds, roleUsers, 'users', 'removed from', 'role')];
                 } else if (action === 'addGroups') {
-                    return [instance, checkIfInputIdsCorrect(args.body.groupIds, validInputs, 'groups', 'added to', 'role', 'team')];
+                    return [role, checkIfInputIdsCorrect(args.body.groupIds, teamGroups, 'groups', 'added to', 'team')];
                 } else if (action === 'removeGroups') {
-                    return [instance, checkIfInputIdsCorrect(args.body.groupIds, validInputs, 'groups', 'removed from', 'role', 'role')];
+                    return [role, checkIfInputIdsCorrect(args.body.groupIds, roleGroups, 'groups', 'removed from', 'role')];
                 } else if (action === 'addPermissions') {
-                    return [instance, checkIfInputIdsCorrect(args.body.permissionIds, validInputs, 'permissions', 'added to', 'role', 'Permissions list')];
+                    return [role, checkIfInputIdsCorrect(args.body.permissionIds, teamGroups, 'permissions', 'added to', 'Permissions list')];
                 } else if (action === 'removePermissions') {
-                    return [instance, checkIfInputIdsCorrect(args.body.permissionIds, validInputs, 'permissions', 'removed from', 'role', 'role')];
-                } else if (action === 'addRolesToGroup') {
-                    return [instance, checkIfInputIdsCorrect(args.body.roleIds, validInputs, 'roles', 'added to', 'group', 'team')];
-                } else if (action === 'removeRolesFromGroup') {
-                    return [instance, checkIfInputIdsCorrect(args.body.roleIds, validInputs, 'roles', 'removed from', 'group', 'group')];
-                } else if (action === 'addRolesToUser') {
-                    return [instance, checkIfInputIdsCorrect(args.body.roleIds, validInputs, 'roles', 'added to', 'user', 'team')];
-                } else if (action === 'removeRolesFromUser') {
-                    return [instance, checkIfInputIdsCorrect(args.body.roleIds, validInputs, 'roles', 'removed from', 'user', 'user')];
-                } 
+                    return [role, checkIfInputIdsCorrect(args.body.permissionIds, roleGroups, 'permissions', 'removed from', 'role')];
+                }
             })
-            .spread(function(instance, correctInputIds) {
+            .spread(function(role, correctInputIds) {
                 // console.log("Correct input ids ---- ", correctInputIds);
                 switch (action) {
                     case 'addUsers':
-                        return instance.addUsers(correctInputIds);
+                        return role.addUsers(correctInputIds);
                         break;
                     case 'removeUsers':
-                        return instance.removeUsers(correctInputIds);
+                        return role.removeUsers(correctInputIds);
                         break;
                     case 'addGroups':
-                        return instance.addGroups(correctInputIds);
+                        return role.addGroups(correctInputIds);
                         break;
                     case 'removeGroups':
-                        return instance.removeGroups(correctInputIds);
+                        return role.removeGroups(correctInputIds);
                         break;
                     case 'addPermissions':
-                        return instance.addPermissions(correctInputIds);
+                        return role.addPermissions(correctInputIds);
                         break;
                     case 'removePermissions':
-                        return instance.removePermissions(correctInputIds);
-                        break;
-                    case 'addRolesToGroup':
-                        return instance.addRoles(correctInputIds);
-                        break;
-                    case 'removeRolesFromGroup':
-                        return instance.removeRoles(correctInputIds);
-                        break;
-                    case 'addRolesToUser':
-                        return instance.addRoles(correctInputIds);
-                        break;
-                    case 'removeRolesFromUser':
-                        return instance.removeRoles(correctInputIds);
+                        return role.removePermissions(correctInputIds);
                         break;
                     case 'update':
-                        var updateData = lodash.omitBy(args.body, function (value) {
+                        var updateData = lodash.omitBy(args.body, function(value) {
                             return value === null || value === {};
                         });
                         delete updateData.roleId;
-                        return instance.update(args.body);
-                        break;
+                        return role.update(args.body);
                     default:
                         done(null, {
                             statusCode: 200,
                             content: utils.error(400, "Invalid input. \"action\" is required and must be one of" +
-                    "[\"addUsers\", \"removeUsers\", \"addGroups\", \"removeGroups\", \"addPermissions\", " +
-                    "\"removePermissions\", \"addRolesToGroup\", \"removeRolesFromGroup\", \"addRolesToUser\", " +
-                    "\"removeRolesFromUser\", \"update\"].", microtime.now())
+                        "[\"addUsers\", \"removeUsers\", \"addGroups\", \"removeGroups\", \"addPermissions\", \"removePermissions\", \"update\"]", microtime.now())
                         });
                 }
             })

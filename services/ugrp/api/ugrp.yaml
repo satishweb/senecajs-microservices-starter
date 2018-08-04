@@ -243,6 +243,52 @@ paths:
             $ref: "#/definitions/Error"
       security:
         - jwt.secured: []
+  "/role/v1/delete":
+    delete:
+      parameters:
+        - name: Authorization
+          in: headers
+          required: true
+          type: string
+        - name: deleteRole
+          in: body
+          required: true
+          schema:
+            type: object
+      responses:
+        "200":
+          description: "Ok"
+          schema:
+            $ref: "#/definitions/Output"
+        default:
+          description: Unexpected error
+          schema:
+            $ref: "#/definitions/Error"
+      security:
+        - jwt.secured: []
+  "/permission/v1/get":
+    post:
+      parameters:
+        - name: Authorization
+          in: headers
+          required: true
+          type: string
+        - name: getPermission
+          in: body
+          required: true
+          schema:
+            type: object
+      responses:
+        "200":
+          description: "Ok"
+          schema:
+            $ref: "#/definitions/Output"
+        default:
+          description: Unexpected error
+          schema:
+            $ref: "#/definitions/Error"
+      security:
+        - jwt.secured: []
 securityDefinitions:
   jwt.secured:
     type: apiKey

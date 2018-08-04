@@ -64,10 +64,17 @@ module.exports = function(server, options, done) {
                                     },
                                     'update': {
                                         $put: requestHandlerFactory('post', 'updateRole')
-                                    }/*,
+                                    },
                                     'delete': {
                                         $delete: requestHandlerFactory('delete', 'deleteRole')
-                                    }*/
+                                    }
+                                }
+                            },
+                            'permission': {
+                                'v1': {
+                                    'get': {
+                                        $post: requestHandlerFactory('post', 'getPermission')
+                                    }
                                 }
                             }
                         }
