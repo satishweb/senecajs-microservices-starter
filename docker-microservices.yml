@@ -219,29 +219,56 @@ services:
       - "traefik.frontend.headers.SSLRedirect=true"
       - "traefik.frontend.redirect.permanent=true"
 
-  ms-api:
+  # ms-api:
+  #   << : *default-service
+  #   << : *default-service-node
+  #   volumes:
+  #     - ./node_modules:/src/node_modules
+  #     - ./services/api:/src/api
+  #     - ./index.js:/src/api/index.js
+  #     - ./package.json:/src/package.json
+  #     - ./sharedlib:/src/api/sharedlib
+  #     - ./sharedmodels:/src/api/sharedmodels
+  #     - ./translations.json:/src/api/translations.json
+  #     - ./services/bootstrap/api:/src/api/api/bootstrap
+  #     - ./services/email/api:/src/api/api/email
+  #     - ./services/auth/api:/src/api/api/auth
+  #     - ./services/ugrp/api:/src/api/api/ugrp
+  #     - ./services/invitations/api:/src/api/api/invitations
+  #     - ./services/teams/api:/src/api/api/teams
+  #   command: /bin/bash -c '[[ "$DEBUG" == "1" ]] && sleep 360000 || SRV_NAME=api node /src/api'
+  #   healthcheck:
+  #     test: [ "CMD-SHELL", "curl --silent localhost:3000/ || exit 1" ]
+  #     interval: 30s
+  #     timeout: 10s
+  #     retries: 3
+  #   deploy:
+  #     # placement:
+  #     #   constraints:
+  #     #     - node.labels.type == api
+  #     restart_policy: *default-restart-policy
+  #     resources:
+  #       limits: *default-resources-limits
+  #       reservations: *default-resources-reservations
+  #   labels:
+  #     - "com.satishweb.description=API Gateway for Microservices"
+  #     - "traefik.tags=api"
+  #     - "traefik.protocol=http"
+  #     - "traefik.port=3000"
+  #     - "traefik.backend=api"
+  #     - "traefik.frontend.entryPoints=http,https"
+  #     - "traefik.frontend.rule=Host:api.${DOMAIN}"
+  #     - "traefik.frontend.headers.SSLRedirect=true"
+  #     - "traefik.frontend.redirect.permanent=true"
+
+# Microservices Frontend Services
+
+  ms-pubconfig:
     << : *default-service
-    << : *default-service-node
+    << : *default-service-frontend
+    image: nginx
     volumes:
-      - ./node_modules:/src/node_modules
-      - ./services/api:/src/api
-      - ./index.js:/src/api/index.js
-      - ./package.json:/src/package.json
-      - ./sharedlib:/src/api/sharedlib
-      - ./sharedmodels:/src/api/sharedmodels
-      - ./translations.json:/src/api/translations.json
-      - ./services/bootstrap/api:/src/api/api/bootstrap
-      - ./services/email/api:/src/api/api/email
-      - ./services/auth/api:/src/api/api/auth
-      - ./services/ugrp/api:/src/api/api/ugrp
-      - ./services/invitations/api:/src/api/api/invitations
-      - ./services/teams/api:/src/api/api/teams
-    command: /bin/bash -c '[[ "$DEBUG" == "1" ]] && sleep 360000 || SRV_NAME=api node /src/api'
-    healthcheck:
-      test: [ "CMD-SHELL", "curl --silent localhost:3000/ || exit 1" ]
-      interval: 30s
-      timeout: 10s
-      retries: 3
+      - ./pubconfig/htdocs:/usr/share/nginx/html
     deploy:
       # placement:
       #   constraints:
@@ -249,20 +276,79 @@ services:
       restart_policy: *default-restart-policy
       resources:
         limits: *default-resources-limits
-        reservations: *default-resources-reservations
+    # healthcheck:
+    #   test: [ "CMD-SHELL", "curl --silent http://localhost/ || exit 1" ]
+    #   interval: 30s
+    #   timeout: 10s
+    #   retries: 3
     labels:
-      - "com.satishweb.description=API Gateway for Microservices"
-      - "traefik.tags=api"
+      - "com.satishweb.description=Pubconfig for Frontend clients"
+      - "traefik.tags=pubconfig"
       - "traefik.protocol=http"
-      - "traefik.port=3000"
-      - "traefik.backend=api"
+      - "traefik.port=80"
+      - "traefik.backend=pubconfig"
       - "traefik.frontend.entryPoints=http,https"
-      - "traefik.frontend.rule=Host:api.${DOMAIN}"
+      - "traefik.frontend.rule=Host:pubconfig.${DOMAIN}"
       - "traefik.frontend.headers.SSLRedirect=true"
       - "traefik.frontend.redirect.permanent=true"
 
-# Microservices Frontend Services
+  ms-docs:
+    << : *default-service
+    << : *default-service-frontend
+    image: nginx
+    volumes:
+      - ./docs/site:/usr/share/nginx/html
+    deploy:
+      # placement:
+      #   constraints:
+      #     - node.labels.type == api
+      restart_policy: *default-restart-policy
+      resources:
+        limits: *default-resources-limits
+    # healthcheck:
+    #   test: [ "CMD-SHELL", "curl --silent http://localhost:8000/ || exit 1" ]
+    #   interval: 30s
+    #   timeout: 10s
+    #   retries: 3
+    labels:
+      - "com.satishweb.description=Documentation Service"
+      - "traefik.tags=docs"
+      - "traefik.protocol=http"
+      - "traefik.port=80"
+      - "traefik.backend=docs"
+      - "traefik.frontend.entryPoints=http,https"
+      - "traefik.frontend.rule=Host:docs.${DOMAIN}"
+      - "traefik.frontend.headers.SSLRedirect=true"
+      - "traefik.frontend.redirect.permanent=true"
 
+  ms-apidocs:
+    << : *default-service
+    << : *default-service-frontend
+    image: nginx
+    volumes:
+      - ./apidocs/src:/usr/share/nginx/html
+    deploy:
+      # placement:
+      #   constraints:
+      #     - node.labels.type == api
+      restart_policy: *default-restart-policy
+      resources:
+        limits: *default-resources-limits
+    # healthcheck:
+    #   test: [ "CMD-SHELL", "curl --silent http://localhost:8000/ || exit 1" ]
+    #   interval: 30s
+    #   timeout: 10s
+    #   retries: 3
+    labels:
+      - "com.satishweb.description=Documentation Service"
+      - "traefik.tags=apidocs"
+      - "traefik.protocol=http"
+      - "traefik.port=80"
+      - "traefik.backend=apidocs"
+      - "traefik.frontend.entryPoints=http,https"
+      - "traefik.frontend.rule=Host:apidocs.${DOMAIN}"
+      - "traefik.frontend.headers.SSLRedirect=true"
+      - "traefik.frontend.redirect.permanent=true"
 
 # Swarmpit Backend Services
   swarmpit-db:

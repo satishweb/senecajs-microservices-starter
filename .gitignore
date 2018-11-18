@@ -1,6 +1,5 @@
 data/*
 scripts/
-docs/*
 *.log
 containers/*
 .*docker*
@@ -10,3 +9,5 @@ services/*/index.js
 services/*/shared*
 services/*/translations.json
 services/*/package.json
+docs/mkdocs.yml
+docs/site

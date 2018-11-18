@@ -14,7 +14,7 @@ if [[ "$1" == "clean" ]]
     cp -f $configTmplFile $configFile
     $sedInplaceReplaceCmd '/"exampleFiles":/d' $configFile
     echo -n "  \"exampleFiles\": [ " >> $configFile
-    find ../services -type f -name "*.yaml" -exec cp -rf {} yaml/ \;
+    find ../../services -type f -name "*.yaml" -exec cp -rf {} yaml/ \;
     cd yaml
     rm -rf PetStore*
     find . -name "*yaml" -execdir echo '{}' ';' >../list

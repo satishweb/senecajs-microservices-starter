@@ -75,6 +75,9 @@ if [[ "$ACTION" == "rm" ]]; then
     docker stack rm $ENV
 elif [[ "$ACTION" == "deploy" ]]; then
 	docker run -v "$srcFolder:/src" -w "/src" --rm -it node:8 bash -c "npm install --production --no-optional 2>&1" 2>&1|sed 's/^/| NPM: /'
+	[[ -f apidocs/src/build.sh ]] && echo "| INFO: Clean apidocs yaml collection..." && apidocs/src/build.sh clean|sed 's/^/| APIDocs: /'
 	envsubst < docker-*.yml > ".local-docker-stack.yml"
+	envsubst < docs/mkdocs-source.yml > "docs/mkdocs.yml"
+	docker run --rm -it -v `pwd`/docs:/docs squidfunk/mkdocs-material build
     docker stack deploy -c .local-docker-stack.yml $ENV
 fi
