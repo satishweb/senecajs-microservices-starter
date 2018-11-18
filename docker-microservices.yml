@@ -53,8 +53,89 @@ x-service-postgres:
   image: postgres:11-alpine
   command: postgres -c 'shared_buffers=256MB' -c 'max_connections=200'
   environment:
-    - POSTGRES_USER=postgres
-    - POSTGRES_PASSWORD=postgres
+    - POSTGRES_USER=ms-${ENV}
+    - POSTGRES_PASSWORD=ms-${ENV}
+
+# Service Queue defaults
+x-service-queue:
+  &default-service-queue
+  << : *default-service-backend
+  image: rabbitmq:3.7.7-management
+
+# Service Proxy defaults
+x-service-proxy:
+  &default-service-proxy
+  << : *default-service-frontend
+  image: traefik
+  command: --api \
+          --docker \
+          --accesslog=true \
+          --logLevel=DEBUG \
+          --entryPoints="Name:http Address::80" \
+          --entryPoints="Name:https Address::443 TLS"  \
+          --acme=true \
+          --acme.entryPoint="https" \
+          --acme.acmelogging=true \
+          --acme.dnschallenge=true \
+          --acme.dnschallenge.provider=route53 \
+          --acme.dnschallenge.delaybeforecheck=10s \
+          --acme.domains='*.${DOMAIN},${DOMAIN}' \
+          --acme.email=webmaster@${DOMAIN} \
+          --acme.storage=/certs/acme.json
+          #--acme.caserver="https://acme-staging-v02.api.letsencrypt.org/directory"
+
+# Node Service defaults
+x-service-node:
+  &default-service-node
+  << : *default-service-backend
+  image: node:8
+  environment:
+    - QUEUE_HOST=ms-queue
+    - DB_TYPE=postgresdb
+    - DB_HOST=ms-db
+    - DB_NAME=ms-${ENV}
+    - DB_USER=ms-${ENV}
+    - DB_PASS=ms-${ENV}
+    - JWT_SECRET_KEY=SECRETKEY
+    - JWT_EXPIRY_TIME=7d
+    - JWT_REMEMBER_ME_EXPIRY_TIME=14d
+    - MAIL_DEFAULT_SERVICE=SMTP
+    - MAIL_DEFAULT_TO=contact@${DOMAIN}
+    - SMTP_FROM_EMAIL=noreply@${DOMAIN}
+    - SMTP_HOST=email-smtp.us-east-1.amazonaws.com
+    - SMTP_PORT=465
+    - SMTP_SECURE=true
+    - SMTP_USERNAME=12334242342343423524
+    - SMTP_PASSWORD=123234234234234234234234234234
+    - MAILGUN_FROM_EMAIL=noreply@${DOMAIN}
+    - MAILGUN_APIKEY=key-XXXXXXXXXXXX
+    - MAILGUN_HOST=${DOMAIN}
+    - S3_ACCESS_ID=CHANGEME
+    - S3_SECRET_KEY=CHANGEME
+    - S3_REGION=us-east-1
+    - S3_DATA_BUCKET=data.${DOMAIN}
+    - S3_DATA_URL=https://data.${DOMAIN}
+  depends_on:
+    - ms-queue
+    - ms-db
+
+# Service couchdb defaults
+x-service-couchdb:
+  &default-service-couchdb
+  << : *default-service-backend
+  image: klaemo/couchdb:2.0.0
+
+# Service swarmpitapp defaults
+x-service-swarmpitapp:
+  &default-service-swarmpitapp
+  << : *default-service-frontend
+  image: swarmpit/swarmpit:latest
+
+# Service swarmpitagent defaults
+x-service-swarmpitagent:
+  &default-service-swarmpitagent
+  << : *default-service-backend
+  image: swarmpit/agent:latest
 
 ###########################################
 # Networks
@@ -72,24 +153,7 @@ services:
 # Common Services
   proxy:
     << : *default-service
-    << : *default-service-frontend
-    image: traefik
-    command: --api \
-             --docker \
-             --accesslog=true \
-             --logLevel=DEBUG \
-             --entryPoints="Name:http Address::80" \
-             --entryPoints="Name:https Address::443 TLS"  \
-             --acme=true \
-             --acme.entryPoint="https" \
-             --acme.acmelogging=true \
-             --acme.dnschallenge=true \
-             --acme.dnschallenge.provider=route53 \
-             --acme.dnschallenge.delaybeforecheck=10s \
-             --acme.domains='*.satishweb.com,satishweb.com' \
-             --acme.email=webmaster@satishweb.com \
-             --acme.storage=/certs/acme.json
-             #--acme.caserver="https://acme-staging-v02.api.letsencrypt.org/directory"
+    << : *default-service-proxy
     environment:
       - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
       - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
@@ -115,7 +179,6 @@ services:
   ms-db:
     << : *default-service
     << : *default-service-postgres
-    << : *default-service-backend
     ports:
       - 5432:5432
     volumes:
@@ -135,10 +198,7 @@ services:
 
   ms-queue:
     << : *default-service
-    << : *default-service-backend
-    image: rabbitmq:3.7.7-management
-    ports:
-      - 15672:15672
+    << : *default-service-queue
     deploy:
       replicas: 1
       # placement:
@@ -155,7 +215,49 @@ services:
       - "traefik.port=15672"
       - "traefik.backend=queue"
       - "traefik.frontend.entryPoints=http,https"
-      - "traefik.frontend.rule=Host:queue.satishweb.com"
+      - "traefik.frontend.rule=Host:queue.${DOMAIN}"
+      - "traefik.frontend.headers.SSLRedirect=true"
+      - "traefik.frontend.redirect.permanent=true"
+
+  ms-api:
+    << : *default-service
+    << : *default-service-node
+    volumes:
+      - ./node_modules:/src/node_modules
+      - ./services/api:/src/api
+      - ./index.js:/src/api/index.js
+      - ./package.json:/src/package.json
+      - ./sharedlib:/src/api/sharedlib
+      - ./sharedmodels:/src/api/sharedmodels
+      - ./translations.json:/src/api/translations.json
+      - ./services/bootstrap/api:/src/api/api/bootstrap
+      - ./services/email/api:/src/api/api/email
+      - ./services/auth/api:/src/api/api/auth
+      - ./services/ugrp/api:/src/api/api/ugrp
+      - ./services/invitations/api:/src/api/api/invitations
+      - ./services/teams/api:/src/api/api/teams
+    command: /bin/bash -c '[[ "$DEBUG" == "1" ]] && sleep 360000 || SRV_NAME=api node /src/api'
+    healthcheck:
+      test: [ "CMD-SHELL", "curl --silent localhost:3000/ || exit 1" ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    deploy:
+      # placement:
+      #   constraints:
+      #     - node.labels.type == api
+      restart_policy: *default-restart-policy
+      resources:
+        limits: *default-resources-limits
+        reservations: *default-resources-reservations
+    labels:
+      - "com.satishweb.description=API Gateway for Microservices"
+      - "traefik.tags=api"
+      - "traefik.protocol=http"
+      - "traefik.port=3000"
+      - "traefik.backend=api"
+      - "traefik.frontend.entryPoints=http,https"
+      - "traefik.frontend.rule=Host:api.${DOMAIN}"
       - "traefik.frontend.headers.SSLRedirect=true"
       - "traefik.frontend.redirect.permanent=true"
 
@@ -165,8 +267,7 @@ services:
 # Swarmpit Backend Services
   swarmpit-db:
     << : *default-service
-    << : *default-service-backend
-    image: klaemo/couchdb:2.0.0
+    << : *default-service-couchdb
     volumes:
       - ./data/swarmpit-db/opt-couchdb-data:/opt/couchdb/data
     deploy:
@@ -184,8 +285,7 @@ services:
 
   swarmpit-agent:
     << : *default-service
-    << : *default-service-backend
-    image: swarmpit/agent:latest
+    << : *default-service-swarmpitagent
     environment:
       - DOCKER_API_VERSION=1.35
     volumes:
@@ -207,8 +307,7 @@ services:
 # Swarmpit Frontend Services
   swarmpit-app:
     << : *default-service
-    << : *default-service-frontend
-    image: swarmpit/swarmpit:latest
+    << : *default-service-swarmpitapp
     environment:
       - SWARMPIT_DB=http://swarmpit-db:5984
     volumes:
@@ -233,6 +332,6 @@ services:
       - "traefik.port=8080"
       - "traefik.backend=swarmpit-app"
       - "traefik.frontend.entryPoints=http,https"
-      - "traefik.frontend.rule=Host:swarmpit.satishweb.com"
+      - "traefik.frontend.rule=Host:swarmpit.${DOMAIN}"
       - "traefik.frontend.headers.SSLRedirect=true"
       - "traefik.frontend.redirect.permanent=true"

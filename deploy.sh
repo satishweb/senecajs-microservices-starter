@@ -1,15 +1,20 @@
 #!/bin/bash
 # Author: Satish Gaikwad
 
+srcFolder=$(dirname "${BASH_SOURCE[0]}")
+cd $srcFolder
+srcFolder=`pwd`
+
 #
 # Variables
 #
 
-ENV=$1
+export ENV=$1
 ACTION=$2
 VALID_ENV_NAMES="dev|qa|stg|uat|pp|prod"
 VALID_ACTIONS="deploy|rm"
-DOMAIN=satishweb.com
+export DOMAIN=satishweb.com
+
 # For letsencrypt auto route53 dns based challenge please export below vars before running this script
 # export AWS_ACCESS_KEY_ID=
 # export AWS_SECRET_ACCESS_KEY=
@@ -47,24 +52,29 @@ usage() {
 # Validations
 #
 
-if [[ ! "$ENV" =~ ^($VALID_ENV_NAMES)$ ]]; then
-	usage "Valid ENV name is required"
-fi
-if [[ ! "$ACTION" =~ ^($VALID_ACTIONS)$ ]]; then
-	usage "Valid ACTION is required"
-fi
-
+[[ ! "$ENV" =~ ^($VALID_ENV_NAMES)$ ]] && usage "Valid ENV name is required"
+[[ ! "$ACTION" =~ ^($VALID_ACTIONS)$ ]] && usage "Valid ACTION is required"
 [[ ! $AWS_ACCESS_KEY_ID ]] && echo "WARN: AWS_ACCESS_KEY_ID variable is not set"
 [[ ! $AWS_SECRET_ACCESS_KEY ]] && echo "WARN: AWS_SECRET_ACCESS_KEY variable is not set"
 [[ ! $AWS_REGION ]] && echo "WARN: AWS_REGION variable is not set"
 [[ ! $AWS_HOSTED_ZONE_ID ]] && echo "WARN: AWS_HOSTED_ZONE_ID variable is not set"
+
+if [[ ! -f $(which envsubst) ]]
+	then
+	echo "| ERR: On MacOSX, please install envsubst command using below commands (non root shell/terminal/iterm):"
+	echo "| 	wget http://ftp.gnu.org/gnu/gettext/gettext-0.18.2.tar.gz; tar -zxvf gettext-0.18.2.tar.gz; cd gettext-0.18.2; "
+	echo "| 	./configure; make -j8; sudo make install"
+	exit 2
+fi
 
 #
 # Execution
 #
 
 if [[ "$ACTION" == "rm" ]]; then
-        docker stack rm $ENV
+    docker stack rm $ENV
 elif [[ "$ACTION" == "deploy" ]]; then
-        docker stack deploy -c docker-*.yml $ENV
+	docker run -v "$srcFolder:/src" -w "/src" --rm -it node:8 bash -c "npm install --production --no-optional 2>&1" 2>&1|sed 's/^/| NPM: /'
+	envsubst < docker-*.yml > ".local-docker-stack.yml"
+    docker stack deploy -c .local-docker-stack.yml $ENV
 fi
