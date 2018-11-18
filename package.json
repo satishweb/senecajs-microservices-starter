@@ -1,6 +1,6 @@
 {
     "name": "KEY",
-    "version": "1.0.0",
+    "version": "3.0.0 ",
     "description": "Project Packages List",
     "scripts": {
         "test": "node node_modules/jasmine-node/lib/jasmine-node/cli.js --verbose --captureExceptions microservices/",
@@ -21,16 +21,16 @@
         "jsonwebtoken": "^8.3.0",
         "localize": "^0.4.7",
         "lodash": "^4.17.4",
-        "microtime": "^2.1.8",
-        "moment": "^2.22.2",
-        "mmmagic": "^0.5.0",
         "mailgun.js": "^2.0.1",
-        "sequelize": "^4.38.0",
+        "microtime": "^2.1.8",
+        "mmmagic": "^0.5.0",
+        "moment": "^2.22.2",
+        "nodemailer": "^4.6.7",
         "pg": "^7.4.3",
         "pg-hstore": "^2.3.2",
-        "nodemailer": "^4.6.7",
         "seneca": "^3.7.0",
         "seneca-amqp-transport": "^2.2.0",
+        "sequelize": "^4.38.0",
         "swaggerize-hapi": "^4.2.1"
     },
     "devDependencies": {

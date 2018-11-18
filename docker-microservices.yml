@@ -1,0 +1,238 @@
+version: '3.7'
+
+###########################################
+# Templates
+###########################################
+
+# Network Defaults
+x-networks:
+  &default-network
+  driver: overlay
+  attachable: true
+
+# Restart Policy Defaults
+x-restart-policy:
+  &default-restart-policy
+  condition: on-failure
+  delay: 5s
+  max_attempts: 99
+  window: 120s
+
+# Resources Defaults
+x-resources-limits:
+  &default-resources-limits
+  cpus: '1.00'
+  memory: 1024M
+
+x-resources-reservations:
+  &default-resources-reservations
+  cpus: '0.25'
+  memory: 512M
+
+# Service Defaults
+x-service:
+  &default-service
+  dns_search: ${DOMAIN}
+
+# Service Backend Defaults
+x-service-backend:
+  &default-service-backend
+  networks:
+    - msnet
+
+# Service Frontend Defaults
+x-service-frontend:
+  &default-service-frontend
+  networks:
+    - msnet
+
+# Service Postgres defaults
+x-service-postgres:
+  &default-service-postgres
+  << : *default-service-backend
+  image: postgres:11-alpine
+  command: postgres -c 'shared_buffers=256MB' -c 'max_connections=200'
+  environment:
+    - POSTGRES_USER=postgres
+    - POSTGRES_PASSWORD=postgres
+
+###########################################
+# Networks
+###########################################
+
+networks:
+  msnet: *default-network
+
+###########################################
+# Services
+###########################################
+
+services:
+
+# Common Services
+  proxy:
+    << : *default-service
+    << : *default-service-frontend
+    image: traefik
+    command: --api \
+             --docker \
+             --accesslog=true \
+             --logLevel=DEBUG \
+             --entryPoints="Name:http Address::80" \
+             --entryPoints="Name:https Address::443 TLS"  \
+             --acme=true \
+             --acme.entryPoint="https" \
+             --acme.acmelogging=true \
+             --acme.dnschallenge=true \
+             --acme.dnschallenge.provider=route53 \
+             --acme.dnschallenge.delaybeforecheck=10s \
+             --acme.domains='*.satishweb.com,satishweb.com' \
+             --acme.email=webmaster@satishweb.com \
+             --acme.storage=/certs/acme.json
+             #--acme.caserver="https://acme-staging-v02.api.letsencrypt.org/directory"
+    environment:
+      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
+      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
+      - AWS_REGION=${AWS_REGION}
+      - AWS_HOSTED_ZONE_ID=${AWS_HOSTED_ZONE_ID}
+    ports:
+      - 80:80
+      - 443:443
+      - 8080:8080
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ./data/proxy/certs:/certs
+    deploy:
+      mode: global
+      restart_policy: *default-restart-policy
+      resources:
+        limits: *default-resources-limits
+        reservations: *default-resources-reservations
+    labels:
+      - "com.satishweb.description=Traefik Proxy Server"
+
+# Microservices Backend Services
+  ms-db:
+    << : *default-service
+    << : *default-service-postgres
+    << : *default-service-backend
+    ports:
+      - 5432:5432
+    volumes:
+      - ./data/ms-db/var-lib-postgresql-data:/var/lib/postgresql/data
+    deploy:
+      replicas: 1
+      # placement:
+      #   constraints:
+      #     - node.labels.type == db
+      restart_policy: *default-restart-policy
+      resources:
+        limits: *default-resources-limits
+        reservations: *default-resources-reservations
+    labels:
+      - "traefik.enable=false"
+      - "com.satishweb.description=Postgres DB Server for microservices"
+
+  ms-queue:
+    << : *default-service
+    << : *default-service-backend
+    image: rabbitmq:3.7.7-management
+    ports:
+      - 15672:15672
+    deploy:
+      replicas: 1
+      # placement:
+      #   constraints:
+      #     - node.labels.type == queue
+      restart_policy: *default-restart-policy
+      resources:
+        limits: *default-resources-limits
+        reservations: *default-resources-reservations
+    labels:
+      - "com.satishweb.description=Rabbitmq Queue Server for Microservices"
+      - "traefik.tags=queue"
+      - "traefik.protocol=http"
+      - "traefik.port=15672"
+      - "traefik.backend=queue"
+      - "traefik.frontend.entryPoints=http,https"
+      - "traefik.frontend.rule=Host:queue.satishweb.com"
+      - "traefik.frontend.headers.SSLRedirect=true"
+      - "traefik.frontend.redirect.permanent=true"
+
+# Microservices Frontend Services
+
+
+# Swarmpit Backend Services
+  swarmpit-db:
+    << : *default-service
+    << : *default-service-backend
+    image: klaemo/couchdb:2.0.0
+    volumes:
+      - ./data/swarmpit-db/opt-couchdb-data:/opt/couchdb/data
+    deploy:
+      replicas: 1
+      # placement:
+      #   constraints:
+      #     - node.labels.type == db
+      restart_policy: *default-restart-policy
+      resources:
+        limits: *default-resources-limits
+        reservations: *default-resources-reservations
+    labels:
+      - "com.satishweb.description=Swarmpit DB for Swarmpit App"
+      - "traefik.enable=false"
+
+  swarmpit-agent:
+    << : *default-service
+    << : *default-service-backend
+    image: swarmpit/agent:latest
+    environment:
+      - DOCKER_API_VERSION=1.35
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    deploy:
+      mode: global
+      restart_policy: *default-restart-policy
+      resources:
+        limits:
+          cpus: '0.10'
+          memory: 64M
+        reservations:
+          cpus: '0.05'
+          memory: 32M
+    labels:
+      - "com.satishweb.description=Swarmpit Agent for Swarmpit App"
+      - "traefik.enable=false"
+
+# Swarmpit Frontend Services
+  swarmpit-app:
+    << : *default-service
+    << : *default-service-frontend
+    image: swarmpit/swarmpit:latest
+    environment:
+      - SWARMPIT_DB=http://swarmpit-db:5984
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    ports:
+      - 888:8080
+    depends_on:
+      - swarmpit-db
+    deploy:
+      replicas: 1
+      placement:
+        constraints:
+          - node.role == manager
+      restart_policy: *default-restart-policy
+      resources:
+        limits: *default-resources-limits
+        reservations: *default-resources-reservations
+    labels:
+      - "com.satishweb.description=Swarmpit App for Docker Swarm Management"
+      - "traefik.tags=swarmpit"
+      - "traefik.protocol=http"
+      - "traefik.port=8080"
+      - "traefik.backend=swarmpit-app"
+      - "traefik.frontend.entryPoints=http,https"
+      - "traefik.frontend.rule=Host:swarmpit.satishweb.com"
+      - "traefik.frontend.headers.SSLRedirect=true"
+      - "traefik.frontend.redirect.permanent=true"
