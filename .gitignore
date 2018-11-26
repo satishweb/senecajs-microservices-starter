@@ -1,5 +1,4 @@
 data/*
-scripts/
 *.log
 containers/*
 .*docker*
