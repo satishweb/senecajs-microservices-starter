@@ -32,7 +32,7 @@ x-resources-reservations:
 # Service Defaults
 x-service:
   &default-service
-  dns_search: ${DOMAIN}
+  dns_search: ${SUBDOMAIN}.${DOMAIN}
 
 # Service Backend Defaults
 x-service-backend:
@@ -79,8 +79,8 @@ x-service-proxy:
           --acme.dnschallenge=true \
           --acme.dnschallenge.provider=route53 \
           --acme.dnschallenge.delaybeforecheck=10s \
-          --acme.domains='*.${DOMAIN},${DOMAIN}' \
-          --acme.email=webmaster@${DOMAIN} \
+          --acme.domains='*.${SUBDOMAIN}.${DOMAIN},${SUBDOMAIN}.${DOMAIN}' \
+          --acme.email=webmaster@${SUBDOMAIN}.${DOMAIN} \
           --acme.storage=/certs/acme.json
           #--acme.caserver="https://acme-staging-v02.api.letsencrypt.org/directory"
 
@@ -100,21 +100,21 @@ x-service-node:
     - JWT_EXPIRY_TIME=7d
     - JWT_REMEMBER_ME_EXPIRY_TIME=14d
     - MAIL_DEFAULT_SERVICE=SMTP
-    - MAIL_DEFAULT_TO=contact@${DOMAIN}
-    - SMTP_FROM_EMAIL=noreply@${DOMAIN}
+    - MAIL_DEFAULT_TO=contact@${SUBDOMAIN}.${DOMAIN}
+    - SMTP_FROM_EMAIL=noreply@${SUBDOMAIN}.${DOMAIN}
     - SMTP_HOST=email-smtp.us-east-1.amazonaws.com
     - SMTP_PORT=465
     - SMTP_SECURE=true
     - SMTP_USERNAME=12334242342343423524
     - SMTP_PASSWORD=123234234234234234234234234234
-    - MAILGUN_FROM_EMAIL=noreply@${DOMAIN}
+    - MAILGUN_FROM_EMAIL=noreply@${SUBDOMAIN}.${DOMAIN}
     - MAILGUN_APIKEY=key-XXXXXXXXXXXX
-    - MAILGUN_HOST=${DOMAIN}
+    - MAILGUN_HOST=${SUBDOMAIN}.${DOMAIN}
     - S3_ACCESS_ID=CHANGEME
     - S3_SECRET_KEY=CHANGEME
     - S3_REGION=us-east-1
-    - S3_DATA_BUCKET=data.${DOMAIN}
-    - S3_DATA_URL=https://data.${DOMAIN}
+    - S3_DATA_BUCKET=data.${SUBDOMAIN}.${DOMAIN}
+    - S3_DATA_URL=https://data.${SUBDOMAIN}.${DOMAIN}
   depends_on:
     - ms-queue
     - ms-db
@@ -215,9 +215,10 @@ services:
       - "traefik.port=15672"
       - "traefik.backend=queue"
       - "traefik.frontend.entryPoints=http,https"
-      - "traefik.frontend.rule=Host:queue.${DOMAIN}"
+      - "traefik.frontend.rule=Host:queue.${SUBDOMAIN}.${DOMAIN}"
       - "traefik.frontend.headers.SSLRedirect=true"
       - "traefik.frontend.redirect.permanent=true"
+      - "traefik.frontend.auth.basic=admin:admin"
 
   # ms-api:
   #   << : *default-service
@@ -257,7 +258,7 @@ services:
   #     - "traefik.port=3000"
   #     - "traefik.backend=api"
   #     - "traefik.frontend.entryPoints=http,https"
-  #     - "traefik.frontend.rule=Host:api.${DOMAIN}"
+  #     - "traefik.frontend.rule=Host:api.${SUBDOMAIN}.${DOMAIN}"
   #     - "traefik.frontend.headers.SSLRedirect=true"
   #     - "traefik.frontend.redirect.permanent=true"
 
@@ -288,7 +289,7 @@ services:
       - "traefik.port=80"
       - "traefik.backend=pubconfig"
       - "traefik.frontend.entryPoints=http,https"
-      - "traefik.frontend.rule=Host:pubconfig.${DOMAIN}"
+      - "traefik.frontend.rule=Host:pubconfig.${SUBDOMAIN}.${DOMAIN}"
       - "traefik.frontend.headers.SSLRedirect=true"
       - "traefik.frontend.redirect.permanent=true"
 
@@ -317,7 +318,7 @@ services:
       - "traefik.port=80"
       - "traefik.backend=docs"
       - "traefik.frontend.entryPoints=http,https"
-      - "traefik.frontend.rule=Host:docs.${DOMAIN}"
+      - "traefik.frontend.rule=Host:docs.${SUBDOMAIN}.${DOMAIN}"
       - "traefik.frontend.headers.SSLRedirect=true"
       - "traefik.frontend.redirect.permanent=true"
 
@@ -346,7 +347,7 @@ services:
       - "traefik.port=80"
       - "traefik.backend=apidocs"
       - "traefik.frontend.entryPoints=http,https"
-      - "traefik.frontend.rule=Host:apidocs.${DOMAIN}"
+      - "traefik.frontend.rule=Host:apidocs.${SUBDOMAIN}.${DOMAIN}"
       - "traefik.frontend.headers.SSLRedirect=true"
       - "traefik.frontend.redirect.permanent=true"
 
@@ -418,6 +419,6 @@ services:
       - "traefik.port=8080"
       - "traefik.backend=swarmpit-app"
       - "traefik.frontend.entryPoints=http,https"
-      - "traefik.frontend.rule=Host:swarmpit.${DOMAIN}"
+      - "traefik.frontend.rule=Host:swarmpit.${SUBDOMAIN}.${DOMAIN}"
       - "traefik.frontend.headers.SSLRedirect=true"
       - "traefik.frontend.redirect.permanent=true"

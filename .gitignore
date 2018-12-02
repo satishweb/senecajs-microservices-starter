@@ -10,3 +10,4 @@ services/*/translations.json
 services/*/package.json
 docs/mkdocs.yml
 docs/site
+logs
